@@ -52,33 +52,29 @@
   ([engine] (remove-arg! engine binding-argument-key))
   ([engine kw] (.remove (engine-bindings engine) kw)))
 
-(def saymyname "on sayname(names)
-  say names
+(def t1 (new-engine))
+
+(def saystrings "on saystrings(names)
+  repeat with name in names
+  say name
+  end repeat
   return names
-  end sayname")
+  end saystrings")
+
+(bind-function! t1 "saystrings")
+(bind-arg! t1 "Casew" "is" "way cool")
+(p (.eval t1 saystrings))
 
 (def evalarg "on evalarg(x)
   return class of x
   end evalarg")
-
-(def returnarg "on returnarg(x)
-  return x
-  end returnarg")
-
-(def t1 (new-engine))
-
-;(bind-function! t1 "sayname")
-
-(bind-function! t1 "evalarg")
-(bind-arg! t1 {"name:" "Frank"})
+;
+;(bind-function! t1 "evalarg")
+;(bind-arg! t1 {"name:" "Frank"})
+;(p (.eval t1 evalarg))
 
 (p (engine-bindings t1))
 
-(let [t (.eval t1 evalarg)]
-  (println (class t))
-  (type t))
-
-(p (.eval t1 returnarg))
 
 
 
