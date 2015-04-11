@@ -4,7 +4,7 @@ A Clojure AppleScriptEngine Wrapper
 
 ## Usage
 
-Somewhat of a novelty at the moment.
+See sandbox.clj in dev/src/clasew
 
 ## License
 
