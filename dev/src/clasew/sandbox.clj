@@ -10,7 +10,7 @@
 
 (def local-eng as/new-eng)
 
-(p (as/eng-bnd local-eng))
+;(p (as/eng-bnd local-eng))
 
 (def saystrings "on saystrings(names)
   repeat with name in names
@@ -20,7 +20,7 @@
   end saystrings")
 
 (as/bind-eng-function-name! local-eng "saystrings")
-(as/bind-eng-args! local-eng "Casew" "is" "way cool")
+(as/bind-eng-args! local-eng "Clasew" "is" "way cool")
 
 (p (as/run-ascript local-eng saystrings))
 
