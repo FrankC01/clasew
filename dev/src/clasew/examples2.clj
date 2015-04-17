@@ -76,7 +76,7 @@
       :arguments {"project" "clasew", "way" [6], 7 9}
       ))
 
-;; Demonstrate record coercion
+;; Demonstrate record coercion roundtrip
 
 (def getback
   "on getback(arg)
@@ -89,3 +89,10 @@
       :arguments {"project" "clasew", "way" [6], 7 9}
       ))
 
+;; Demonstrate lists of lists roundtrip
+
+(p (as/run-ascript local-eng getback
+      :reset-binding true
+      :bind-function "getback"
+      :arguments (list [[1 2] [3 4] [5 6]])
+      ))
