@@ -7,7 +7,7 @@ clasew: A Clojure AppleScriptEngine Wrapper
 ### Enhancements
 
 #### clasew-excel DSL
-This snapshot introduces a clasew DSL for Excel. More information can be found "HERE!!!"
+This snapshot introduces a clasew DSL for Excel. More information can be found [here](doc/casew-excel.md)
 
 #### Examples
 

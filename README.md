@@ -16,7 +16,7 @@ As per the Intent, the clasew architecture is very straight forward.
 Consists of the clasew.core namespace. Contains the raw functions for interacting with AppleScript. See the examples code and scripts for more detail.
 
 ### DSLs
-Consists of clasew.*appname* namespaces where ***appname*** is colleciton of idiomatic functions specific to a scriptable application.
+Consists of clasew.*appname* namespaces where ***appname*** is collection of idiomatic functions specific to a scriptable application.
 
 ## Examples
 
