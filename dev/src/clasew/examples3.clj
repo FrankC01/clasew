@@ -34,7 +34,7 @@
     return names
   end saylist")
 
-(p (as/run-ascript local-eng saylist
+(p (as/run-ascript! local-eng saylist
                    :reset-binding true
                    :bind-function "saylist"
                    :use-binding (:saylist mybindings)
@@ -42,11 +42,11 @@
 
 ;; With our bindings set (and stored), we can call it anytime as is
 
-(p (as/run-ascript local-eng saylist
+(p (as/run-ascript! local-eng saylist
                    :use-binding (:saylist mybindings)))
 
 ;; Or change the arguments in it and call again
-(p (as/run-ascript local-eng saylist
+(p (as/run-ascript! local-eng saylist
                    :use-binding (:saylist mybindings)
                    :arguments (list ["First arg" "Second arg" "Third arg"])))
 
@@ -63,7 +63,7 @@
     return {arg1: name1, arg2: name2, arg3: name3} -- record/map
   end sayargs")
 
-(p (as/run-ascript local-eng sayargs
+(p (as/run-ascript! local-eng sayargs
       :reset-binding true
       :bind-function "sayargs"
       :arguments ["Clasew" "is" "cool"]

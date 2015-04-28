@@ -10,4 +10,4 @@
 ;; Demonstrate record coercion
 (def p pprint)
 
-(defonce ^:private local-eng as/new-eng)   ; Use engine for this namespace
+

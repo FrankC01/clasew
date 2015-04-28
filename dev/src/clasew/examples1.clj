@@ -27,13 +27,12 @@
     end try
   end tell")
 
-;; Call the script using most basic form
+;; Call the script using most basic form of clasew script execution.
 ;; run-ascript always returns a map containing, at least, :result of the call
 ;; Assumes:
 ;;   1. Use of the engine's default binding
-;;   2. Engine's bindings are ok: arguments or function names, if set, apply
 
-(p (as/run-ascript local-eng hello-world))
+(p (as/run-ascript! local-eng hello-world))
 
 ;; returns {:result {1651009908 "OK"}} or {:result {"not_ok" "Cancel"}}
 

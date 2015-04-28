@@ -67,10 +67,10 @@
 
 ;;; Invoke AppleScript
 
-(defn run-ascript
+(defn run-ascript!
   "Runs the AppleScript
   engine - instance of AppleScriptEngine
-  script - the script (string) to run. Mind your escapes and new lines
+  script - the script run. Either a string or io/reader
   parms - optional parameters:
   :reset-binding [(default) false | true] - Ask to clear binding
   :bind-function string - Binds the function name string to the binding

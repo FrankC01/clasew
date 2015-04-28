@@ -2,7 +2,7 @@
   ^{:author "Frank V. Castellucci"
       :doc "clasew example 4 - An Excel Example"}
   clasew.examples4
-  (:require [clasew.core :as as]
+  (:require [clasew.excel :as es]
             [clojure.pprint :refer :all])
   )
 
@@ -10,9 +10,12 @@
 
 (def p pprint)
 
-(defonce ^:private local-eng as/new-eng)   ; Use engine for this namespace
+(def wrkbk-name "clasew-ex4.xlsx")
+(def wrkbk-path "path to desktop")
 
-;; Demonstrate using Excel as a data store
+;;; Demonstrate using Excel as a data store
+
+;; ----------------- CREATE - POPULATE - SAVE - CLOSE -------------------------
 
 ;; create-wkbk - demonstrates creating new workbook
 ;; Note 0: Used on Yosemite with Excel 2011 for Mac
@@ -20,68 +23,22 @@
 ;; Note 2: Will overwite existing with new workbook
 ;; Note 3: Excel and workbook are still active after call
 
-(def create-wkbk
-  "set theOutputPath to (path to desktop folder as text) & \"clasew-ex4.xlsx\"
-  tell application \"Microsoft Excel\"
-    launch
-    make new workbook
-    tell active workbook
-      save workbook as filename theOutputPath overwrite yes
-    end tell
-  end tell")
-
-;; Step 1
-
-(p (as/run-ascript local-eng create-wkbk
-                   :reset-binding true))
-
-;; put_values - demonstrates populating the current sheet of workbook with data
-;; Note 1: Assumes that our example workbook is the active one
-;; Note 2: A 'list of lists' is expected as argument (square matrix)
-;; Note 3: Each list reflect a row
-;; Note 4: Starting row, in Excel, is 1
-
-(def put_values
-  "on put_values(arg)
-    tell application \"Microsoft Excel\"
-      tell worksheet \"Sheet1\" of active workbook
-        repeat with i from 1 to count of arg
-          set aRow to item i of arg
-          set lastCol to count of items of aRow
-          set firstCell to get address of cell 1 of row i
-          set lastCell to get address of cell lastCol of row i
-          set myrange to range (firstCell & \":\" & lastCell)
-          set value of myrange to aRow
-        end repeat
-      end tell
-    end tell
-  end put_values")
-
 ;; Contrived data blob
 
-(def datum (list (into []
+(def datum (into []
       (map vec
            (for [i (range 10)]
-             (repeatedly 10 #(rand-int 100)))))))
+             (repeatedly 10 #(rand-int 100))))))
 
-;; Step 2
+(def t0 (es/create-wkbk wrkbk-name wrkbk-path
+                     (es/chain-put-range-data "Sheet1" datum)
+                     [:save-quit]))
 
-(p (as/run-ascript local-eng put_values
-      :reset-binding true
-      :bind-function "put_values"
-      :arguments datum
-      ))
+(p t0)
+(def t0r (es/clean-excel-result (es/casew-excel-call! t0)))
+(p t0r)
 
-;; put_values - demonstrates saving the workbook changes and quit Excel
-;; Note 1: Assumes that our example workbook is the active one
+;; ----------------- OPEN - READ - WRITE - SAVE - CLOSE -----------------------
 
-(def close-wrkbk
-  "tell application \"Microsoft Excel\"
-    save active workbook
-    quit
-  end tell")
 
-;; Step 3
 
-(p (as/run-ascript local-eng close-wrkbk
-                   :reset-binding true))

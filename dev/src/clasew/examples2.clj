@@ -3,7 +3,8 @@
       :doc "clasew example 2 - handlers and arguments"}
   clasew.examples2
   (:require [clasew.core :as as]
-            [clojure.pprint :refer :all])
+            [clojure.pprint :refer :all]
+            [clojure.java.io :as io])
   )
 
 ;;; Setup for the example
@@ -48,7 +49,7 @@
 ;; Note 2: Identify the handler inside the script being called (:bind-function)
 ;; Note 3: Pass arguments (:arguments) - in this case just a number
 
-(p (as/run-ascript local-eng argclass
+(p (as/run-ascript! local-eng argclass
       :reset-binding true
       :bind-function "argclass"
       :arguments 5
@@ -59,20 +60,20 @@
 ;; Note 2: Vectors are useful for handler  arguments (see examples3/sayargs)
 ;; Note 3: Only takes the first (a string) as the script only has one arg
 
-(p (as/run-ascript local-eng argclass
+(p (as/run-ascript! local-eng argclass
       :arguments ["clasew is" "very way" "cool"]
       ))
 
 ;; Coerce with AppleScript list
 ;; This is useful if the handler manages lists (see examples3/saylist)
 
-(p (as/run-ascript local-eng argclass
+(p (as/run-ascript! local-eng argclass
       :arguments (list ["clasew" "is" "way" "cool"])
       ))
 
 ;; maps get coerced to AppleScript record
 
-(p (as/run-ascript local-eng argclass
+(p (as/run-ascript! local-eng argclass
       :arguments {"project" "clasew", "way" [6], 7 9}
       ))
 
@@ -83,16 +84,57 @@
     return arg
   end getback")
 
-(p (as/run-ascript local-eng getback
+(p (as/run-ascript! local-eng getback
       :reset-binding true
       :bind-function "getback"
-      :arguments {"project" "clasew", "way" [6], 7 9}
+      :arguments {"project" "clasew", "way" [6]}
       ))
 
 ;; Demonstrate lists of lists roundtrip
 
-(p (as/run-ascript local-eng getback
+(p (as/run-ascript! local-eng getback
       :reset-binding true
       :bind-function "getback"
       :arguments (list [[1 2] [3 4] [5 6]])
       ))
+
+;; Demonstrate record manipulation.
+;; Note 1: input maps require strings as keys but you can reference in script
+;; using standard Applescript name (without quotes)
+;; Note 2: keys can not be numbers! The script will error out.
+
+(def test_rec
+  "on test_rec(arg)
+    set res to {}
+    set end of res to project of arg
+    set end of res to way of arg
+    return res
+  end test_rec")
+
+(p (as/run-ascript! local-eng test_rec
+      :reset-binding true
+      :bind-function "test_rec"
+      :arguments {"project" "clasew", "way" [6]}
+      ))
+
+;; Demonstrates slurping into string to pass to eval
+;; Returns name of every item on desktop
+
+(p (as/run-ascript! local-eng (slurp (io/resource "samp.applescript"))
+                   :reset-binding true))
+
+;; Demonstrates passing a buffered reader to an uncompiled text script
+;; Also shows handlers and arguments being passed
+;; Returns name of every file in argument path.
+;; Note 1: Script assumes path from user home folder
+;; Example arguments: "Documents" or "Library/Application Support"
+
+(with-open [rdr (io/reader (io/resource "samp_listfile.applescript"))]
+  (p (as/run-ascript! local-eng rdr
+                   :reset-binding true
+                   :bind-function "filename_list"
+                   :arguments "Library/Application Support")))
+
+
+
+
