@@ -2,6 +2,16 @@
 
 clasew: A Clojure AppleScriptEngine Wrapper
 
+## 0.1.7-SNAPSHOT
+
+### Enhancements
++ Big updates clasew.excel [documentation](doc/clasew-excel.md)
++ example4.clj, found [here](dev/src/clasew/examples4.clj), aligned to documentation
+
+### Bug Fixes
++ Typos in user markdowns
++ Fixed inconsistent terms, keywords, etc.
+
 ## 0.1.6-SNAPSHOT
 
 ### Enhancements

@@ -29,8 +29,8 @@
 
    :get-range-formulas  "clasew_excel_get_range_formulas"
 
-   :get-range-data      "clasew_excel_get_range_values"
-   :put-range-data      "clasew_excel_put_range_values"
+   :get-range-values      "clasew_excel_get_range_values"
+   :put-range-values      "clasew_excel_put_range_values"
 
    :book-info           "clasew_excel_get_book_info"
    :all-book-info       "clasew_excel_get_all_book_info"
@@ -40,7 +40,7 @@
    :save-quit           "clasew_excel_save_and_quit"
    :quit                "clasew_excel_quit"
 
-   :run-script          "clasew-excel_run"
+   :run-script          "clasew_excel_run"
    })
 
 ;; Pure helpers
@@ -89,9 +89,10 @@
 
 (def ^:private scrptfile (io/resource "clasew-excel.applescript"))
 
-(defn casew-excel-call!
-  "Takes 1 or more results of casew_excel_script and invokes AppleScript
-  for execution"
+(defn clasew-excel-call!
+  "Takes 1 or more maps produced from clasew-excel-script and invokes AppleScript
+  for execution.
+  Return map is same as clasew.core/run-ascript!"
   [& scripts]
   {:pre [(> (count scripts) 0)]}
   (let [argv (list (into [] scripts))]
@@ -101,13 +102,13 @@
                       :bind-function "clasew_excel_eval"
                       :arguments argv))))
 
-(defn casew-excel-script
-  "produces a script object format ready to be used in casew-exec-call
+(defn clasew-excel-script
+  "Produces a script data structure (map) ready to be used by casew-exec-call
   wkbk     - String containing name of the workbook (with extension)
   crf      - create if workbook named is not opened
   opf      - open if workbook named is not already opened
   fqn      - Fully qualifed unix path or AppleScript 'path to xxx' command
-  handler  - result from casew_excel_handler call"
+  handler  - result from clasew-excel-handler call"
   [wkbk crf opf fqn handlers]
   (modify-keys #(str (name %))
                (merge {:work_book wkbk, :create_ifm crf
@@ -120,7 +121,7 @@
              [:arg_list] conj (if (nil? v2)
                                 []
                                 (if (vector? v2) v2 (into [] v2)))))
-(defn casew-excel-handler
+(defn clasew-excel-handler
   "Sets up the handler and argument lists
   chains - a collection of one or more chains"
   [chains]
@@ -136,8 +137,8 @@
          'path to ...' AppleScript command string
   chains - 0 or more vectors, each describing handler call and arguments"
   [bookname path & chains]
-  (casew-excel-script bookname create no-open path
-                      (casew-excel-handler chains)))
+  (clasew-excel-script bookname create no-open path
+                      (clasew-excel-handler chains)))
 
 (defn open-wkbk
   "Creates the script to open an existintg workbook in excel (if not open)
@@ -146,8 +147,8 @@
          'path to ...' AppleScript command string
   chains - 0 or more vectors, each describing handler call and arguments"
   [bookname path & chains]
-  (casew-excel-script bookname no-create open path
-                      (casew-excel-handler chains)))
+  (clasew-excel-script bookname no-create open path
+                      (clasew-excel-handler chains)))
 
 (defn- get-data-dimensions
   [data]
@@ -168,7 +169,7 @@
         [ec er] (get-data-dimensions data)
         srange (get-excel-a1 sc sr)
         erange (get-excel-a1 (+ sc ec) (+ sr er))]
-    [:put-range-data sheet-name (str srange ":" erange) data])
+    [:put-range-values sheet-name (str srange ":" erange) data])
   )
 
 (defn chain-get-range-data
@@ -181,7 +182,5 @@
   [sheet-name start-col start-row for-col for-row]
   (let [ec (+ start-col (dec for-col))
         er (+ start-row (dec for-row))]
-    [:get-range-data sheet-name (str (get-excel-a1 start-col start-row) ":"
+    [:get-range-values sheet-name (str (get-excel-a1 start-col start-row) ":"
                                    (get-excel-a1 ec er))]))
-
-

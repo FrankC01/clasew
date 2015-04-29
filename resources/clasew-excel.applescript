@@ -150,7 +150,7 @@ script safe_caller
 				else if open_if and wkbkPath is not null then
 					  set is_valid to open_wkbk()
 				else
-					log "No disposition for if workbook loaded fails"
+            error "Unresolvable path statement"
 				end if
 			end if
 		end if
@@ -328,7 +328,7 @@ script safe_caller
 		set str_range to item 2 of arguments
 		tell application "Microsoft Excel"
 			set myrange to range str_range of sheet work_sheet of wkbkObj
-			return value of myrange
+			return {clasew_excel_get_range_values: value of range str_range of sheet work_sheet of wkbkObj}
 		end tell
 	end clasew_excel_get_range_values
 
@@ -348,7 +348,7 @@ script safe_caller
 		tell application "Microsoft Excel"
 			set myrange to range str_range of sheet work_sheet of wkbkObj
 			set value of myrange to value_list
-			return value of myrange
+			return {clasew_excel_put_range_values: "success"}
 		end tell
 	end clasew_excel_put_range_values
 
