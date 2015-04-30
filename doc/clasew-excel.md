@@ -153,9 +153,18 @@ As oppresive as it sounds, chaining AppleScript handler (i.e. function) calls pr
   (...)
 ```
 
-where **_chains_** are a collection (vector, sequence, set) of items and each item (a chain) is a vector containing positional elements (required and optional) as exemplified in the following graphic:
+where **_chains_** are a collection (vector, sequence, set) of items and each item (a chain) is a vector containing a handler-identifier and optional arguments as exemplified in the following:
+```
+;;;
+;;;   chain structure: [ handler-identity & arg0 argN ]
+;;;
+;;;   example          [:get-range-values "Sheet1" "A1:A10"]
+;;;   example          ["clasew_excel_get_range_values" "Sheet1" "A1:A10"]
+;;;
+;;;   example          [:save-quit]
+;;;   example          ["clasew_excel_save_and_quit"]
+```
 
-<img style="float: " src="clasew-handler-chain.png" alt="clasew handler chain" title="clasew handler chain" height="200" width="600"/>
 
 ```clasew-excel-handler``` will convert the sequence to the form expected by ```clasew-excel-script```, as shown in the following example that builds upon the earlier demonstration:
 
@@ -251,7 +260,7 @@ where **_chains_** are a collection (vector, sequence, set) of items and each it
 
 As you can see, the input enables our main excel script to iterate through multiple handler calls while still in context of the AppleScriptEngine and eliminates the overhead of individual calls.
 
-The following table (volatile and subject to change) describes each handler currently available to call, it's keyword shorthand and required arguments:
+The following table (volatile and subject to change) describes each handler-identifier currently available to call, it's keyword shorthand and required arguments are shown as well:
 <table>
 <tr><th>handler (string)</th><th> _or_ handler (keyword)</th><th>description</th><th>argument position and sample</th></tr>
   <tr><td>clasew_excel_get_used_range_info</td><td>:get-used-range-info</td>
@@ -354,3 +363,103 @@ Here is an simple example:
 The previous has provided information on how to use the raw building block functions of the clasew-excel DSL. For the sample REPL code, feel free to tool around with them in [examples4.clj](../dev/src/clasew/examples4.clj), they have identifiers of sample1, sample2 and sample3 if you want to uncomment the associated ```(p (es/clasew-excel-call! ...))``` calls.
 
 ###Higher Order Functions
+As noted earlier, we wanted to provide what we expect satisfies the most basic operational paradigm:
+
++ Create a new workbook, perform a number of opertions, save and exit
++ Open an existing workbook, perform a number of operations, save and exit
+
+For that, the number of clasew-excel HOF (at the time of this writing) rings in at... not many.
+#####create-wkbk
+As the name implies, the primary purpose if to setup the script with pre-defined flag settings for creating a new workbook environment and executing as many handler chains as needed. This HOF, and ```open-wkbk``` also eliminate the need to call ```clasew-excel-script``` and ```clasew-excel-handler``` directly.
+
+Quick example showing a side by side of using the raw materials and HOF:
+````
+;;
+;;   Raw material setup call shown (tastes great)
+;;   Create a workbook, throw some data at it, save and quit
+;;
+
+(def sample2 (es/clasew-excel-script "clasew-sample.xlsx"
+      es/create es/no-open "path to desktop"
+      (es/clasew-excel-handler [[:put-range-values "Sheet1" "A1:J10" datum]
+                             [:get-range-values "Sheet1" "A1:A10"]
+                             [:save-quit]])))
+
+
+;;
+;;   HOF (less filling)
+;;
+
+(def sample5 (es/create-wkbk "clasew-sample.xlsx" "path to desktop"
+                     (es/chain-put-range-data "Sheet1" datum)
+                     [:save-quit]))
+
+
+
+````
+
+#####open-wkbk
+Like ```create-wkbk``` this HOF pre-defines a "opened workbook" environment.
+
+Side by side:
+````
+;;   Raw material setup call shown (tastes great)
+
+(def sample3 (es/clasew-excel-script "clasew-sample.xlsx"
+      es/no-create es/open "path to desktop"
+      (es/clasew-excel-handler [[:all-book-info]
+                             [:quit]])))
+
+;;   HOF (less filling)
+
+(def sample6 (es/open-wkbk "clasew-sample.xlsx" "path to desktop"
+                     [:all-book-info] [:quit]))
+
+````
+Looking back up the screen at the ```create-wkbk``` side by side, you may have noticed a function not discussed yet: ```chain-put-range-data```.
+
+#####chain-put-range-data
+This function will auto-caculate the Excel range signature (e.g. "A1:J10") from the dimensions of the data matrix passed in as an argument. Opetional column and row offsets can be supplied.
+````
+(defn chain-put-range-data
+  "Sets up a chain for putting a data range into workbook's sheet-name. Output
+  also includes the necessary Excel range signature.
+  sheet-name - the name of the sheet to put the data in
+  data - a vector of vectors with inner vectors containing the data
+  start-col offset column for data 0 = A
+  start-row offset row for data 0 = 1"
+
+  [sheet-name data & [start-col start-row]]
+  (...))
+
+;; Examples
+;;
+;; (es/chain-put-range-data "Sheet1" datum)
+;; (es/chain-put-range-data "Sheet1" datum 4 4)
+;; (es/chain-put-range-data "Jan2015" [[Week Sales Returns] [1 20 2] [2 18 4] [3 52 6]])
+
+
+````
+#####chain-get-range-data
+This function will supports specifying zero based range and offset coordinates.
+````
+(defn chain-get-range-data
+  "Sets up a chain for getting a data range from workbook's sheet-name
+  sheet-name - the name of the sheet to gett the data from
+  start-col offset column for data 0 = A
+  start-row offset row for data 0 = 1
+  for-col number of columns to retrieve
+  for-row number of rows to retrieve"
+
+  [sheet-name start-col start-row for-col for-row]
+  (...))
+
+;; Examples
+;;
+;; (es/chain-get-range-data "Sheet1" 0 0) => A1
+;; (es/chain-get-range-data "Sheet1" 0 0 1 1) => A1:B2
+;; (es/chain-get-range-data "Sheet1" 3 0 2 2) => C1:E3
+
+
+````
+
