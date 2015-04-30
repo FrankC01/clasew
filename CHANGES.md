@@ -2,6 +2,13 @@
 
 clasew: A Clojure AppleScriptEngine Wrapper
 
+## 0.1.8
+
+### Enhancements
++ Announced
+
+### Bug Fixes
+
 ## 0.1.8-SNAPSHOT
 
 ### Enhancements
