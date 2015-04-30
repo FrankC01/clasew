@@ -463,3 +463,119 @@ This function will supports specifying zero based range and offset coordinates.
 
 ````
 
+###Miscellaneous
+A number of functions are available in ```clasew.excel``` to simplify common needs:
+
+#####clean-excel-result
+Used to convert ```:result``` block containing return of calling AppleScript. As noted previously, AppleScript converts it's 'record' type to a map however; the keys are converted to string upon return. ```clean-excel-result``` changes map keys to keywords.
+
+```
+(defn clean-excel-result
+  "Iterates through the result vectors exchanging keywords for
+  strings in any maps"
+
+  [{:keys [result] :as return-map}]
+
+```
+
+Example:
+
+```
+(def wrkbk-name "clasew-ex4.xlsx")
+(def wrkbk-path "path to desktop")
+
+
+(def sample5 (es/create-wkbk wrkbk-name wrkbk-path
+                     (es/chain-put-range-data "Sheet1" datum)
+                     [:save-quit]))
+
+;; Call and save result to s5r
+
+(def s5r (es/clasew-excel-call! sample5))
+
+;; Display
+
+(p s5r)
+
+=> {:reset-binding true,
+ :arguments
+ ([{"fqn_path" "path to desktop",
+    "open_ifm" "false",
+    "create_ifm" "true",
+    "work_book" "clasew-ex4.xlsx",
+    "handler_list"
+    ["clasew_excel_put_range_values" "clasew_excel_save_and_quit"],
+    "arg_list"
+    [["Sheet1"
+      "A1:J10"
+      [[40 97 47 21 83 63 24 44 26 24]
+       [90 69 44 30 95 28 65 63 33 55]
+       [11 54 72 68 24 6 18 24 44 2]
+       [94 66 2 98 25 36 42 19 17 91]
+       [86 47 77 94 43 72 12 81 15 96]
+       [69 68 5 8 39 61 49 57 42 64]
+       [66 5 73 20 56 1 13 98 23 64]
+       [52 60 73 48 25 72 83 69 95 76]
+       [94 24 81 59 67 98 75 34 89 46]
+       [58 51 81 73 68 76 80 73 54 25]]]
+     []]}]),
+ :bind-function "clasew_excel_eval",
+ :result
+ [[{"create_wkbk" "clasew-ex4.xlsx success"}
+ {"clasew_excel_put_range_values" "success"} {
+ "clasew_excel_quit" "success"}]]}
+
+;; Clean and display
+
+(p (es/clean-excel-result s5r))
+
+= > {:reset-binding true,
+ :arguments
+ ([{"fqn_path" "path to desktop",
+    "open_ifm" "false",
+    "create_ifm" "true",
+    "work_book" "clasew-ex4.xlsx",
+    "handler_list"
+    ["clasew_excel_put_range_values" "clasew_excel_save_and_quit"],
+    "arg_list"
+    [["Sheet1"
+      "A1:J10"
+      [[40 97 47 21 83 63 24 44 26 24]
+       [90 69 44 30 95 28 65 63 33 55]
+       [11 54 72 68 24 6 18 24 44 2]
+       [94 66 2 98 25 36 42 19 17 91]
+       [86 47 77 94 43 72 12 81 15 96]
+       [69 68 5 8 39 61 49 57 42 64]
+       [66 5 73 20 56 1 13 98 23 64]
+       [52 60 73 48 25 72 83 69 95 76]
+       [94 24 81 59 67 98 75 34 89 46]
+       [58 51 81 73 68 76 80 73 54 25]]]
+     []]}]),
+ :bind-function "clasew_excel_eval",
+ :result
+ [[{:create_wkbk "clasew-ex4.xlsx success"}
+   {:clasew_excel_put_range_values "success"}
+   {:clasew_excel_quit "success"}]]}
+```
+
+#####get-excel-a1
+Used by previously discussed ```chain-put-range-data``` and ```chain-get-range-data``` to convert arguments to Excel "A1" format
+```
+(defn get-excel-a1
+  "Convert zero based column and row number to Excel 'A1' address form"
+
+  [col-num row-num]
+```
+Example:
+```
+(es/get-excel-a1 0 0)
+=> "A1"
+
+(es/get-excel-a1 7 14)
+=> "H15"
+
+(let [range_start (es/get-excel-a1 3 2)
+      range_end   (es/get-excel-a1 7 3)]
+  (str range_start ":" range_end))
+=>"D3:H4"
+```

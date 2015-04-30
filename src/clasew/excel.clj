@@ -4,7 +4,8 @@
   clasew.excel
   (:require [clasew.core :as as]
             [clojure.pprint :refer :all]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io]
+            [clojure.walk :as w]))
 
 ;; Ease of printing
 (def p pprint)
@@ -53,26 +54,27 @@
     (zipmap (map f (keys m)) (vals m))
     m))
 
+(defn- ocm
+  "prewalk function takes output from AppleScript
+  converts to clojure types and, if map, swizzle string to keyword keys"
+  [item]
+  (if (instance? java.util.ArrayList item)
+    (into [] item)
+    (if (instance? java.util.HashMap item)
+      (modify-keys keyword (into {} item))
+      item)))
+
+
 (defn clean-excel-result
   "Iterates through the result vectors exchanging keywords for
   strings in any maps"
   [{:keys [result] :as return-map}]
-  (loop [acc []
-         f (first result)
-         r (rest result)]
-    (if (nil? f)
-      (assoc return-map :result acc)
-      (recur
-       (conj acc (into [] (map #(if (instance? java.util.HashMap %)
-                                  (modify-keys keyword (into {} %))
-                                  %) f)))
-       (first r)
-       (rest r)))))
+  (assoc return-map :result (w/prewalk ocm result)))
 
 (def ^:const ^:private base-char 65)
 
 (defn get-excel-a1
-  "Convert zero based column and row number to Excel address"
+  "Convert zero based column and row number to Excel 'A1' address form"
   [col-num row-num]
   {:pre [(>= col-num 0) (< col-num 16384)
          (>= row-num 0) (< row-num 1048576)]}
@@ -158,7 +160,8 @@
 ;; Chain Sugar ----------------------------------------------------------------
 
 (defn chain-put-range-data
-  "Sets up a chain for putting a data range into workbook's sheet-name
+  "Sets up a chain for putting a data range into workbook's sheet-name. Output
+  also includes the necessary Excel range signature.
   sheet-name - the name of the sheet to put the data in
   data - a vector of vectors with inner vectors containing the data
   start-col offset column for data 0 = A
@@ -174,7 +177,7 @@
 
 (defn chain-get-range-data
   "Sets up a chain for getting a data range from workbook's sheet-name
-  sheet-name - the name of the sheet to put the data in
+  sheet-name - the name of the sheet to get the data from
   start-col offset column for data 0 = A
   start-row offset row for data 0 = 1
   for-col number of columns to retrieve

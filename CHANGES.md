@@ -2,6 +2,15 @@
 
 clasew: A Clojure AppleScriptEngine Wrapper
 
+## 0.1.8-SNAPSHOT
+
+### Enhancements
++ Additions made to example4.clj, found [here](dev/src/clasew/examples4.clj)
+
+### Bug Fixes
++ Typos in user markdowns
++ Fixed inconsistent terms, keywords, etc.
+
 ## 0.1.7-SNAPSHOT
 
 ### Enhancements

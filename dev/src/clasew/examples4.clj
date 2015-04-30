@@ -3,15 +3,13 @@
       :doc "clasew example 4 - An Excel Example"}
   clasew.examples4
   (:require [clasew.excel :as es]
-            [clojure.pprint :refer :all])
+            [clojure.pprint :refer :all]
+            [clojure.walk :as w])
   )
 
 ;;; Setup for the example
 
 (def p pprint)
-
-(def wrkbk-name "clasew-ex4.xlsx")
-(def wrkbk-path "path to desktop")
 
 ;;; Demonstrate using Excel as a data store
 
@@ -26,7 +24,7 @@
 (p sample1)
 ;(p (es/clasew-excel-call! sample1))
 
-;; Demo chaining handlers
+;; Demo Handler Chaining - Create, put values, get first row, save, quit
 
 (def datum (into []
       (map vec
@@ -44,6 +42,16 @@
 (p sample2)
 ; (p (es/clasew-excel-call! sample2))
 
+;; Demo - Open, Read, Quit
+
+(def sample3 (es/clasew-excel-script "clasew-sample.xlsx"
+      es/no-create es/open "path to desktop"
+      (es/clasew-excel-handler [[:all-book-info]
+                             [:quit]])))
+
+(p sample3)
+; (p (es/clasew-excel-call! sample3))
+
 ;; Demo pushing your own agenda
 
 (def my_script
@@ -52,31 +60,36 @@
     return {my_script: \"No you don't\"}
   end run")
 
-(def sample3 (es/clasew-excel-script "clasew-sample.xlsx"
+(def sample4 (es/clasew-excel-script "clasew-sample.xlsx"
       es/no-create es/open "path to desktop"
       (es/clasew-excel-handler [[:run-script my_script []]
                                 [:quit]])))
 
-; (p (es/clasew-excel-call! sample3))
+; (p (es/clasew-excel-call! sample4))
 
-;; ----------------- CREATE - POPULATE - SAVE - CLOSE -------------------------
+;; Demo HOF - Create, put values, get first row, save, quit
 
-;; create-wkbk - demonstrates creating new workbook
-;; Note 0: Used on Yosemite with Excel 2011 for Mac
-;; Note 1: Puts file on desktop
-;; Note 2: Will overwite existing with new workbook
-;; Note 3: Excel and workbook are still active after call
+(def wrkbk-name "clasew-ex4.xlsx")
+(def wrkbk-path "path to desktop")
 
-(def sampleX (es/create-wkbk wrkbk-name wrkbk-path
+(def sample5 (es/create-wkbk wrkbk-name wrkbk-path
                      (es/chain-put-range-data "Sheet1" datum)
                      [:save-quit]))
 
 
-;(p sampleX)
-;(def t0r (es/clean-excel-result (es/clasew-excel-call! sampleX)))
-;(p t0r)
+;(def s5r (es/clasew-excel-call! sample5))
 
-;; ----------------- OPEN - READ - WRITE - SAVE - CLOSE -----------------------
+;(p (es/clean-excel-result s5r))
 
+;; Demo - cleaning up results
 
+(p (es/clean-excel-result s6r))
 
+;; Demo HOF - Open, get info, quit
+
+(def sample6 (es/open-wkbk wrkbk-name wrkbk-path
+                     [:all-book-info] [:quit]))
+
+;(def s6r (es/clean-excel-result (es/clasew-excel-call! sample6)))
+
+;(p s6r)
