@@ -1,26 +1,31 @@
-# clasew
+#clasew
 
 A Clojure AppleScriptEngine Wrapper
 
-## Intent
+##Intent
 
 clasew provide an idiomatic clojure wrapper for Java ScriptManager, specifically AppleScriptManager,  and scriptable application DSLs for common usage.
 
 
-## Architecture
+##Architecture
 As per the Intent, the clasew architecture is very straight forward.
 
-<img style="float: " src="doc/clasew-arch.png" alt="clasew architecture" title="clasew architecture" height="300" width="600"/>
+<img style="float: " src="doc/clasew-arch.png" alt="clasew architecture" title="clasew architecture" height="400" width="600"/>
 
-### Foundation
-Consists of the clasew.core namespace. Contains the raw functions for interacting with AppleScript. See the examples code and scripts for more detail.
+###Foundation
+Consists of the clasew.core namespace. Contains the raw functions for interacting with AppleScript.
 
-### DSLs
+###DSLs
 Consists of clasew.*appname* namespaces where ***appname*** is collection of idiomatic functions specific to a scriptable application.
 
-## Examples
+###Documentation
++ [Change Log](CHANGES.md)
++ [Foundation Introduction](doc/intro.md) - Recommended first read
++ [Excel DSL](doc/clasew-excel.md)
 
-See examplesX.clj in [sandbox](dev/src/clasew)
+##Examples
+
+All files located [here](dev/src/clasew)
 
 1. [Example 1](dev/src/clasew/examples1.clj) - Demonstrates standard 'tell' calls
 2. [Example 2](dev/src/clasew/examples2.clj) - Demonstrates handlers and argument passing
@@ -33,7 +38,7 @@ My dev environment:
 * Oracle Java 1.8.0_31
 * Lighttable 0.72
 
-## License
+##License
 
 Copyright © Frank V. Castellucci. All rights reserved.
 
