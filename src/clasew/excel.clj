@@ -36,10 +36,13 @@
    :book-info           "clasew_excel_get_book_info"
    :all-book-info       "clasew_excel_get_all_book_info"
 
+   :add-sheet           "clasew_excel_add_sheet"
+
    :save                "clasew_excel_save"
    :save-as             "clasew_excel_save_as"
    :save-quit           "clasew_excel_save_and_quit"
    :quit                "clasew_excel_quit"
+   :quit-no-save        "clasew_excel_quit_no_save"
 
    :run-script          "clasew_excel_run"
    })
@@ -129,6 +132,23 @@
   [chains]
   (reduce handler-acc {:handler_list [] :arg_list []} chains))
 
+;; High level support
+
+(defonce ^:private sheet-coords
+  {
+     :before     -1
+     :after      1
+     :at         0
+     :beginning  0
+     :end        -1
+   })
+
+(defn- resolve-add-directives
+  "Fixup add sheet directives"
+  [[new_sheet target relative_to]]
+  {"new_sheet" new_sheet "target" (get sheet-coords target)
+   "relative_to" (get sheet-coords relative_to relative_to)})
+
 
 ;; High level DSL functions ---------------------------------------------------
 
@@ -187,3 +207,22 @@
         er (+ start-row (dec for-row))]
     [:get-range-values sheet-name (str (get-excel-a1 start-col start-row) ":"
                                    (get-excel-a1 ec er))]))
+
+(defn chain-add-sheet
+  "Adds new sheets to current workbook
+  directives - collection of expressions where each expression is in the form
+    new_sheet (string)
+    target    (keyword)
+    relative to (keyword | positive number)'
+  where target is one of:
+    :before - insert this new sheet before sheet-name
+    :after  - insert this new sheeet after sheet-name
+    :at     - insert this sheet at relative_to
+  where relative_to is one of:
+    :beginning
+    :end
+    positive number - if greater then worksheet count in book, put first"
+  [& directives]
+  {:pre [(and (not (empty? directives)) (>= (count directives) 3)
+              (= (rem (count directives) 3) 0))]}
+  (into [:add-sheet] (map resolve-add-directives (partition 3 directives))))

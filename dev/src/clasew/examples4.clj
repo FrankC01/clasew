@@ -21,8 +21,8 @@
       es/create es/no-open "path to desktop"
       {:handler_list [] :arg_list []}))
 
-(p sample1)
-;(p (es/clasew-excel-call! sample1))
+; (p sample1)
+; (p (es/clasew-excel-call! sample1))
 
 ;; Demo Handler Chaining - Create, put values, get first row, save, quit
 
@@ -39,7 +39,7 @@
                              [:get-range-values "Sheet1" "A1:A10"]
                              [:save-quit]])))
 
-(p sample2)
+; (p sample2)
 ; (p (es/clasew-excel-call! sample2))
 
 ;; Demo - Open, Read, Quit
@@ -49,7 +49,7 @@
       (es/clasew-excel-handler [[:all-book-info]
                              [:quit]])))
 
-(p sample3)
+; (p sample3)
 ; (p (es/clasew-excel-call! sample3))
 
 ;; Demo pushing your own agenda
@@ -83,7 +83,7 @@
 
 ;; Demo - cleaning up results
 
-(p (es/clean-excel-result s6r))
+;(p (es/clean-excel-result s6r))
 
 ;; Demo HOF - Open, get info, quit
 
@@ -93,3 +93,19 @@
 ;(def s6r (es/clean-excel-result (es/clasew-excel-call! sample6)))
 
 ;(p s6r)
+
+(def sample7 (es/create-wkbk wrkbk-name wrkbk-path
+                           (es/chain-add-sheet
+                            "Before Sheet1" :before "Sheet1"
+                            "After Before Sheet1" :after "Before Sheet1"
+                            "The End" :at :end
+                            "The Beginning" :at :beginning
+                            "Also Before Sheet1" :at 4)
+                             [:save-quit]))
+
+
+(p sample7)
+
+(p (es/clean-excel-result (es/clasew-excel-call! sample7)))
+
+

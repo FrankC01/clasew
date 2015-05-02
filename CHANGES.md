@@ -2,6 +2,19 @@
 
 clasew: A Clojure AppleScriptEngine Wrapper
 
+## 0.1.9
+
+### Enhancements
++ The following Excel handlers have been added. Refer to [clasew.excel DSL doc](doc/clasew-excel.md) for details
+
+<table>
+<tr><th>handler (keyword)</th><th>chain function</th><tr>
+<tr><td>:quit-no-save</td><td>n/a</td></tr>
+<tr><td>:add-sheet</td><td>chain-add-sheet</td></tr>
+<table>
+
+### Bug Fixes
+
 ## 0.1.8
 
 ### Enhancements

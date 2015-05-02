@@ -188,6 +188,13 @@ script safe_caller
 					set end of scpt_res to clasew_excel_put_range_values(a_arglist)
 
           -- ******************
+					-- Worksheet functions
+          -- ******************
+
+        else if a_handler = "clasew_excel_add_sheet" then
+          set end of scpt_res to clasew_excel_add_sheet(a_arglist)
+
+          -- ******************
 					-- Workbook functions
           -- ******************
 
@@ -208,6 +215,9 @@ script safe_caller
 
 				else if a_handler = "clasew_excel_quit" then
 					set end of scpt_res to clasew_excel_quit(a_arglist)
+
+				else if a_handler = "clasew_excel_quit_no_save" then
+					set end of scpt_res to clasew_excel_quit_no_save(a_arglist)
 
           -- ******************
 					-- Misc. functions
@@ -352,6 +362,44 @@ script safe_caller
 		end tell
 	end clasew_excel_put_range_values
 
+	on get_before_sheet(offset_value)
+		local my_sheets
+		tell application "Microsoft Excel"
+			set my_sheets to wkbkObj's worksheets
+			if (count of my_sheets) ≤ offset_value then
+				return name of last item of my_sheets
+			else
+				return name of item offset_value of my_sheets
+			end if
+		end tell
+	end get_before_sheet
+
+	on clasew_excel_add_sheet(arguments)
+		local my_name, my_position, my_relative
+		tell application "Microsoft Excel"
+			repeat with foo in arguments
+				set my_name to new_sheet of foo
+				set my_position to target of foo
+				set my_relative to relative_to of foo
+				if my_position is -1 then
+					make new worksheet with properties {name:my_name} at before worksheet my_relative of wkbkObj
+				else if my_position is 1 then
+					make new worksheet with properties {name:my_name} at after worksheet my_relative of wkbkObj
+				else if my_position is 0 then
+					if my_relative is 0 then
+						make new worksheet with properties {name:my_name} at beginning of wkbkObj
+					else if my_relative is -1 then
+						make new worksheet with properties {name:my_name} at end of wkbkObj
+					else
+						make new worksheet with properties {name:my_name} at before worksheet (my get_before_sheet(my_relative)) of wkbkObj
+					end if
+				end if
+			end repeat
+			return {clasew_excel_add_sheet:name of wkbkObj's worksheets}
+		end tell
+	end clasew_excel_add_sheet
+
+
 	on clasew_excel_save(arguments)
     try
 		tell application "Microsoft Excel" to save wkbkObj
@@ -380,6 +428,16 @@ script safe_caller
       return {clasew_excel_quit: "fail"}
     end try
   end clasew_excel_quit
+
+	on clasew_excel_quit_no_save(arguments)
+    try
+		  tell application "Microsoft Excel" to quit saving no
+		  return {clasew_excel_quit_no_save:"success"}
+    on error
+		  return {clasew_excel_quit_no_save:"failed"}
+    end try
+	end clasew_excel_quit_no_save
+
 
 	on clasew_excel_save_and_quit(arguments)
 		clasew_excel_save(arguments)
