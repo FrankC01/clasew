@@ -25,18 +25,18 @@
 
 (def handler-map
   {
-   :get-used-range-info "clasew_excel_get_used_range_info"
    :get-range-info      "clasew_excel_get_range_info"
 
    :get-range-formulas  "clasew_excel_get_range_formulas"
 
-   :get-range-values      "clasew_excel_get_range_values"
-   :put-range-values      "clasew_excel_put_range_values"
+   :get-range-data      "clasew_excel_get_range_data"
+   :put-range-data      "clasew_excel_put_range_data"
 
    :book-info           "clasew_excel_get_book_info"
    :all-book-info       "clasew_excel_get_all_book_info"
 
    :add-sheet           "clasew_excel_add_sheet"
+   :delete-sheet        "clasew_excel_delete_sheet"
 
    :save                "clasew_excel_save"
    :save-as             "clasew_excel_save_as"
@@ -192,7 +192,7 @@
         [ec er] (get-data-dimensions data)
         srange (get-excel-a1 sc sr)
         erange (get-excel-a1 (+ sc ec) (+ sr er))]
-    [:put-range-values sheet-name (str srange ":" erange) data])
+    [:put-range-data sheet-name (str srange ":" erange) data])
   )
 
 (defn chain-get-range-data
@@ -205,7 +205,7 @@
   [sheet-name start-col start-row for-col for-row]
   (let [ec (+ start-col (dec for-col))
         er (+ start-row (dec for-row))]
-    [:get-range-values sheet-name (str (get-excel-a1 start-col start-row) ":"
+    [:get-range-data sheet-name (str (get-excel-a1 start-col start-row) ":"
                                    (get-excel-a1 ec er))]))
 
 (defn chain-add-sheet
@@ -226,3 +226,12 @@
   {:pre [(and (not (empty? directives)) (>= (count directives) 3)
               (= (rem (count directives) 3) 0))]}
   (into [:add-sheet] (map resolve-add-directives (partition 3 directives))))
+
+(defn chain-delete-sheet
+  "Delete existing sheets from workbook
+  Supports specifying sheet name or ordinal position. Before delete occurs
+  each ordinal is resolved to a sheet name"
+  [& sheets]
+  {:pre [(and (not (empty? sheets)) (> (count sheets) 0))]}
+  (into [:delete-sheet] sheets))
+

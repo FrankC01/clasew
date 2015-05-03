@@ -5,13 +5,25 @@ clasew: A Clojure AppleScriptEngine Wrapper
 ## 0.1.9
 
 ### Enhancements
-+ The following Excel handlers have been added. Refer to [clasew.excel DSL doc](doc/clasew-excel.md) for details
++ all handler result maps are now in form ```{handler_name result}``` Refer to [clasew.excel DSL doc](doc/clasew-excel.md) for details
 
++ Additions
 <table>
 <tr><th>handler (keyword)</th><th>chain function</th><tr>
 <tr><td>:quit-no-save</td><td>n/a</td></tr>
 <tr><td>:add-sheet</td><td>chain-add-sheet</td></tr>
+<tr><td>:delete-sheet</td><td>chain-delete-sheet</td></tr>
 <table>
+
++ Modifications
+<table>
+<tr><th>handler (keyword)</th><th>modified/removed</th><th>changed to</th><tr>
+<tr><td>:get-used-range-info</td><td>removed</td><td>see :get-range-info</tr>
+<tr><td>:get-range-info</td><td>modified</td><td>second argument can specify range or "used"</td></tr>
+<tr><td>:get-range-vallues</td><td>modified</td><td>renamed to :get-range-data</td></tr>
+<tr><td>:put-range-vallues</td><td>modified</td><td>renamed to :put-range-data</td></tr>
+<table>
+
 
 ### Bug Fixes
 

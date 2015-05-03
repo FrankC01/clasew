@@ -172,20 +172,17 @@ script safe_caller
 					-- Range functions
           -- ***************
 
-				if a_handler = "clasew_excel_get_used_range_info" then
-					set end of scpt_res to clasew_excel_get_used_range_info(a_arglist)
-
-				else if a_handler = "clasew_excel_get_range_info" then
+				if a_handler = "clasew_excel_get_range_info" then
 					set end of scpt_res to clasew_excel_get_range_info(a_arglist)
 
-				else if a_handler = "clasew_excel_get_range_values" then
-					set end of scpt_res to clasew_excel_get_range_values(a_arglist)
+				else if a_handler = "clasew_excel_get_range_data" then
+					set end of scpt_res to clasew_excel_get_range_data(a_arglist)
 
 				else if a_handler = "clasew_excel_get_range_formulas" then
 					set end of scpt_res to clasew_excel_get_range_formulas(a_arglist)
 
-				else if a_handler = "clasew_excel_put_range_values" then
-					set end of scpt_res to clasew_excel_put_range_values(a_arglist)
+				else if a_handler = "clasew_excel_put_range_data" then
+					set end of scpt_res to clasew_excel_put_range_data(a_arglist)
 
           -- ******************
 					-- Worksheet functions
@@ -193,6 +190,9 @@ script safe_caller
 
         else if a_handler = "clasew_excel_add_sheet" then
           set end of scpt_res to clasew_excel_add_sheet(a_arglist)
+
+        else if a_handler = "clasew_excel_delete_sheet" then
+          set end of scpt_res to clasew_excel_delete_sheet(a_arglist)
 
           -- ******************
 					-- Workbook functions
@@ -241,8 +241,8 @@ script safe_caller
 		return run script scpt with parameters {me, scpt_args}
 	end clasew_excel_run
 
-	(* clasew_get_excel_info returns information about all the open workbooks at
-	the time it is called *)
+	(* clasew_excel_get_book_info returns information for single workbook.
+    if no argument, then assumes current workbook *)
 
 	on clasew_excel_get_book_info(arguments)
 		if (count of arguments) is 0 then
@@ -257,7 +257,10 @@ script safe_caller
 		end tell
 	end clasew_excel_get_book_info
 
-	on clasew_excel_get_all_book_info(arguments)
+	(* clasew_excel_get_all_book_info returns information about all the open workbooks at
+	the time it is called *)
+
+  on clasew_excel_get_all_book_info(arguments)
 		set myRes to {}
 		tell application "Microsoft Excel"
 			set thebooks to workbooks
@@ -268,17 +271,21 @@ script safe_caller
 		return myRes
 	end clasew_excel_get_all_book_info
 
-	(* clasew_get_excel_info returns information about all the open workbooks at
-	the time it is called *)
+	(* clasew_excel_get_range_info returns information about a range in curent
+  workbook specific sheet *)
 
 	on clasew_excel_get_range_info(arguments)
+    local sheetname, myRes, my_range
 		set sheetname to item 1 of arguments
-
 		set myRes to ¬
 			{range_start:0, range_end:0, first_row:0, first_col:0, count_rows:0, count_cols:0}
 		tell application "Microsoft Excel"
 			tell worksheet sheetname of wkbkObj
-				set my_range to range (item 2 of arguments)
+        if (item 2 of arguments) = "used" then
+  				set my_range to used range
+        else
+  				set my_range to range (item 2 of arguments)
+        end if
 				try
 					local start_row, start_col, row_count, col_count
 					-- get key values
@@ -300,69 +307,75 @@ script safe_caller
 				end try
 			end tell
 		end tell
-		return myRes
+		return {clasew_excel_get_range_info:myRes}
 	end clasew_excel_get_range_info
 
-	on clasew_excel_get_used_range_info(arguments)
-		set sheetname to item 1 of arguments
-		set myRes to ¬
-			{range_start:0, range_end:0, first_row:0, first_col:0, count_rows:0, count_cols:0}
-		tell application "Microsoft Excel"
-			tell worksheet sheetname of wkbkObj
-				try
-					local start_row, start_col, row_count, col_count
-					-- get key values
-					set start_row to first row index of used range
-					set start_col to first column index of used range
-					set row_count to count of rows of used range
-					set col_count to count of columns of used range
-					-- set results record
-					set first_row of myRes to start_row - 1
-					set first_col of myRes to start_col - 1
-					set count_rows of myRes to row_count
-					set count_cols of myRes to col_count
-					set range_start of myRes to ¬
-						(get address of cell start_row of column start_col ¬
-							without column absolute and row absolute)
-					set range_end of myRes to ¬
-						(get address of cell row_count of column col_count ¬
-							without column absolute and row absolute)
-				end try
-			end tell
-		end tell
-		return myRes
-	end clasew_excel_get_used_range_info
 
-	on clasew_excel_get_range_values(arguments)
+	on clasew_excel_get_range_data(arguments)
+    local work_sheet, str_range, my_range
 		set work_sheet to item 1 of arguments
 		set str_range to item 2 of arguments
 		tell application "Microsoft Excel"
-			set myrange to range str_range of sheet work_sheet of wkbkObj
-			return {clasew_excel_get_range_values: value of range str_range of sheet work_sheet of wkbkObj}
+      if str_range = "used" then
+        set my_range to used range of sheet work_sheet of wkbkObj
+      else
+        set my_range to range str_range of sheet work_sheet of wkbkObj
+      end if
+      return {clasew_excel_get_range_data: value of my_range}
 		end tell
-	end clasew_excel_get_range_values
+	end clasew_excel_get_range_data
 
 	on clasew_excel_get_range_formulas(arguments)
+    local work_sheet, str_range, my_range
 		set work_sheet to item 1 of arguments
 		set str_range to item 2 of arguments
 		tell application "Microsoft Excel"
-			set myrange to range str_range of sheet work_sheet of wkbkObj
-			return formula of myrange
+      if str_range = "used" then
+        set my_range to used range of sheet work_sheet of wkbkObj
+      else
+        set my_range to range str_range of sheet work_sheet of wkbkObj
+      end if
+			return {clasew_excel_get_range_formulas: formula of my_range}
 		end tell
 	end clasew_excel_get_range_formulas
 
-	on clasew_excel_put_range_values(arguments)
+	on clasew_excel_put_range_data(arguments)
 		set work_sheet to item 1 of arguments
 		set str_range to item 2 of arguments
 		set value_list to item 3 of arguments
 		tell application "Microsoft Excel"
 			set myrange to range str_range of sheet work_sheet of wkbkObj
 			set value of myrange to value_list
-			return {clasew_excel_put_range_values: "success"}
+			return {clasew_excel_put_range_data: "success"}
 		end tell
-	end clasew_excel_put_range_values
+	end clasew_excel_put_range_data
 
-	on get_before_sheet(offset_value)
+  (* SHEET OPERATIONS *)
+
+  on verify_sheet_references(arguments, map)
+    local s_names, del_list, i_val
+    set s_names to map's sheet_names
+    set del_list to {valid_sheets:{}, oor:{}, nnf:{}}
+    repeat with i from 1 to (count arguments)
+      set i_val to item i of arguments
+      if class of i_val is integer then
+        if i_val ≤ (count of s_names) then
+          set end of valid_sheets of del_list to item i_val of s_names
+        else
+          set end of oor of del_list to i_val
+        end if
+      else
+        if s_names contains i_val then
+          set end of valid_sheets of del_list to i_val
+        else
+          set end of nnf of del_list to i_val
+        end if
+      end if
+    end repeat
+    return del_list
+  end verify_sheet_references
+
+  on get_before_sheet(offset_value)
 		local my_sheets
 		tell application "Microsoft Excel"
 			set my_sheets to wkbkObj's worksheets
@@ -399,6 +412,21 @@ script safe_caller
 		end tell
 	end clasew_excel_add_sheet
 
+  on clasew_excel_delete_sheet(arguments)
+    local s_map, res
+    set s_map to my clasew_excel_get_book_info({})
+    set res to my verify_sheet_references(arguments, s_map)
+    tell application "Microsoft Excel"
+      set display alerts to false
+      repeat with del_sheet in valid_sheets of res
+        delete worksheet del_sheet of my wkbkObj
+      end repeat
+      set display alerts to true
+    end tell
+    return {clasew_excel_delete_sheet:res}
+  end clasew_excel_delete_sheet
+
+  (* WORKBOOK AND APPLICATION OPERATIONS *)
 
 	on clasew_excel_save(arguments)
     try
@@ -417,6 +445,7 @@ script safe_caller
 			tell wkbkObj
 				save workbook as filename fqn overwrite yes
 			end tell
+      return {clasew_excel_save_as: fqn}
 		end tell
 	end clasew_excel_save_as
 

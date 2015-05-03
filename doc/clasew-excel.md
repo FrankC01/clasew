@@ -156,8 +156,11 @@ where **_chains_** are a collection (vector, sequence, set) of items and each it
 ;;;
 ;;;   chain structure: [ handler-identity & arg0 argN ]
 ;;;
-;;;   example          [:get-range-values "Sheet1" "A1:A10"]
-;;;   example          ["clasew_excel_get_range_values" "Sheet1" "A1:A10"]
+;;;   example          [:get-range-data "Sheet1" "A1:A10"]
+;;;   example          ["clasew_excel_get_range_data" "Sheet1" "A1:A10"]
+;;;
+;;;   example          [:get-range-data "Sheet1" "used"]
+;;;   example          ["clasew_excel_get_range_data" "Sheet1" "used"]
 ;;;
 ;;;   example          [:save-quit]
 ;;;   example          ["clasew_excel_save_and_quit"]
@@ -181,10 +184,10 @@ where **_chains_** are a collection (vector, sequence, set) of items and each it
 (p datum)
 
 
-(def sample2 (es/clasew-excel-script "clasew-sample.xlsx"
+(def sample2 (es/clasew-excel-script "clasew-ex4-sample2.xlsx"
       es/create es/no-open "path to desktop"
-      (es/clasew-excel-handler [[:put-range-values "Sheet1" "A1:J10" datum]
-                             [:get-range-values "Sheet1" "A1:A10"]
+      (es/clasew-excel-handler [[:put-range-data "Sheet1" "A1:J10" datum]
+                             [:get-range-data "Sheet1" "A1:A10"]
                              [:save-quit]])))
 
 (p sample2)
@@ -196,10 +199,10 @@ where **_chains_** are a collection (vector, sequence, set) of items and each it
 => {"fqn_path" "path to desktop",
  "open_ifm" "false",
  "create_ifm" "true",
- "work_book" "clasew-sample.xlsx",
+ "work_book" "clasew-ex4-sample2.xlsx",
  "handler_list"
- ["clasew_excel_put_range_values"
-  "clasew_excel_get_range_values"
+ ["clasew_excel_put_range_data"
+  "clasew_excel_get_range_data"
   "clasew_excel_save_and_quit"],
  "arg_list"
  [["Sheet1"
@@ -226,32 +229,32 @@ where **_chains_** are a collection (vector, sequence, set) of items and each it
  ([{"fqn_path" "path to desktop",
     "open_ifm" "false",
     "create_ifm" "true",
-    "work_book" "clasew-sample.xlsx",
+    "work_book" "clasew-ex4-sample2.xlsx",
     "handler_list"
-    ["clasew_excel_put_range_values"
-     "clasew_excel_get_range_values"
+    ["clasew_excel_put_range_data"
+     "clasew_excel_get_range_data"
      "clasew_excel_save_and_quit"],
     "arg_list"
     [["Sheet1"
       "A1:J10"
-      [[79 64 50 96 1 38 50 77 68 17]
-       [92 90 97 27 86 52 25 40 51 52]
-       [21 88 96 5 79 87 17 81 9 90]
-       [4 44 6 75 93 17 62 80 73 89]
-       [65 63 38 79 7 9 92 56 5 43]
-       [91 50 38 2 35 46 88 7 4 33]
-       [60 44 49 88 80 86 77 44 29 18]
-       [48 5 16 16 65 33 82 19 17 6]
-       [27 51 90 26 88 26 69 24 95 29]
-       [0 39 60 4 98 42 74 79 42 15]]]
+      [[58 13 87 58 98 78 84 36 59 55]
+       [57 5 69 40 36 12 14 70 78 91]
+       [79 55 48 46 66 60 17 17 69 29]
+       [95 28 4 80 93 58 41 35 84 57]
+       [13 23 72 50 36 52 4 39 45 83]
+       [68 48 28 31 78 95 29 61 36 97]
+       [77 41 83 35 56 53 38 82 95 80]
+       [82 79 25 26 33 53 22 38 84 45]
+       [41 77 34 48 99 48 12 14 85 39]
+       [9 45 99 68 66 41 9 62 33 31]]]
      ["Sheet1" "A1:A10"]
      []]}]),
  :bind-function "clasew_excel_eval",
  :result
- [[{"create_wkbk" "clasew-sample.xlsx success"}
-   {"clasew_excel_put_range_values" "success"}
-   {"clasew_excel_get_range_values" [[79.0] [92.0] [21.0] [4.0] [65.0] [91.0] [60.0] [48.0] [27.0] [0.0]]}
-   {"clasew_excel_quit" "success"}]]}
+ [[{"create_wkbk" "clasew-ex4-sample2.xlsx success"}
+ {"clasew_excel_put_range_data" "success"}
+ {"clasew_excel_get_range_data" [[58.0] [57.0] [79.0] [95.0] [13.0] [68.0] [77.0] [82.0] [41.0] [9.0]]}
+ {"clasew_excel_quit" "success"}]]}
 
 
 ```
@@ -261,18 +264,18 @@ As you can see, the input enables our main excel script to iterate through multi
 The following table (volatile and subject to change) describes each handler-identifier currently available to call, it's keyword shorthand and required arguments are shown as well:
 <table>
 <tr><th>handler (string)</th><th> _or_ handler (keyword)</th><th>description</th><th>argument position and sample</th></tr>
-  <tr><td>clasew_excel_get_used_range_info</td><td>:get-used-range-info</td>
-  <td>retrieves general information about the "used" range in the workbook's worksheet argument</td><td><ol><li>"Sheet1"</ol></td></tr>
 <tr><td>clasew_excel_get_range_info</td><td>:get-range-info</td>
-  <td>retrieves general information about user defined range in the workbook's worksheet</td><td><ol><li>"Sheet1"<li>"A1:J2"</ol></td></tr>
+  <td>retrieves general information about user defined range in the workbook's worksheet</td><td><ol><li>"Sheet1"<li>"A1:J2" or "used"</ol></td></tr>
 <tr><td>clasew_excel_get_range_formulas</td><td>:get-range-formulas</td>
   <td>retrieves forumulas from user defined range in the workbook's worksheet</td><td><ol><li>"Sheet1"<li>"A1:J2"</ol></td></tr>
-<tr><td>clasew_excel_get_range_values</td><td>:get-range-values</td>
+<tr><td>clasew_excel_get_range_data</td><td>:get-range-data</td>
   <td>retrieves values from  user defined range in the workbook's worksheet</td><td>see chain-get-range-data topic below</td></tr>
-<tr><td>clasew_excel_put_range_values</td><td>:put-range-values</td>
+<tr><td>clasew_excel_put_range_data</td><td>:put-range-data</td>
   <td>sets values in user defined range in the workbook's worksheet</td><td>see chain-put-range-data topic below</td></tr>
 <tr><td>clasew_excel_add_sheet</td><td>:add-sheet</td>
   <td>adds worksheet(s) to workbook in positional order</td><td>see chain-add-sheet topic below </td></tr>
+<tr><td>clasew_excel_delete_sheet</td><td>:delete-sheet</td>
+  <td>deletes worksheet(s) from workbook by name or positional order</td><td>see chain-delete-sheet topic below </td></tr>
 <tr><td>clasew_excel_get_all_book_info</td><td>:all-book-info</td>
   <td>retrieves summary information about all open workbooks</td><td>n/a</td></tr>
 <tr><td>clasew_excel_get_book_info</td><td>:book-info</td>

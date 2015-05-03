@@ -17,7 +17,7 @@
 
 ;; Demo basic calling
 
-(def sample1 (es/clasew-excel-script "clasew-sample.xlsx"
+(def sample1 (es/clasew-excel-script "clasew-ex4-sample1.xlsx"
       es/create es/no-open "path to desktop"
       {:handler_list [] :arg_list []}))
 
@@ -33,18 +33,26 @@
 
 (p datum)
 
-(def sample2 (es/clasew-excel-script "clasew-sample.xlsx"
+(def sample2 (es/clasew-excel-script "clasew-ex4-sample2.xlsx"
       es/create es/no-open "path to desktop"
-      (es/clasew-excel-handler [[:put-range-values "Sheet1" "A1:J10" datum]
-                             [:get-range-values "Sheet1" "A1:A10"]
+      (es/clasew-excel-handler [[:put-range-data "Sheet1" "A1:J10" datum]
+                             [:get-range-data "Sheet1" "A1:A10"]
                              [:save-quit]])))
 
-; (p sample2)
-; (p (es/clasew-excel-call! sample2))
+(p sample2)
+(p (es/clasew-excel-call! sample2))
 
+(def sample2a (es/clasew-excel-script "clasew-ex4-sample2.xlsx"
+      es/no-create es/open "path to desktop"
+      (es/clasew-excel-handler [[:get-range-formulas "Sheet1" "used"]
+                                [:quit-no-save]])))
+
+
+(p sample2a)
+(p (es/clasew-excel-call! sample2a))
 ;; Demo - Open, Read, Quit
 
-(def sample3 (es/clasew-excel-script "clasew-sample.xlsx"
+(def sample3 (es/clasew-excel-script "clasew-ex4-sample2.xlsx"
       es/no-create es/open "path to desktop"
       (es/clasew-excel-handler [[:all-book-info]
                              [:quit]])))
@@ -60,7 +68,7 @@
     return {my_script: \"No you don't\"}
   end run")
 
-(def sample4 (es/clasew-excel-script "clasew-sample.xlsx"
+(def sample4 (es/clasew-excel-script "clasew-ex4-sample2.xlsx"
       es/no-create es/open "path to desktop"
       (es/clasew-excel-handler [[:run-script my_script []]
                                 [:quit]])))
@@ -69,7 +77,7 @@
 
 ;; Demo HOF - Create, put values, get first row, save, quit
 
-(def wrkbk-name "clasew-ex4.xlsx")
+(def wrkbk-name "clasew-ex4-sample5.xlsx")
 (def wrkbk-path "path to desktop")
 
 (def sample5 (es/create-wkbk wrkbk-name wrkbk-path
@@ -104,8 +112,13 @@
                              [:save-quit]))
 
 
-(p sample7)
+; (p sample7)
 
-(p (es/clean-excel-result (es/clasew-excel-call! sample7)))
+; (p (es/clean-excel-result (es/clasew-excel-call! sample7)))
 
+(def sample8 (es/open-wkbk wrkbk-name wrkbk-path
+                 (es/chain-delete-sheet "Sheet1")))
 
+; (p sample8)
+
+; (p (es/clean-excel-result (es/clasew-excel-call! sample8)))
