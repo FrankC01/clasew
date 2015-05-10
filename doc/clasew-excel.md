@@ -20,7 +20,7 @@ Unlike clasew.core, clasew.excel functions ***do not*** require providing an eng
 
 There are three (3) functions that simplify the preperation of calling AppleScript for Excel. Only one of these interact with clasew.core:
 ##### clasew-excel-call!
-```
+```clojure
 (defn clasew-excel-call!
   "Takes 1 or more maps produced from clasew-excel-script and invokes AppleScript
   for execution.
@@ -32,7 +32,7 @@ There are three (3) functions that simplify the preperation of calling AppleScri
 This function packages up the script input into the arguments accepted by ```run-ascript!```. Let's look at going about creating it's input.
 
 #####clasew-excel-script
-```
+```clojure
 (defn clasew-excel-script
   "Produces a script data structure (map) ready to be used by casew-exec-call
   wkbk     - String containing name of the workbook (with extension)
@@ -55,7 +55,7 @@ The output of calling this is a map that gets set to the ```:arguments ...``` op
 </table>
 
 Here is a REPL ready example and resulting output:
-```
+```clojure
 (ns clasew.sample
   (:require [clasew.excel :as es]
             [clojure.pprint :refer :all])
@@ -96,8 +96,6 @@ Here is a REPL ready example and resulting output:
     "arg_list" []}]),
  :bind-function "clasew_excel_eval",
  :result [[{"create_wkbk" "clasew-sample.xlsx success"}]]}
-
-
 ```
 
 A few comments before we move on:
@@ -131,7 +129,7 @@ We could boost the throughput if we could have the script support the ability to
 
 ####Chained Handlers
 As oppresive as it sounds, chaining AppleScript handler (i.e. function) calls provides the ability to do something roughly similar to:
-```
+```clojure
 (comp quit-excel
   save-workbook
   read-data-here
@@ -158,8 +156,11 @@ where **_chains_** are a collection (vector, sequence, set) of items and each it
 ;;;
 ;;;   chain structure: [ handler-identity & arg0 argN ]
 ;;;
-;;;   example          [:get-range-values "Sheet1" "A1:A10"]
-;;;   example          ["clasew_excel_get_range_values" "Sheet1" "A1:A10"]
+;;;   example          [:get-range-data "Sheet1" "A1:A10"]
+;;;   example          ["clasew_excel_get_range_data" "Sheet1" "A1:A10"]
+;;;
+;;;   example          [:get-range-data "Sheet1" "used"]
+;;;   example          ["clasew_excel_get_range_data" "Sheet1" "used"]
 ;;;
 ;;;   example          [:save-quit]
 ;;;   example          ["clasew_excel_save_and_quit"]
@@ -183,10 +184,10 @@ where **_chains_** are a collection (vector, sequence, set) of items and each it
 (p datum)
 
 
-(def sample2 (es/clasew-excel-script "clasew-sample.xlsx"
+(def sample2 (es/clasew-excel-script "clasew-ex4-sample2.xlsx"
       es/create es/no-open "path to desktop"
-      (es/clasew-excel-handler [[:put-range-values "Sheet1" "A1:J10" datum]
-                             [:get-range-values "Sheet1" "A1:A10"]
+      (es/clasew-excel-handler [[:put-range-data "Sheet1" "A1:J10" datum]
+                             [:get-range-data "Sheet1" "A1:A10"]
                              [:save-quit]])))
 
 (p sample2)
@@ -198,10 +199,10 @@ where **_chains_** are a collection (vector, sequence, set) of items and each it
 => {"fqn_path" "path to desktop",
  "open_ifm" "false",
  "create_ifm" "true",
- "work_book" "clasew-sample.xlsx",
+ "work_book" "clasew-ex4-sample2.xlsx",
  "handler_list"
- ["clasew_excel_put_range_values"
-  "clasew_excel_get_range_values"
+ ["clasew_excel_put_range_data"
+  "clasew_excel_get_range_data"
   "clasew_excel_save_and_quit"],
  "arg_list"
  [["Sheet1"
@@ -228,32 +229,32 @@ where **_chains_** are a collection (vector, sequence, set) of items and each it
  ([{"fqn_path" "path to desktop",
     "open_ifm" "false",
     "create_ifm" "true",
-    "work_book" "clasew-sample.xlsx",
+    "work_book" "clasew-ex4-sample2.xlsx",
     "handler_list"
-    ["clasew_excel_put_range_values"
-     "clasew_excel_get_range_values"
+    ["clasew_excel_put_range_data"
+     "clasew_excel_get_range_data"
      "clasew_excel_save_and_quit"],
     "arg_list"
     [["Sheet1"
       "A1:J10"
-      [[79 64 50 96 1 38 50 77 68 17]
-       [92 90 97 27 86 52 25 40 51 52]
-       [21 88 96 5 79 87 17 81 9 90]
-       [4 44 6 75 93 17 62 80 73 89]
-       [65 63 38 79 7 9 92 56 5 43]
-       [91 50 38 2 35 46 88 7 4 33]
-       [60 44 49 88 80 86 77 44 29 18]
-       [48 5 16 16 65 33 82 19 17 6]
-       [27 51 90 26 88 26 69 24 95 29]
-       [0 39 60 4 98 42 74 79 42 15]]]
+      [[58 13 87 58 98 78 84 36 59 55]
+       [57 5 69 40 36 12 14 70 78 91]
+       [79 55 48 46 66 60 17 17 69 29]
+       [95 28 4 80 93 58 41 35 84 57]
+       [13 23 72 50 36 52 4 39 45 83]
+       [68 48 28 31 78 95 29 61 36 97]
+       [77 41 83 35 56 53 38 82 95 80]
+       [82 79 25 26 33 53 22 38 84 45]
+       [41 77 34 48 99 48 12 14 85 39]
+       [9 45 99 68 66 41 9 62 33 31]]]
      ["Sheet1" "A1:A10"]
      []]}]),
  :bind-function "clasew_excel_eval",
  :result
- [[{"create_wkbk" "clasew-sample.xlsx success"}
-   {"clasew_excel_put_range_values" "success"}
-   {"clasew_excel_get_range_values" [[79.0] [92.0] [21.0] [4.0] [65.0] [91.0] [60.0] [48.0] [27.0] [0.0]]}
-   {"clasew_excel_quit" "success"}]]}
+ [[{"create_wkbk" "clasew-ex4-sample2.xlsx success"}
+ {"clasew_excel_put_range_data" "success"}
+ {"clasew_excel_get_range_data" [[58.0] [57.0] [79.0] [95.0] [13.0] [68.0] [77.0] [82.0] [41.0] [9.0]]}
+ {"clasew_excel_quit" "success"}]]}
 
 
 ```
@@ -263,16 +264,18 @@ As you can see, the input enables our main excel script to iterate through multi
 The following table (volatile and subject to change) describes each handler-identifier currently available to call, it's keyword shorthand and required arguments are shown as well:
 <table>
 <tr><th>handler (string)</th><th> _or_ handler (keyword)</th><th>description</th><th>argument position and sample</th></tr>
-  <tr><td>clasew_excel_get_used_range_info</td><td>:get-used-range-info</td>
-  <td>retrieves general information about the "used" range in the workbook's worksheet argument</td><td><ol><li>"Sheet1"</ol></td></tr>
 <tr><td>clasew_excel_get_range_info</td><td>:get-range-info</td>
-  <td>retrieves general information about user defined range in the workbook's worksheet</td><td><ol><li>"Sheet1"<li>"A1:J2"</ol></td></tr>
+  <td>retrieves general information about user defined range in the workbook's worksheet</td><td><ol><li>"Sheet1"<li>"A1:J2" or "used"</ol></td></tr>
 <tr><td>clasew_excel_get_range_formulas</td><td>:get-range-formulas</td>
   <td>retrieves forumulas from user defined range in the workbook's worksheet</td><td><ol><li>"Sheet1"<li>"A1:J2"</ol></td></tr>
-<tr><td>clasew_excel_get_range_values</td><td>:get-range-values</td>
-  <td>retrieves values from  user defined range in the workbook's worksheet</td><td><ol><li>"Sheet1"<li>"A1:J2"</ol></td></tr>
-<tr><td>clasew_excel_put_range_values</td><td>:put-range-values</td>
-  <td>sets values in user defined range in the workbook's worksheet</td><td><ol><li>"Sheet1"<li>"A1:B2"<li>[[1 2] [3 4]]</ol></td></tr>
+<tr><td>clasew_excel_get_range_data</td><td>:get-range-data</td>
+  <td>retrieves values from  user defined range in the workbook's worksheet</td><td>see chain-get-range-data topic below</td></tr>
+<tr><td>clasew_excel_put_range_data</td><td>:put-range-data</td>
+  <td>sets values in user defined range in the workbook's worksheet</td><td>see chain-put-range-data topic below</td></tr>
+<tr><td>clasew_excel_add_sheet</td><td>:add-sheet</td>
+  <td>adds worksheet(s) to workbook in positional order</td><td>see chain-add-sheet topic below </td></tr>
+<tr><td>clasew_excel_delete_sheet</td><td>:delete-sheet</td>
+  <td>deletes worksheet(s) from workbook by name or positional order</td><td>see chain-delete-sheet topic below </td></tr>
 <tr><td>clasew_excel_get_all_book_info</td><td>:all-book-info</td>
   <td>retrieves summary information about all open workbooks</td><td>n/a</td></tr>
 <tr><td>clasew_excel_get_book_info</td><td>:book-info</td>
@@ -283,10 +286,12 @@ The following table (volatile and subject to change) describes each handler-iden
   <td>saves the containing script's workbook and quits Excel</td><td>n/a</td></tr>
 <tr><td>clasew_excel_quit</td><td>:quit</td>
   <td>quits Excel however; if there are modified workbooks Excel will prompt to save</td><td>n/a</td></tr>
+<tr><td>clasew_excel_quit_no_save</td><td>:quit-no-save</td>
+  <td>quits Excel without saving any open and modified workbooks</td><td>n/a</td></tr>
 <tr><td>clasew_excel_save_as</td><td>:save-as</td>
   <td>saves the containing script's workbook to new name and path of choice</td><td><ol><li>"clasew-sample-copy.xlsx"<li>"path to desktop"</ol></td></tr>
 <tr><td>clasew_excel_run</td><td>:run-script</td>
-  <td>executes an arbitrary user provided script</td><td>see below for full description</td></tr>
+  <td>executes an arbitrary user provided script</td><td>see clasew_excel_run usage topic below</td></tr>
 </table>
 
 #####clasew clasew_excel_run usage
@@ -304,7 +309,7 @@ on run(caller, args)
 end run
 ```
 Here is the source for the ```clasew_excel_run``` handler:
-```
+```clojure
 
 on clasew_excel_run(arguments)
   -- get the user script text from item one in the argument list (scpt)
@@ -324,7 +329,7 @@ end clasew_excel_run
 ```
 
 Here is an simple example:
-```
+```clojure
 ;; Demo pushing your own agenda
 
 (def my_script
@@ -373,7 +378,7 @@ For that, the number of clasew-excel HOF (at the time of this writing) rings in 
 As the name implies, the primary purpose if to setup the script with pre-defined flag settings for creating a new workbook environment and executing as many handler chains as needed. This HOF, and ```open-wkbk``` also eliminate the need to call ```clasew-excel-script``` and ```clasew-excel-handler``` directly.
 
 Quick example showing a side by side of using the raw materials and HOF:
-````
+```clojure
 ;;
 ;;   Raw material setup call shown (tastes great)
 ;;   Create a workbook, throw some data at it, save and quit
@@ -394,15 +399,13 @@ Quick example showing a side by side of using the raw materials and HOF:
                      (es/chain-put-range-data "Sheet1" datum)
                      [:save-quit]))
 
-
-
-````
+```
 
 #####open-wkbk
 Like ```create-wkbk``` this HOF pre-defines a "opened workbook" environment.
 
 Side by side:
-````
+```clojure
 ;;   Raw material setup call shown (tastes great)
 
 (def sample3 (es/clasew-excel-script "clasew-sample.xlsx"
@@ -415,12 +418,14 @@ Side by side:
 (def sample6 (es/open-wkbk "clasew-sample.xlsx" "path to desktop"
                      [:all-book-info] [:quit]))
 
-````
-Looking back up the screen at the ```create-wkbk``` side by side, you may have noticed a function not discussed yet: ```chain-put-range-data```.
+```
+Looking back up the screen at the ```create-wkbk``` side by side, you may have noticed a function not discussed yet: ```chain-put-range-data```. This is one of a number of functions that further simplify the creation of handler chain.
+
+####Chain Functions
 
 #####chain-put-range-data
 This function will auto-caculate the Excel range signature (e.g. "A1:J10") from the dimensions of the data matrix passed in as an argument. Opetional column and row offsets can be supplied.
-````
+```clojure
 (defn chain-put-range-data
   "Sets up a chain for putting a data range into workbook's sheet-name. Output
   also includes the necessary Excel range signature.
@@ -438,11 +443,10 @@ This function will auto-caculate the Excel range signature (e.g. "A1:J10") from 
 ;; (es/chain-put-range-data "Sheet1" datum 4 4)
 ;; (es/chain-put-range-data "Jan2015" [[Week Sales Returns] [1 20 2] [2 18 4] [3 52 6]])
 
-
-````
+```
 #####chain-get-range-data
 This function will supports specifying zero based range and offset coordinates.
-````
+```clojure
 (defn chain-get-range-data
   "Sets up a chain for getting a data range from workbook's sheet-name
   sheet-name - the name of the sheet to gett the data from
@@ -460,8 +464,39 @@ This function will supports specifying zero based range and offset coordinates.
 ;; (es/chain-get-range-data "Sheet1" 0 0 1 1) => A1:B2
 ;; (es/chain-get-range-data "Sheet1" 3 0 2 2) => C1:E3
 
+```
+#####chain-add-sheet
+```clojure
+(defn chain-add-sheet
+  "Adds new sheets to current workbook
+  directives - collection of expressions where each expression is in the form
+    new_sheet (string)
+    target    (keyword)
+    relative_to (keyword | positive number)'
+  where target is one of:
+    :before - insert this new sheet before sheet-name
+    :after  - insert this new sheeet after sheet-name
+    :at     - insert this sheet at relative_to
+  where relative_to is one of:
+    :beginning
+    :end
+    positive number - if greater then worksheet count in book, put first"
 
-````
+  [& directives]
+  (...))
+
+; Example
+(def sample7 (es/create-wkbk wrkbk-name wrkbk-path
+              (es/chain-add-sheet
+              "Before Sheet1"       :before  "Sheet1"
+              "After Before Sheet1" :after   "Before Sheet1"
+              "The End"             :at      :end
+              "The Beginning"       :at      :beginning
+              "Also Before Sheet1"  :at      4)
+              [:save-quit]))
+
+
+```
 
 ###Miscellaneous
 A number of functions are available in ```clasew.excel``` to simplify common needs:
@@ -469,7 +504,7 @@ A number of functions are available in ```clasew.excel``` to simplify common nee
 #####clean-excel-result
 Used to convert ```:result``` block containing return of calling AppleScript. As noted previously, AppleScript converts it's 'record' type to a map however; the keys are converted to string upon return. ```clean-excel-result``` changes map keys to keywords.
 
-```
+```clojure
 (defn clean-excel-result
   "Iterates through the result vectors exchanging keywords for
   strings in any maps"
@@ -480,7 +515,7 @@ Used to convert ```:result``` block containing return of calling AppleScript. As
 
 Example:
 
-```
+```clojure
 (def wrkbk-name "clasew-ex4.xlsx")
 (def wrkbk-path "path to desktop")
 
@@ -557,25 +592,99 @@ Example:
    {:clasew_excel_put_range_values "success"}
    {:clasew_excel_quit "success"}]]}
 ```
+####Other useful forms
 
-#####get-excel-a1
-Used by previously discussed ```chain-put-range-data``` and ```chain-get-range-data``` to convert arguments to Excel "A1" format
-```
-(defn get-excel-a1
-  "Convert zero based column and row number to Excel 'A1' address form"
+```clojure
+(ns
+  ^{:author "Frank V. Castellucci"
+      :doc "clasew example 4 - An Excel Example"}
+  clasew.examples4
+  (:require [clasew.excel :as es]
+            [clojure.pprint :refer :all])
+  )
 
-  [col-num row-num]
-```
-Example:
-```
-(es/get-excel-a1 0 0)
-=> "A1"
+; Uniform collection
+(def uniform [[1 2 3] [4 5 6] [7 8 9]])
 
-(es/get-excel-a1 7 14)
-=> "H15"
+; Jagged collection
+(def jagged [[1] [2 2] [3 3 3]])
 
-(let [range_start (es/get-excel-a1 3 2)
-      range_end   (es/get-excel-a1 7 3)]
-  (str range_start ":" range_end))
-=>"D3:H4"
+;; get-excel-a1
+(es/get-excel-a1 0 0)  => "A1"
+(es/get-excel-a1 7 14) => "H15"
+
+;; get-excel-range-a1
+(es/get-excel-range-a1 [0 0 0 9]) => "A1:A10"
+(es/get-excel-range-a1 [0 1 1 9]) => "A2:B10"
+
+;; formula-wrap
+(es/formula-wrap "SUM" es/get-excel-range-a1 [0 0 0 9]) => "=SUM(A1:A10)"
+(es/formula-wrap "AVG" es/get-excel-range-a1 [0 0 0 9]) => "=AVERAGE("A1:A10")"
+
+;; row/column-ranges and cure for the jagged
+(es/row-ranges uniform)               => ((0 0 2 0) (0 1 2 1) (0 2 2 2))
+(es/row-ranges jagged)                => ((0 0 0 0) (0 1 1 1) (0 2 2 2)) ;INCORRECT
+(es/row-ranges (es/pad-rows jagged))  => ((0 0 2 0) (0 1 2 1) (0 2 2 2)) ;Better
+
+(es/column-ranges uniform)               => ((0 0 0 2) (1 0 1 2) (2 0 2 2))
+(es/column-ranges jagged)                => ((0 0 0 2)) ;INCORRECT
+(es/column-ranges (es/pad-rows jagged))  => ((0 0 0 2) (1 0 1 2) (2 0 2 2)) ;Better
+
+;; sum-by-row/col
+(es/sum-by-row uniform) => ["=SUM(A1:C1)" "=SUM(A2:C2)" "=SUM(A3:C3)"]
+(es/sum-by-col uniform) => ["=SUM(A1:A3)" "=SUM(B1:B3)" "=SUM(C1:C3)"]
+(es/avg-by-row uniform) => ["=AVERAGE(A1:C1)" "=AVERAGE(A2:C2)" "=AVERAGE(A3:C3)"]
+
+;; extend-rows/cols
+(es/extend-rows uniform 0 0 es/sum-by-row)
+=> [[1 2 3 "=SUM(A1:C1)"] [4 5 6 "=SUM(A2:C2)"] [7 8 9 "=SUM(A3:C3)"]]
+
+(es/extend-columns uniform 0 0 es/avg-by-col)
+=> [[1 2 3]
+ [4 5 6]
+ [7 8 9]
+ ["=AVERAGE(A1:A3)" "=AVERAGE(B1:B3)" "=AVERAGE(C1:C3)"]]
+
+;; The Curse of Lono
+(def sample5a (es/create-wkbk "clasew-ex4-sample5a.xlsx" wrkbk-path
+      (es/chain-put-range-data "Sheet1"
+                               (es/extend-columns
+                                (es/extend-rows
+                                 datum 0 0 es/sum-by-row es/avg-by-row)
+                                0 0 es/avg-by-col))
+                               [:save-quit]))
+
+=> {"fqn_path" "path to desktop",
+ "open_ifm" "false",
+ "create_ifm" "true",
+ "work_book" "clasew-ex4-sample5a.xlsx",
+ "handler_list"
+ ["clasew_excel_put_range_data" "clasew_excel_save_and_quit"],
+ "arg_list"
+ [["Sheet1"
+   "A1:L11"
+   [[74 78 81 47 61 6 0 57 63 29 "=SUM(A1:J1)" "=AVERAGE(A1:J1)"]
+    [4 39 10 99 97 97 6 59 98 83 "=SUM(A2:J2)" "=AVERAGE(A2:J2)"]
+    [75 39 45 2 80 90 20 95 17 50 "=SUM(A3:J3)" "=AVERAGE(A3:J3)"]
+    [56 62 53 39 5 64 67 61 40 70 "=SUM(A4:J4)" "=AVERAGE(A4:J4)"]
+    [2 84 12 99 81 35 29 83 24 7 "=SUM(A5:J5)" "=AVERAGE(A5:J5)"]
+    [83 38 58 35 34 26 49 52 53 89 "=SUM(A6:J6)" "=AVERAGE(A6:J6)"]
+    [71 31 44 40 73 7 73 68 32 22 "=SUM(A7:J7)" "=AVERAGE(A7:J7)"]
+    [0 98 92 3 42 10 84 30 87 53 "=SUM(A8:J8)" "=AVERAGE(A8:J8)"]
+    [8 77 56 92 90 67 23 87 6 56 "=SUM(A9:J9)" "=AVERAGE(A9:J9)"]
+    [15 96 69 14 54 80 56 52 58 85 "=SUM(A10:J10)" "=AVERAGE(A10:J10)"]
+    ["=AVERAGE(A1:A10)"
+     "=AVERAGE(B1:B10)"
+     "=AVERAGE(C1:C10)"
+     "=AVERAGE(D1:D10)"
+     "=AVERAGE(E1:E10)"
+     "=AVERAGE(F1:F10)"
+     "=AVERAGE(G1:G10)"
+     "=AVERAGE(H1:H10)"
+     "=AVERAGE(I1:I10)"
+     "=AVERAGE(J1:J10)"
+     "=AVERAGE(K1:K10)"
+     "=AVERAGE(L1:L10)"]]]
+  []]}
+
 ```
