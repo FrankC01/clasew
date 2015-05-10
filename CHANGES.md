@@ -7,12 +7,31 @@ clasew: A Clojure AppleScriptEngine Wrapper
 ### Enhancements
 + all handler result maps are now in form ```{handler_name result}``` Refer to [clasew.excel DSL doc](doc/clasew-excel.md) for details
 
-+ Additions
++ Additions - Handlers, Chain Functions
 <table>
 <tr><th>handler (keyword)</th><th>chain function</th><tr>
 <tr><td>:quit-no-save</td><td>n/a</td></tr>
 <tr><td>:add-sheet</td><td>chain-add-sheet</td></tr>
 <tr><td>:delete-sheet</td><td>chain-delete-sheet</td></tr>
+<table>
+
++ Additions - Miscellaneous forms
+<table>
+<tr><th>form</th><th>description</th><tr>
+<tr><td>get-excel-range-a1</td><td>create Excel "A1" type range</td></tr>
+<tr><td>get-data-dimensions</td><td>returns zero based column row dims</td></tr>
+<tr><td>pad-rows</td><td>pads uneven rows in data block</td></tr>
+<tr><td>formula-wrap</td><td>string wrapper for production of Excel formula</td></tr>
+<tr><td>fsum</td><td>thin wrapper for formula-wrap: produces "=SUM(xx)"</td></tr>
+<tr><td>favg</td><td>thin wrapper for formula-wrap: produces "=AVERAGE(xx)"</td></tr>
+<tr><td>row-ranges</td><td>Produces sequence of row ranges calculated from input data</td></tr>
+<tr><td>column-ranges</td><td>Produces sequence of row column calculated from input data</td></tr>
+<tr><td>sum-by-row</td><td>Produces sequence of row sum formulas from input data</td></tr>
+<tr><td>sum-by-col</td><td>Produces sequence of column sum formulas from input data</td></tr>
+<tr><td>avg-by-row</td><td>Produces sequence of row average formulas from input data</td></tr>
+<tr><td>avg-by-col</td><td>Produces sequence of column average formulas from input data</td></tr>
+<tr><td>extend-rows</td><td>Returns the collection with rows extended to include results of applying one or more functions to the input collection</td></tr>
+<tr><td>avg-by-col</td><td>Returns the collection with columns extended to include results of applying one or more functions to the input collection</td></tr>
 <table>
 
 + Modifications

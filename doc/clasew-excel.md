@@ -592,25 +592,99 @@ Example:
    {:clasew_excel_put_range_values "success"}
    {:clasew_excel_quit "success"}]]}
 ```
+####Other useful forms
 
-#####get-excel-a1
-Used by previously discussed ```chain-put-range-data``` and ```chain-get-range-data``` to convert arguments to Excel "A1" format
 ```clojure
-(defn get-excel-a1
-  "Convert zero based column and row number to Excel 'A1' address form"
+(ns
+  ^{:author "Frank V. Castellucci"
+      :doc "clasew example 4 - An Excel Example"}
+  clasew.examples4
+  (:require [clasew.excel :as es]
+            [clojure.pprint :refer :all])
+  )
 
-  [col-num row-num]
-```
-Example:
-```
-(es/get-excel-a1 0 0)
-=> "A1"
+; Uniform collection
+(def uniform [[1 2 3] [4 5 6] [7 8 9]])
 
-(es/get-excel-a1 7 14)
-=> "H15"
+; Jagged collection
+(def jagged [[1] [2 2] [3 3 3]])
 
-(let [range_start (es/get-excel-a1 3 2)
-      range_end   (es/get-excel-a1 7 3)]
-  (str range_start ":" range_end))
-=>"D3:H4"
+;; get-excel-a1
+(es/get-excel-a1 0 0)  => "A1"
+(es/get-excel-a1 7 14) => "H15"
+
+;; get-excel-range-a1
+(es/get-excel-range-a1 [0 0 0 9]) => "A1:A10"
+(es/get-excel-range-a1 [0 1 1 9]) => "A2:B10"
+
+;; formula-wrap
+(es/formula-wrap "SUM" es/get-excel-range-a1 [0 0 0 9]) => "=SUM(A1:A10)"
+(es/formula-wrap "AVG" es/get-excel-range-a1 [0 0 0 9]) => "=AVERAGE("A1:A10")"
+
+;; row/column-ranges and cure for the jagged
+(es/row-ranges uniform)               => ((0 0 2 0) (0 1 2 1) (0 2 2 2))
+(es/row-ranges jagged)                => ((0 0 0 0) (0 1 1 1) (0 2 2 2)) ;INCORRECT
+(es/row-ranges (es/pad-rows jagged))  => ((0 0 2 0) (0 1 2 1) (0 2 2 2)) ;Better
+
+(es/column-ranges uniform)               => ((0 0 0 2) (1 0 1 2) (2 0 2 2))
+(es/column-ranges jagged)                => ((0 0 0 2)) ;INCORRECT
+(es/column-ranges (es/pad-rows jagged))  => ((0 0 0 2) (1 0 1 2) (2 0 2 2)) ;Better
+
+;; sum-by-row/col
+(es/sum-by-row uniform) => ["=SUM(A1:C1)" "=SUM(A2:C2)" "=SUM(A3:C3)"]
+(es/sum-by-col uniform) => ["=SUM(A1:A3)" "=SUM(B1:B3)" "=SUM(C1:C3)"]
+(es/avg-by-row uniform) => ["=AVERAGE(A1:C1)" "=AVERAGE(A2:C2)" "=AVERAGE(A3:C3)"]
+
+;; extend-rows/cols
+(es/extend-rows uniform 0 0 es/sum-by-row)
+=> [[1 2 3 "=SUM(A1:C1)"] [4 5 6 "=SUM(A2:C2)"] [7 8 9 "=SUM(A3:C3)"]]
+
+(es/extend-columns uniform 0 0 es/avg-by-col)
+=> [[1 2 3]
+ [4 5 6]
+ [7 8 9]
+ ["=AVERAGE(A1:A3)" "=AVERAGE(B1:B3)" "=AVERAGE(C1:C3)"]]
+
+;; The Curse of Lono
+(def sample5a (es/create-wkbk "clasew-ex4-sample5a.xlsx" wrkbk-path
+      (es/chain-put-range-data "Sheet1"
+                               (es/extend-columns
+                                (es/extend-rows
+                                 datum 0 0 es/sum-by-row es/avg-by-row)
+                                0 0 es/avg-by-col))
+                               [:save-quit]))
+
+=> {"fqn_path" "path to desktop",
+ "open_ifm" "false",
+ "create_ifm" "true",
+ "work_book" "clasew-ex4-sample5a.xlsx",
+ "handler_list"
+ ["clasew_excel_put_range_data" "clasew_excel_save_and_quit"],
+ "arg_list"
+ [["Sheet1"
+   "A1:L11"
+   [[74 78 81 47 61 6 0 57 63 29 "=SUM(A1:J1)" "=AVERAGE(A1:J1)"]
+    [4 39 10 99 97 97 6 59 98 83 "=SUM(A2:J2)" "=AVERAGE(A2:J2)"]
+    [75 39 45 2 80 90 20 95 17 50 "=SUM(A3:J3)" "=AVERAGE(A3:J3)"]
+    [56 62 53 39 5 64 67 61 40 70 "=SUM(A4:J4)" "=AVERAGE(A4:J4)"]
+    [2 84 12 99 81 35 29 83 24 7 "=SUM(A5:J5)" "=AVERAGE(A5:J5)"]
+    [83 38 58 35 34 26 49 52 53 89 "=SUM(A6:J6)" "=AVERAGE(A6:J6)"]
+    [71 31 44 40 73 7 73 68 32 22 "=SUM(A7:J7)" "=AVERAGE(A7:J7)"]
+    [0 98 92 3 42 10 84 30 87 53 "=SUM(A8:J8)" "=AVERAGE(A8:J8)"]
+    [8 77 56 92 90 67 23 87 6 56 "=SUM(A9:J9)" "=AVERAGE(A9:J9)"]
+    [15 96 69 14 54 80 56 52 58 85 "=SUM(A10:J10)" "=AVERAGE(A10:J10)"]
+    ["=AVERAGE(A1:A10)"
+     "=AVERAGE(B1:B10)"
+     "=AVERAGE(C1:C10)"
+     "=AVERAGE(D1:D10)"
+     "=AVERAGE(E1:E10)"
+     "=AVERAGE(F1:F10)"
+     "=AVERAGE(G1:G10)"
+     "=AVERAGE(H1:H10)"
+     "=AVERAGE(I1:I10)"
+     "=AVERAGE(J1:J10)"
+     "=AVERAGE(K1:K10)"
+     "=AVERAGE(L1:L10)"]]]
+  []]}
+
 ```
