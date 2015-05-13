@@ -8,4 +8,3 @@
 
 ;; Demonstrate record coercion
 (def p pprint)
-
