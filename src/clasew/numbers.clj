@@ -1,10 +1,9 @@
 (ns
   ^{:author "Frank V. Castellucci"
-      :doc "Clojure AppleScriptEngine Wrapper - Excel DSL"}
-  clasew.excel
+      :doc "Clojure AppleScriptEngine Wrapper - Apple's Numbers DSL"}
+  clasew.numbers
   (:require [clasew.core :as as]
             [clojure.java.io :as io]))
-
 
 ;; Setup our own engine
 
@@ -14,17 +13,17 @@
 ;; Boundaries - unused
 ;;
 
-(def ^:const ^:private excel-max-cols 16384)     ; OS X MS 2011
-(def ^:const ^:private excel-max-rows 1048576)   ; OS X MS 2011
+(def ^:const ^:private numbers-max-cols 256)     ; OS X Numbers 3.5
+(def ^:const ^:private numbers-max-rows 65536)   ; OS X Numbers 3.5
 
 
 ;;
 ;; Low level DSL functions ----------------------------------------------------
 ;;
 
-(def ^:private scrptfile (io/resource "clasew-excel.applescript"))
+(def ^:private scrptfile (io/resource "clasew-numbers.applescript"))
 
-(defn clasew-excel-call!
+(defn clasew-numbers-call!
   "Takes 1 or more maps produced from clasew-script and invokes AppleScript
   for execution.
   Return map is same as clasew.core/run-ascript!"

@@ -477,7 +477,7 @@ end script
 
 (* Handler entry point for script management *)
 
-on clasew_excel_eval(arg_map_list)
+on clasew_eval(arg_map_list)
 	set res to {}
 
 	repeat with i from 1 to count of arg_map_list
@@ -488,4 +488,4 @@ on clasew_excel_eval(arg_map_list)
 	end repeat
 
 	return res
-end clasew_excel_eval
+end clasew_eval
