@@ -77,4 +77,6 @@ Here are the argument references. Examples of the calling combinations can be fo
 
 
 ### clasew DSLs
-+ Excel - See the introduction [documentation](clasew-excel.md)
++ Generic spreadsheet forms - See the  [documentation](clasew-spreads.md)
++ Apple Numbers forms - See the  [documentation](clasew-numbers.md)
++ Microsoft Excel forms - See the  [documentation](clasew-excel.md)

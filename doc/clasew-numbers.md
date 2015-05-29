@@ -1,27 +1,27 @@
-# clasew-excel DSL
+# clasew-numbers DSL
 
 ***clasew*** is based on a core set of primitives for calling AppleScript vis-a-vis the Java ScriptManager interop. The DSLs (delivered and planned) leverage these primitives to simplify the developer interface to targeted applications. However; you can use them for whatever type AppleScript you want evaluated.
 
-***clasew.excel*** is a minor DSL function that works in conjunction with ***clasew.spreads***. Go [here](clasew-spreads.md) for more informaiton on clasew.spreads.
+***clasew.numbers*** is a minor DSL function that works in conjunction with ***clasew.spreads***. Go [here](clasew-spreads.md) for more informaiton on clasew.spreads.
 
-The focus of this page is the higher order function (HOF), found in the clasew.excel namespace, that directs ```clasew-core``` to simplify interacting with Excel via AppleScript.
+The focus of this page is the higher order function (HOF), found in the clasew.numbers namespace, that directs ```clasew-core``` to simplify interacting with Apple's Numbers via AppleScript.
 
-## clasew.excel
+## clasew.numbers
 As noted in the introduction, the main function calls the ```clasew.core``` primitive functions.
 
 ### Namespace Initialization
-When clasew.excel is loaded:
+When clasew.numbers is loaded:
 + Establishes a local ```(defonce ...)``` engine for it's use
 
-Unlike clasew.core, clasew.excel ***does not*** require providing an engine argument as it has a dedicated instance.
+Unlike ```clasew.core```, ```clasew.numbers``` ***does not*** require providing an engine argument as it has a dedicated instance.
 
 ###Raw Materials
 
-There is one (1) function that simplify the preperation of calling AppleScript for Excel that interacts with ```clasew.core```:
-##### clasew-excel-call!
+There is one (1) function that simplify the preperation of calling AppleScript for Numbers that interacts with ```clasew.core```:
+##### clasew-numbers-call!
 ```clojure
-(defn clasew-excel-call!
-  "Takes 1 or more maps produced from clasew-excel-script and invokes AppleScript
+(defn clasew-numbers-call!
+  "Takes 1 or more maps produced from clasew-script and invokes AppleScript
   for execution.
   Return map is same as clasew.core/run-ascript!"
 
@@ -34,10 +34,10 @@ Here is a REPL ready example and resulting output:
 ```clojure
 (ns
   ^{:author "Frank V. Castellucci"
-      :doc "clasew example 4 - Excel Example"}
-  clasew.examples4
+      :doc "clasew example 5 - Apple Numbers Examples"}
+  clasew.examples5
   (:require [clasew.spreads :as cs]
-            [clasew.excel :as es]
+            [clasew.numbers :as an]
             [clojure.pprint :refer :all])
   )
 
@@ -50,7 +50,7 @@ Here is a REPL ready example and resulting output:
 ;;; Demonstrate using Excel to create a new workbook and save to desktop
 ;;;
 
-(def sample1 (cs/clasew-script "clasew-sample.xlsx"
+(def sample1 (cs/clasew-script "clasew-sample.numbers"
       cs/create cs/no-open "path to desktop" nil
       {:handler_list [] :arg_list []}))
 
@@ -59,23 +59,23 @@ Here is a REPL ready example and resulting output:
 => {"fqn_path" "path to desktop",
  "open_ifm" "false",
  "create_ifm" "true",
- "work_book" "clasew-sample.xlsx",
+ "work_book" "clasew-sample.numbers",
  "handler_list" [],
  "arg_list" []}
 
 ; Call excel
 
-(p (es/clasew-excel-call! sample1))
+(p (an/clasew-numbers-call! sample1))
 
 => {:reset-binding true,
  :arguments
  ([{"fqn_path" "path to desktop",
     "open_ifm" "false",
     "create_ifm" "true",
-    "work_book" "clasew-sample.xlsx",
+    "work_book" "clasew-sample.numbers",
     "handler_list" [],
     "arg_list" []}]),
- :bind-function "clasew_excel_eval",
- :result [[{"create_wkbk" "clasew-sample.xlsx success"}]]}
+ :bind-function "clasew_eval",
+ :result [[{"create_wkbk" "clasew-sample.numbers success"}]]}
 ```
 

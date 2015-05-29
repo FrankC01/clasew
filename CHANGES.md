@@ -7,7 +7,7 @@ clasew: A Clojure AppleScriptEngine Wrapper
 This release includes breaking changes to clasew.
 
 ### Enhancements
-With this release we have added support for Apple's Numbers spreadsheet application. In doing so we re-factored the common functions that apply to both Excel or Numbers into a new namespace ```spreads```.
+With this release we have added support for Apple's Numbers spreadsheet application. In doing so we re-factored the common functions that are applicable to both Excel or Numbers into a new namespace ```spreads```.
 
 
 + Additions
@@ -28,7 +28,7 @@ With this release we have added support for Apple's Numbers spreadsheet applicat
 <tr><td>clasew-excel-handler</td><td>clasew-handler</td><td>spreads</td><td></td></tr>
 </table>
 
-**Note:**All other forms with exception of ```clasew-excel-call!``` moved to ```spreads``` namespace
+**Note:**All other functions that were formally in ```clasew.excel``` have been moved to ```clasew.spreads``` with exception of ```clasew-excel-call!```.
 
 ### Bug Fixes
 

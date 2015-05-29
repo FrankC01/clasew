@@ -120,7 +120,7 @@ script safe_caller_nunb
 					tell sheet 1
 						delete every table
 						make new table with properties ¬
-							{row count:row_count of create_args, column count:column_count of create_args, header row count:header_row_count of create_args, header column count:header_col_count of create_args}
+							{row count:row_count of create_args, column count:column_count of create_args, header row count:header_row_count of create_args, header column count:header_column_count of create_args}
 					end tell
 				end tell
 				save wkbkObj in file fqn

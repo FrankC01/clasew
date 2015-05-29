@@ -19,9 +19,15 @@ Consists of the clasew.core namespace. Contains the raw functions for interactin
 Consists of clasew.*appname* namespaces where ***appname*** is collection of idiomatic functions specific to a scriptable application.
 
 ###Documentation
-+ [Change Log](CHANGES.md)
-+ [Foundation Introduction](doc/intro.md) - Recommended first read
-+ [Excel DSL](doc/clasew-excel.md)
+<ol>
+<li>[Change Log](CHANGES.md)
+<li>[Foundation Introduction](doc/intro.md) - Recommended first read
+<li>[Generic spreadsheet DSL](doc/clasew-spreads.md)
+<ul>
+<li>[Numbers DSL](doc/clasew-numbers.md)
+<li>[Excel DSL](doc/clasew-excel.md)
+</ul>
+</ol>
 
 ##Examples
 
@@ -30,7 +36,8 @@ All files located [here](dev/src/clasew)
 1. [Example 1](dev/src/clasew/examples1.clj) - Demonstrates standard 'tell' calls
 2. [Example 2](dev/src/clasew/examples2.clj) - Demonstrates handlers and argument passing
 3. [Example 3](dev/src/clasew/examples3.clj) - Demonstrates separate argument bindings
-4. [Example 4](dev/src/clasew/examples4.clj) - Demonstrates clasew-excel DSL
+4. [Example 4](dev/src/clasew/examples4.clj) - Demonstrates clasew-spreads and clasew-excel DSL
+5. [Example 5](dev/src/clasew/examples5.clj) - Demonstrates clasew-spreads and clasew-numbers DSL
 
 My dev environment:
 

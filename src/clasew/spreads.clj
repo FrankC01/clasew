@@ -7,10 +7,10 @@
 
 ;; True/False strings for sending into AppleScript (converted in script)
 
-(defonce create "true")
-(defonce no-create "false")
-(defonce open "true")
-(defonce no-open "false")
+(defonce create      "true")
+(defonce no-create   "false")
+(defonce open        "true")
+(defonce no-open     "false")
 
 ;; Well know handler map
 
@@ -37,6 +37,17 @@
 
    :run-script          "clasew_run"
    })
+
+;;
+;; Boundaries - unused
+;;
+
+(defonce ^:const excel-max-cols 16384)     ; OS X MS 2011
+(defonce ^:const excel-max-rows 1048576)   ; OS X MS 2011
+
+(defonce ^:const numbers-max-cols 256)     ; OS X Numbers 3.5
+(defonce ^:const numbers-max-rows 65536)   ; OS X Numbers 3.5
+
 
 ;;
 ;; Pure helpers
@@ -119,14 +130,16 @@
 (defn clasew-script
   "Produces a script data structure (map) ready to be used by casew-yyyy-call!
   wkbk     - String containing name of the workbook (with extension)
-  crf      - create if workbook named is not opened
-  opf      - open if workbook named is not already opened
+  crf      - Create if workbook named is not opened
+  opf      - Open if workbook named is not already opened
   fqn      - Fully qualifed unix path or AppleScript 'path to xxx' command
+  cprm     - Creation Parameter Map
   handler  - result from clasew-excel-handler call"
-  [wkbk crf opf fqn handlers]
+  [wkbk crf opf fqn cprm handlers]
   (modify-keys #(str (name %))
                (merge {:work_book wkbk, :create_ifm crf
-                       :open_ifm opf :fqn_path fqn} (identity handlers))))
+                       :open_ifm opf :fqn_path fqn
+                       :create_parms cprm} (identity handlers))))
 
 (defn- handler-acc
   "Accumulator function for hanlder setup reduce"
@@ -162,6 +175,35 @@
 ;; High level DSL functions ---------------------------------------------------
 ;;
 
+(defn- pull-cpm
+  "Private hack to peel out the first map in the chain sequence"
+  [chains]
+  (let [cpm (first chains)]
+  (if (nil? cpm)
+    [nil (rest chains)]
+    (if (map? cpm)
+      [cpm (rest chains)]
+      [nil chains]))))
+
+(defn- ready-cpm
+  [chains]
+  (let [[{:keys [template_name sheet_name table_name
+                 row_count column_count
+                 header_row_count header_column_count],
+          :or {template_name "Blank", sheet_name "Sheet 1", table_name "Table 1",
+               row_count 10, column_count 10,
+               header_row_count 0,
+               header_column_count 0},
+          :as cpm} chain] (pull-cpm chains)]
+    (if cpm
+      [(modify-keys #(str (name %)) (zipmap [:template_name :sheet_name :table_name
+                :row_count :column_count
+                :header_row_count :header_column_count]
+               [template_name sheet_name table_name
+                 row_count column_count
+                 header_row_count header_column_count])) chain]
+      [nil chain])))
+
 
 (defn create-wkbk
   "Creates the script to create new workbook in excel (if not open)
@@ -170,8 +212,9 @@
          'path to ...' AppleScript command string
   chains - 0 or more vectors, each describing handler call and arguments"
   [bookname path & chains]
-  (clasew-script bookname create no-open path
-                      (clasew-handler chains)))
+  (let [[cpm chain] (ready-cpm chains)]
+    (clasew-script bookname create no-open path cpm
+                      (clasew-handler chain))))
 
 (defn open-wkbk
   "Creates the script to open an existintg workbook (if not open)
@@ -180,8 +223,9 @@
          'path to ...' AppleScript command string
   chains - 0 or more vectors, each describing handler call and arguments"
   [bookname path & chains]
-  (clasew-script bookname no-create open path
-                      (clasew-handler chains)))
+  (let [[cpm chain] (ready-cpm chains)]
+    (clasew-script bookname no-create open path cpm
+                      (clasew-handler chain))))
 
 ;;
 ;; Chain Sugar ----------------------------------------------------------------

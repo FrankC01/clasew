@@ -2,11 +2,13 @@ script safe_caller
 	property hand : null
 	property args : null
 	property wkbkName : null
+	property wkbkDName : null
 	property create_if : false
 	property open_if : false
 	property wkbkPath : null
 	property wkbkObj : null
 	property scpt_res : null
+	property create_scrpt : null
 
 	# Routine (debug)
 
@@ -14,10 +16,12 @@ script safe_caller
 		log hand
 		log args
 		log wkbkName
+		log wkbkDName
 		log create_if
 		log open_if
 		log wkbkPath
 		log scpt_res
+		log name of create_scrpt
 	end parm_dump
 
 	# Routine to determine if app is running and, if not, start it
@@ -172,59 +176,59 @@ script safe_caller
 					-- Range functions
           -- ***************
 
-				if a_handler = "clasew_excel_get_range_info" then
-					set end of scpt_res to clasew_excel_get_range_info(a_arglist)
+				if a_handler = "clasew_get_range_info" then
+					set end of scpt_res to clasew_get_range_info(a_arglist)
 
-				else if a_handler = "clasew_excel_get_range_data" then
-					set end of scpt_res to clasew_excel_get_range_data(a_arglist)
+				else if a_handler = "clasew_get_range_data" then
+					set end of scpt_res to clasew_get_range_data(a_arglist)
 
-				else if a_handler = "clasew_excel_get_range_formulas" then
-					set end of scpt_res to clasew_excel_get_range_formulas(a_arglist)
+				else if a_handler = "clasew_get_range_formulas" then
+					set end of scpt_res to clasew_get_range_formulas(a_arglist)
 
-				else if a_handler = "clasew_excel_put_range_data" then
-					set end of scpt_res to clasew_excel_put_range_data(a_arglist)
+				else if a_handler = "clasew_put_range_data" then
+					set end of scpt_res to clasew_put_range_data(a_arglist)
 
           -- ******************
 					-- Worksheet functions
           -- ******************
 
-        else if a_handler = "clasew_excel_add_sheet" then
-          set end of scpt_res to clasew_excel_add_sheet(a_arglist)
+        else if a_handler = "clasew_add_sheet" then
+          set end of scpt_res to clasew_add_sheet(a_arglist)
 
-        else if a_handler = "clasew_excel_delete_sheet" then
-          set end of scpt_res to clasew_excel_delete_sheet(a_arglist)
+        else if a_handler = "clasew_delete_sheet" then
+          set end of scpt_res to clasew_delete_sheet(a_arglist)
 
           -- ******************
 					-- Workbook functions
           -- ******************
 
-				else if a_handler = "clasew_excel_get_book_info" then
-					set end of scpt_res to clasew_excel_get_book_info(a_arglist)
+				else if a_handler = "clasew_get_book_info" then
+					set end of scpt_res to clasew_get_book_info(a_arglist)
 
-				else if a_handler = "clasew_excel_get_all_book_info" then
-					set end of scpt_res to clasew_excel_get_all_book_info(a_arglist)
+				else if a_handler = "clasew_get_all_book_info" then
+					set end of scpt_res to clasew_get_all_book_info(a_arglist)
 
-				else if a_handler = "clasew_excel_save" then
-					set end of scpt_res to clasew_excel_save(a_arglist)
+				else if a_handler = "clasew_save" then
+					set end of scpt_res to clasew_save(a_arglist)
 
-				else if a_handler = "clasew_excel_save_as" then
-					set end of scpt_res to clasew_excel_save_as(a_arglist)
+				else if a_handler = "clasew_save_as" then
+					set end of scpt_res to clasew_save_as(a_arglist)
 
-				else if a_handler = "clasew_excel_save_and_quit" then
-					set end of scpt_res to clasew_excel_save_and_quit(a_arglist)
+				else if a_handler = "clasew_save_and_quit" then
+					set end of scpt_res to clasew_save_and_quit(a_arglist)
 
-				else if a_handler = "clasew_excel_quit" then
-					set end of scpt_res to clasew_excel_quit(a_arglist)
+				else if a_handler = "clasew_quit" then
+					set end of scpt_res to clasew_quit(a_arglist)
 
-				else if a_handler = "clasew_excel_quit_no_save" then
-					set end of scpt_res to clasew_excel_quit_no_save(a_arglist)
+				else if a_handler = "clasew_quit_no_save" then
+					set end of scpt_res to clasew_quit_no_save(a_arglist)
 
           -- ******************
 					-- Misc. functions
           -- ******************
 
-				else if a_handler = "clasew_excel_run" then
-					set end of scpt_res to clasew_excel_run(a_arglist)
+				else if a_handler = "clasew_run" then
+					set end of scpt_res to clasew_run(a_arglist)
 
 				else
 					error "ERROR: Handler " & hand & " not found!"
@@ -235,16 +239,16 @@ script safe_caller
 
   (* User arbitrary script handler *)
 
-	on clasew_excel_run(arguments)
+	on clasew_run(arguments)
 		set scpt to item 1 of arguments
 		set scpt_args to item 2 of arguments
 		return run script scpt with parameters {me, scpt_args}
-	end clasew_excel_run
+	end clasew_run
 
-	(* clasew_excel_get_book_info returns information for single workbook.
+	(* clasew_get_book_info returns information for single workbook.
     if no argument, then assumes current workbook *)
 
-	on clasew_excel_get_book_info(arguments)
+	on clasew_get_book_info(arguments)
 		if (count of arguments) is 0 then
 			set myBook to wkbkObj
 		else
@@ -255,26 +259,26 @@ script safe_caller
 				set res to {book_name:name, fqn:full name, sheet_names:name of every sheet}
 			end tell
 		end tell
-	end clasew_excel_get_book_info
+	end clasew_get_book_info
 
-	(* clasew_excel_get_all_book_info returns information about all the open workbooks at
+	(* clasew_get_all_book_info returns information about all the open workbooks at
 	the time it is called *)
 
-  on clasew_excel_get_all_book_info(arguments)
+  on clasew_get_all_book_info(arguments)
 		set myRes to {}
 		tell application "Microsoft Excel"
 			set thebooks to workbooks
 			repeat with bookclz in thebooks
-				set the end of myRes to my clasew_excel_get_book_info({bookclz})
+				set the end of myRes to my clasew_get_book_info({bookclz})
 			end repeat
 		end tell
 		return myRes
-	end clasew_excel_get_all_book_info
+	end clasew_get_all_book_info
 
-	(* clasew_excel_get_range_info returns information about a range in curent
+	(* clasew_get_range_info returns information about a range in curent
   workbook specific sheet *)
 
-	on clasew_excel_get_range_info(arguments)
+	on clasew_get_range_info(arguments)
     local sheetname, myRes, my_range
 		set sheetname to item 1 of arguments
 		set myRes to ¬
@@ -307,11 +311,11 @@ script safe_caller
 				end try
 			end tell
 		end tell
-		return {clasew_excel_get_range_info:myRes}
-	end clasew_excel_get_range_info
+		return {clasew_get_range_info:myRes}
+	end clasew_get_range_info
 
 
-	on clasew_excel_get_range_data(arguments)
+	on clasew_get_range_data(arguments)
     local work_sheet, str_range, my_range
 		set work_sheet to item 1 of arguments
 		set str_range to item 2 of arguments
@@ -321,11 +325,11 @@ script safe_caller
       else
         set my_range to range str_range of sheet work_sheet of wkbkObj
       end if
-      return {clasew_excel_get_range_data: value of my_range}
+      return {clasew_get_range_data: value of my_range}
 		end tell
-	end clasew_excel_get_range_data
+	end clasew_get_range_data
 
-	on clasew_excel_get_range_formulas(arguments)
+	on clasew_get_range_formulas(arguments)
     local work_sheet, str_range, my_range
 		set work_sheet to item 1 of arguments
 		set str_range to item 2 of arguments
@@ -335,20 +339,20 @@ script safe_caller
       else
         set my_range to range str_range of sheet work_sheet of wkbkObj
       end if
-			return {clasew_excel_get_range_formulas: formula of my_range}
+			return {clasew_get_range_formulas: formula of my_range}
 		end tell
-	end clasew_excel_get_range_formulas
+	end clasew_get_range_formulas
 
-	on clasew_excel_put_range_data(arguments)
+	on clasew_put_range_data(arguments)
 		set work_sheet to item 1 of arguments
 		set str_range to item 2 of arguments
 		set value_list to item 3 of arguments
 		tell application "Microsoft Excel"
 			set myrange to range str_range of sheet work_sheet of wkbkObj
 			set value of myrange to value_list
-			return {clasew_excel_put_range_data: "success"}
+			return {clasew_put_range_data: "success"}
 		end tell
-	end clasew_excel_put_range_data
+	end clasew_put_range_data
 
   (* SHEET OPERATIONS *)
 
@@ -387,7 +391,7 @@ script safe_caller
 		end tell
 	end get_before_sheet
 
-	on clasew_excel_add_sheet(arguments)
+	on clasew_add_sheet(arguments)
 		local my_name, my_position, my_relative
 		tell application "Microsoft Excel"
 			repeat with foo in arguments
@@ -408,13 +412,13 @@ script safe_caller
 					end if
 				end if
 			end repeat
-			return {clasew_excel_add_sheet:name of wkbkObj's worksheets}
+			return {clasew_add_sheet:name of wkbkObj's worksheets}
 		end tell
-	end clasew_excel_add_sheet
+	end clasew_add_sheet
 
-  on clasew_excel_delete_sheet(arguments)
+  on clasew_delete_sheet(arguments)
     local s_map, res
-    set s_map to my clasew_excel_get_book_info({})
+    set s_map to my clasew_get_book_info({})
     set res to my verify_sheet_references(arguments, s_map)
     tell application "Microsoft Excel"
       set display alerts to false
@@ -423,21 +427,21 @@ script safe_caller
       end repeat
       set display alerts to true
     end tell
-    return {clasew_excel_delete_sheet:res}
-  end clasew_excel_delete_sheet
+    return {clasew_delete_sheet:res}
+  end clasew_delete_sheet
 
   (* WORKBOOK AND APPLICATION OPERATIONS *)
 
-	on clasew_excel_save(arguments)
+	on clasew_save(arguments)
     try
 		tell application "Microsoft Excel" to save wkbkObj
-      return {clasew_excel_save: wkbkName}
+      return {clasew_save: wkbkName}
     on error
-      return {clasew_excel_save: "fail"}
+      return {clasew_save: "fail"}
     end try
-	end clasew_excel_save
+	end clasew_save
 
-	on clasew_excel_save_as(arguments)
+	on clasew_save_as(arguments)
 		set targ_file to item 1 of arguments
 		set targ_path to item 2 of arguments
 		set fqn to (POSIX file path_converter(targ_path) & targ_file) as text
@@ -445,33 +449,32 @@ script safe_caller
 			tell wkbkObj
 				save workbook as filename fqn overwrite yes
 			end tell
-      return {clasew_excel_save_as: fqn}
+      return {clasew_save_as: fqn}
 		end tell
-	end clasew_excel_save_as
+	end clasew_save_as
 
-	on clasew_excel_quit(arguments)
+	on clasew_quit(arguments)
     try
 		  tell application "Microsoft Excel" to quit
-      return {clasew_excel_quit: "success"}
+      return {clasew_quit: "success"}
     on error
-      return {clasew_excel_quit: "fail"}
+      return {clasew_quit: "fail"}
     end try
-  end clasew_excel_quit
+  end clasew_quit
 
-	on clasew_excel_quit_no_save(arguments)
+	on clasew_quit_no_save(arguments)
     try
 		  tell application "Microsoft Excel" to quit saving no
-		  return {clasew_excel_quit_no_save:"success"}
+		  return {clasew_quit_no_save:"success"}
     on error
-		  return {clasew_excel_quit_no_save:"failed"}
+		  return {clasew_quit_no_save:"failed"}
     end try
-	end clasew_excel_quit_no_save
+	end clasew_quit_no_save
 
-
-	on clasew_excel_save_and_quit(arguments)
-		clasew_excel_save(arguments)
-    clasew_excel_quit(arguments)
-	end clasew_excel_save_and_quit
+	on clasew_save_and_quit(arguments)
+		my clasew_save(arguments)
+    my clasew_quit(arguments)
+	end clasew_save_and_quit
 
 end script
 

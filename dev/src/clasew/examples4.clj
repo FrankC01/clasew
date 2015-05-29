@@ -1,6 +1,6 @@
 (ns
   ^{:author "Frank V. Castellucci"
-      :doc "clasew example 4 - An Excel Example"}
+      :doc "clasew example 4 - Excel Example"}
   clasew.examples4
   (:require [clasew.spreads :as cs]
             [clasew.excel :as es]
@@ -17,11 +17,11 @@
 
 
 (def sample1 (cs/clasew-script "clasew-ex4-sample1.xlsx"
-      cs/create cs/no-open "path to desktop"
+      cs/create cs/no-open "path to desktop" nil
       {:handler_list [] :arg_list []}))
 
-; (p sample1)
-; (p (es/clasew-excel-call! sample1))
+;(p sample1)
+;(p (es/clasew-excel-call! sample1))
 
 ;; Handler Chaining - Create, put values, get first row, save, quit
 
@@ -33,7 +33,7 @@
 ;(p datum)
 
 (def sample2 (cs/clasew-script "clasew-ex4-sample2.xlsx"
-      cs/create cs/no-open "path to desktop"
+      cs/create cs/no-open "path to desktop"  nil
       (cs/clasew-handler [[:put-range-data "Sheet1" "A1:J10" datum]
                              [:get-range-data "Sheet1" "A1:A10"]
                              [:save-quit]])))
@@ -42,7 +42,7 @@
 ;(p (es/clasew-excel-call! sample2))
 
 (def sample2a (cs/clasew-script "clasew-ex4-sample2.xlsx"
-      cs/no-create cs/open "path to desktop"
+      cs/no-create cs/open "path to desktop"  nil
       (cs/clasew-handler [[:get-range-formulas "Sheet1" "used"]
                                 [:quit-no-save]])))
 
@@ -52,12 +52,12 @@
 ;; Demo - Open, Read, Quit
 
 (def sample3 (cs/clasew-script "clasew-ex4-sample2.xlsx"
-      cs/no-create cs/open "path to desktop"
+      cs/no-create cs/open "path to desktop"  nil
       (cs/clasew-handler [[:all-book-info]
                              [:quit]])))
 
-; (p sample3)
-; (p (es/clasew-excel-call! sample3))
+;(p sample3)
+;(p (es/clasew-excel-call! sample3))
 
 ;; Demo pushing your own agenda
 
@@ -68,11 +68,11 @@
   end run")
 
 (def sample4 (cs/clasew-script "clasew-ex4-sample2.xlsx"
-      cs/no-create cs/open "path to desktop"
+      cs/no-create cs/open "path to desktop"  nil
       (cs/clasew-handler [[:run-script my_script []]
                                 [:quit]])))
 
-; (p (es/clasew-excel-call! sample4))
+;(p (es/clasew-excel-call! sample4))
 
 ;; Demo HOF - Create, put values, get first row, save, quit
 
@@ -84,9 +84,8 @@
                      [:save-quit]))
 
 
-; (def s5r (es/clasew-excel-call! sample5))
+;(p (es/clasew-excel-call! sample5))
 
-; (p (cs/chain-put-range-data "Sheet1" datum))
 
 ;; Demo misc forms
 
@@ -137,23 +136,20 @@
                                 0 0 cs/avg-by-col))
                                [:save-quit]))
 
-#_(p sample5a)
-#_(p (es/clasew-excel-call! sample5a))
+;(p sample5a)
+;(p (es/clasew-excel-call! sample5a))
 
 ;; Demo - cleaning up results
-
-;(p (cs/clean-result s6r))
-
-;; Demo HOF - Open, get info, quit
 
 (def sample6 (cs/open-wkbk wrkbk-name wrkbk-path
                      [:all-book-info] [:quit]))
 
 ;(def s6r (cs/clean-result (es/clasew-excel-call! sample6)))
-
 ;(p s6r)
 
-(def sample7 (cs/create-wkbk wrkbk-name wrkbk-path
+;; Demo - Sheet manipulations
+
+(def sample7 (cs/create-wkbk "clasew-ex4-sample7.xlsx" wrkbk-path
                            (cs/chain-add-sheet
                             "Before Sheet1" :before "Sheet1"
                             "After Before Sheet1" :after "Before Sheet1"
@@ -163,13 +159,11 @@
                              [:save-quit]))
 
 
-; (p sample7)
+;(p sample7)
+;(p (cs/clean-result (es/clasew-excel-call! sample7)))
 
-; (p (cs/clean-result (es/clasew-excel-call! sample7)))
+(def sample8 (cs/open-wkbk "clasew-ex4-sample7.xlsx" wrkbk-path
+                 (cs/chain-delete-sheet "Sheet1") [:save-quit]))
 
-(def sample8 (cs/open-wkbk wrkbk-name wrkbk-path
-                 (cs/chain-delete-sheet "Sheet1")))
-
-; (p sample8)
-
-; (p (cs/clean-result (es/clasew-excel-call! sample8)))
+;(p sample8)
+;(p (cs/clean-result (es/clasew-excel-call! sample8)))

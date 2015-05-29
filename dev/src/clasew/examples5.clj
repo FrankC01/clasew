@@ -1,9 +1,9 @@
 (ns
   ^{:author "Frank V. Castellucci"
-      :doc "clasew example 5 - An Apple Numbers Example"}
+      :doc "clasew example 5 - Apple Numbers Examples"}
   clasew.examples5
   (:require [clasew.spreads :as cs]
-            [clasew.numbers :as ans]
+            [clasew.numbers :as an]
             [clojure.pprint :refer :all])
   )
 
@@ -17,11 +17,11 @@
 
 
 (def sample1 (cs/clasew-script "clasew-ex5-sample1.numbers"
-      cs/create cs/no-open "path to desktop"
+      cs/create cs/no-open "path to desktop" nil
       {:handler_list [] :arg_list []}))
 
-;(p sample1)
-;(p (ans/clasew-numbers-call! sample1))
+(p sample1)
+;(p (an/clasew-numbers-call! sample1))
 
 ;; Handler Chaining - Create, put values, get first row, save, quit
 
@@ -33,31 +33,31 @@
 ; (p datum)
 
 (def sample2 (cs/clasew-script "clasew-ex5-sample2.numbers"
-      cs/create cs/no-open "path to desktop"
+      cs/create cs/no-open "path to desktop" nil
       (cs/clasew-handler [[:put-range-data "Sheet 1" "A1:J10" datum]
                              [:get-range-data "Sheet 1" "A1:A10"]
                              [:save-quit]])))
 
 ;(p sample2)
-;(p (ans/clasew-numbers-call! sample2))
+;(p (an/clasew-numbers-call! sample2))
 
 (def sample2a (cs/clasew-script "clasew-ex5-sample2.numbers"
-      cs/no-create cs/open "path to desktop"
+      cs/no-create cs/open "path to desktop" nil
       (cs/clasew-handler [[:get-range-formulas "Sheet 1" "used"]
                                 [:quit-no-save]])))
 
 
 ;(p sample2a)
-;(p (ans/clasew-numbers-call! sample2a))
+;(p (an/clasew-numbers-call! sample2a))
 ;; Demo - Open, Read, Quit
 
 (def sample3 (cs/clasew-script "clasew-ex5-sample2.numbers"
-      cs/no-create cs/open "path to desktop"
+      cs/no-create cs/open "path to desktop" nil
       (cs/clasew-handler [[:all-book-info]
                              [:quit]])))
 
 ; (p sample3)
-; (p (ans/clasew-numbers-call! sample3))
+; (p (an/clasew-numbers-call! sample3))
 
 ;; Demo pushing your own agenda
 
@@ -68,11 +68,11 @@
   end run")
 
 (def sample4 (cs/clasew-script "clasew-ex5-sample2.numbers"
-      cs/no-create cs/open "path to desktop"
+      cs/no-create cs/open "path to desktop" nil
       (cs/clasew-handler [[:run-script my_script []]
                                 [:quit]])))
 
-; (p (ans/clasew-numbers-call! sample4))
+; (p (an/clasew-numbers-call! sample4))
 
 ;; Demo HOF - Create, put values, get first row, save, quit
 
@@ -85,12 +85,20 @@
                      [:save-quit]))
 
 
-(p sample5)
+; (p sample5)
+; (p (an/clasew-numbers-call! sample5))
+; (def s5r (an/clasew-numbers-call! sample5))
 
-(p (ans/clasew-numbers-call! sample5))
-; (def s5r (ans/clasew-numbers-call! sample5))
+(def sample5cpm (cs/create-wkbk wrkbk-name wrkbk-path
+                      {:sheet_name "My Sheet"}
+                       (cs/chain-put-range-data "My Sheet" datum)
+                       [:save-quit]))
 
-; (p (cs/chain-put-range-data "Sheet 1" datum))
+
+; (p sample5cpm)
+; (p (an/clasew-numbers-call! sample5cpm))
+
+;(p (cs/chain-put-range-data "Sheet 1" datum))
 
 ;; Demo misc forms
 
@@ -142,7 +150,7 @@
                                [:save-quit]))
 
 #_(p sample5a)
-#_(p (ans/clasew-numbers-call! sample5a))
+#_(p (an/clasew-numbers-call! sample5a))
 
 ;; Demo - cleaning up results
 
@@ -153,7 +161,7 @@
 (def sample6 (cs/open-wkbk wrkbk-name wrkbk-path
                      [:all-book-info] [:quit]))
 
-;(def s6r (cs/clean-result (ans/clasew-numbers-call! sample6)))
+;(def s6r (cs/clean-result (an/clasew-numbers-call! sample6)))
 
 ;(p s6r)
 
@@ -169,10 +177,10 @@
 
 ; (p sample7)
 
-; (p (cs/clean-result (ans/clasew-numbers-call! sample7)))
+; (p (cs/clean-result (an/clasew-numbers-call! sample7)))
 
 (def sample8 (cs/open-wkbk wrkbk-name wrkbk-path
                  (cs/chain-delete-sheet "Sheet 1")))
 
 
-; (p (cs/clean-result (ans/clasew-numbers-call! sample8)))
+; (p (cs/clean-result (an/clasew-numbers-call! sample8)))

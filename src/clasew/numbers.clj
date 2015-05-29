@@ -9,13 +9,6 @@
 
 (defonce ^:private prv-eng as/new-eng)   ; Use engine for this namespace
 
-;;
-;; Boundaries - unused
-;;
-
-(def ^:const ^:private numbers-max-cols 256)     ; OS X Numbers 3.5
-(def ^:const ^:private numbers-max-rows 65536)   ; OS X Numbers 3.5
-
 
 ;;
 ;; Low level DSL functions ----------------------------------------------------

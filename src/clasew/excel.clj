@@ -10,13 +10,6 @@
 
 (defonce ^:private prv-eng as/new-eng)   ; Use engine for this namespace
 
-;;
-;; Boundaries - unused
-;;
-
-(def ^:const ^:private excel-max-cols 16384)     ; OS X MS 2011
-(def ^:const ^:private excel-max-rows 1048576)   ; OS X MS 2011
-
 
 ;;
 ;; Low level DSL functions ----------------------------------------------------
