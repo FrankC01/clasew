@@ -13,14 +13,14 @@ As noted in the introduction, the main functions in this namespace are HOFs that
 When clasew.spreads is loaded:
 + Creates a number of operational vars (scalars, maps, etc.)
 
-Unlike clasew.core, ```clasew.spreads``` functions ***do not*** require providing an engine as that is relegated to the specific spreadsheet DSL. For more information refer to either:
+Unlike clasew.core, ```clasew.spreads``` functions ***do not*** require providing an engine as that is relegated to the specific spreadsheet DSL. For more information and release notes regarding application specific handling,  refer to:
 
 + Apple Numbers forms - See the  [documentation](clasew-numbers.md)
 + Microsoft Excel forms - See the  [documentation](clasew-excel.md)
 
 ###Raw Materials
 
-There are two (2) core functions that simplify the preperation of calling AppleScript for Excel or Numbers. The primary focus of these forms is on getting ready the script payload before calling out to the respective technollogy DSL.
+There are two (2) core functions that simplify the preperation of calling AppleScript for Excel or Numbers applications. The primary focus of these forms is on getting ready the script payload before calling out to the respective technollogy DSL.
 
 
 #####clasew-script
@@ -44,11 +44,29 @@ The output of calling this is a map that gets set to the ```:arguments ...``` op
 <tr><td>crf</td><td>(required) A flag indicating that if the workbook identified in wkbk is not loaded in Excel already, that it should or should not be created</td><td>(predefined vars)<br>create,<br>no-create</td></tr>
 <tr><td>opf</td><td>(required) A flag indicating that, if the workbook identified in wkbk is not loaded in Excel already, an attempt should be or should not be made to open it</td><td>(predefined vars)<br>open,<br>no-open</td></tr>
 <tr><td>fqn</td><td>(required) Either a fully qualified unix style path or a AppleScript predfined [path command](https://developer.apple.com/library/mac/documentation/AppleScript/Conceptual/AppleScriptLangGuide/reference/ASLR_cmds.html#//apple_ref/doc/uid/TP40000983-CH216-SW19) (in quotes). This identifies where to load from, create in and save path for wkbk</td><td>"/Users/yourname/Deskop",<br>"path to desktop"</td></tr>
-<tr><td>cpm</td><td>(required) A map describing creation properties (if calling to create a new spreadsheet). Can be null</td><td>See the reference to cpm keys below</td></tr>
+<tr><td>cprm</td><td>(required) A map describing creation properties (if calling to create a new spreadsheet). Can be nil</td><td>See the reference to cprm keys below</td></tr>
 <tr><td>handlers</td><td>(required) A map that identifies the handler(s) and their respective arguments to be called during execution</td><td>See the reference to ```clasew-handler``` below</td></tr>
 </table>
 
-Here is a REPL ready example and resulting output:
+#####clasew-script creation parameters (cprm) keys
+This parameter of ```clasew.spreads/clasew-script``` can be *nil* or a map of pre-defined creation parameters. If you are going to use this capability, the keys and values should be defined. If the corresponding technology behavior ignores the key, then the value may be set to nil.
+
+The following table describes the keys (strings) and, descriptions and behavior of Numbers and Excel:
+
+<table>
+<tr><th>Keys</th><th>Description</th><th>Excel Behavior</th><th>Numbers Behavior</th><tr>
+<tr><td>"template_name"</td><td>A string containing the name of the template to base initial format/style of the new workbook</td><td>ignored</td><td>Creates the new workbook based on template name, if template is found</td></tr>
+<tr><td>"sheet_name"</td><td>A string containing the name of the initial sheet of the new workbook</td><td>Sets name of first sheet of the new workbook</td><td>Sets name of first sheet of the new workbook</td></tr>
+<tr><td>"table_name"</td><td>A string containing the name of the table on the first sheet of the new workbook</td><td>ignored</td><td>Creates a table with name on the first sheet of the new workbook</td></tr>
+<tr><td>"row_count"</td><td>An integer to set the number of rows</td><td>ignored</td><td>Creates thew new table with the number of rows specified</td></tr>
+<tr><td>"column_count"</td><td>An integer to set the number of columns</td><td>ignored</td><td>Creates thew new table with the number of columns specified</td></tr>
+<tr><td>"header_row_count"</td><td>An integer to set the number of rows to mark as header rows</td><td>ignored</td><td>Creates thew new table with the header rows set to the number of rows specified</td></tr>
+<tr><td>"header_column_count"</td><td>An integer to set the number of columns to mark as header columns</td><td>ignored</td><td>Creates thew new table with the header columns set to the number of columns specified</td></tr>
+</table>
+
+*The ```create-wkbk``` function simpifies the inclusion of cprm and is recommended unless you need  the fine grained control of ```clasew-script```. See the description of ```create-wkbk```later in this document.*
+
+Here is a REPL ready example and resulting output (**not using cprm**):
 ```clojure
 (ns clasew.sample
   (:require [clasew.spreads :as cs]
@@ -65,41 +83,73 @@ Here is a REPL ready example and resulting output:
 ;;; Demonstrate creating a new Excel workbook and save to desktop
 ;;;
 
-(p (cs/clasew-script "clasew-sample.xlsx"
+(p (cs/clasew-script "clasew-ex5-sample1.xlsx"
       cs/create cs/no-open "path to desktop" nil
-      {:handler_list [] :arg_list []}))
+      {:handler_list ["clasew_save_and_quit"] :arg_list [[]]}))
 
 
-=> {"create_parms" nil,
+=> {"create_parms" {},
 "fqn_path" "path to desktop",
  "open_ifm" "false",
  "create_ifm" "true",
- "work_book" "clasew-sample.xlsx",
- "handler_list" [],
- "arg_list" []}
+ "work_book" "clasew-ex5-sample1.xlsx",
+ "handler_list" ["clasew_save_and_quit"],
+ "arg_list" [[]]}
+
+;;; Using create parameters
+
+(p (cs/clasew-script "clasew-ex5-sample1.xlsx"
+      cs/create cs/no-open "path to desktop"
+      {"template_name" "Blank",     ; ignored by Excel
+       "sheet_name" "Home",         ; will rename sheet
+       "table_name" "Info Table",   ; ignored by Excel
+       "row_count" 10,              ; ignored by Excel
+       "column_count" 10,           ; ignored by Excel
+       "header_row_count" 0,        ; ignored by Excel
+       "header_column_count" 0}     ; ignored by Excel
+      {:handler_list ["clasew_save_and_quit"] :arg_list [[]]}))
+
+=> {"create_parms"
+ {"template_name" "Blank",
+  "sheet_name" "Home",
+  "table_name" "Info Table",
+  "row_count" 10,
+  "column_count" 10,
+  "header_row_count" 0,
+  "header_column_count" 0},
+ "fqn_path" "path to desktop",
+ "open_ifm" "false",
+ "create_ifm" "true",
+ "work_book" "clasew-ex5-sample1.xlsx",
+ "handler_list" ["clasew_save_and_quit"],
+ "arg_list" [[]]}
 
 ;;;
 ;;; Demonstrate same for creating a new Numbers workbook and save to desktop
 ;;; The only difference is in the file name extensions
 ;;;
 
-(p (cs/clasew-script "clasew-sample.numbers"
+(cs/clasew-script "clasew-ex5-sample1.numbers"
       cs/create cs/no-open "path to desktop" nil
-      {:handler_list [] :arg_list []}))
+      {:handler_list ["clasew_save_and_quit"] :arg_list [[]]})
 
+;;; Using create parameters
 
-=> {"create_parms" nil,
-"fqn_path" "path to desktop",
- "open_ifm" "false",
- "create_ifm" "true",
- "work_book" "clasew-sample.numbers",
- "handler_list" [],
- "arg_list" []}
+(cs/clasew-script "clasew-ex5-sample1.numbers"
+      cs/create cs/no-open "path to desktop"
+      {"template_name" "Blank",
+       "sheet_name" "Home",
+       "table_name" "Info Table",
+       "row_count" 10,
+       "column_count" 10,
+       "header_row_count" 0,
+       "header_column_count" 0}
+      {:handler_list ["clasew_save_and_quit"] :arg_list [[]]})
 
 ```
 
 A few comments before we move on:
-+ The keys in the map are strings. This is to get past the AppleScript transition to AppleScript record types as keywords, numbers and other data structures don't translate. Even though we passed in keywords to the handler map, ```clasew-script``` automatically converts keys to strings.
++ Notice that the keys in the output map are strings. This is to get past the Java AppleScript Manager transition to AppleScript record types. Even though we passed in keywords for the handler map, ```clasew-script``` automatically converts keys to strings.
 + The open and create flags, and their corollaries, are strings as well that represent "true" or "false" to get past the interop inability to recognize native clojure booleans.
 + The following table demonstrates behavior of the open and create flags settings, specifically the ```opf``` and ```crf``` arguments:
 
@@ -160,9 +210,6 @@ where **_chains_** are a collection (vector, sequence, set) of items and each it
 ;;;   example          [:get-range-data "Sheet1" "A1:A10"]
 ;;;   example          ["clasew_get_range_data" "Sheet1" "A1:A10"]
 ;;;
-;;;   example          [:get-range-data "Sheet1" "used"]
-;;;   example          ["clasew_get_range_data" "Sheet1" "used"]
-;;;
 ;;;   example          [:save-quit]
 ;;;   example          ["clasew_save_and_quit"]
 ```
@@ -197,7 +244,7 @@ where **_chains_** are a collection (vector, sequence, set) of items and each it
 ;; "handler_list" vector there are associative parameters in "arg_list" vector matrix.
 ;; The third "arg_list" vector is empty as there are no arguments to the :save-quit handler
 
-=> {"create_parms" nil,
+=> {"create_parms" {},
  "fqn_path" "path to desktop",
  "open_ifm" "false",
  "create_ifm" "true",
@@ -228,7 +275,7 @@ where **_chains_** are a collection (vector, sequence, set) of items and each it
 
 => {:reset-binding true,
  :arguments
- ([{"create_parms" nil,
+ ([{"create_parms" {},
     "fqn_path" "path to desktop",
     "open_ifm" "false",
     "create_ifm" "true",
@@ -268,7 +315,7 @@ The following table (volatile and subject to change) describes each handler-iden
 <table>
 <tr><th>handler (string)</th><th> _or_ handler (keyword)</th><th>description</th><th>argument position and sample</th></tr>
 <tr><td>clasew_get_range_info</td><td>:get-range-info</td>
-  <td>retrieves general information about user defined range in the workbook's worksheet</td><td><ol><li>"Sheet1"<li>"A1:J2" or "used"</ol></td></tr>
+  <td>retrieves general information about user defined range in the workbook's worksheet</td><td><ol><li>"Sheet1"<li>"A1:J2"</ol></td></tr>
 <tr><td>clasew_get_range_formulas</td><td>:get-range-formulas</td>
   <td>retrieves forumulas from user defined range in the workbook's worksheet</td><td><ol><li>"Sheet1"<li>"A1:J2"</ol></td></tr>
 <tr><td>clasew_get_range_data</td><td>:get-range-data</td>
@@ -350,7 +397,7 @@ Here is an simple example:
 
 => {:reset-binding true,
  :arguments
- ([{"create_parms" nil,
+ ([{"create_parms" {},
     "fqn_path" "path to desktop",
     "open_ifm" "true",
     "create_ifm" "false",
@@ -381,6 +428,7 @@ As noted earlier, we wanted to provide what we expect satisfies the most basic o
 + Open an existing workbook, perform a number of operations, save and exit
 
 For that, the number of clasew-excel HOF (at the time of this writing) rings in at... not many.
+
 #####create-wkbk
 As the name implies, the primary purpose if to setup the script with pre-defined flag settings for creating a new workbook environment and executing as many handler chains as needed. This HOF, and ```open-wkbk``` also eliminate the need to call ```clasew-excel-script``` and ```clasew-excel-handler``` directly.
 
@@ -406,6 +454,23 @@ Quick example showing a side by side of using the raw materials and HOF:
                      (cs/chain-put-range-data "Sheet1" datum)
                      [:save-quit]))
 
+```
+
+#####creation parms redux
+As noted previously, the ```create-wkbk``` simplifies creation parameters:
+<ol>
+<li> Supports using keywords instead of strings
+<li> Fills in the blanks through map deconstruction and testing for keyword presence
+</ol>
+
+**If passing creation parameters, it must be provided *after* the file path and before handlers or chains**
+```clojure
+;;; Have Numbers use Excel sheet names (no spaces)
+
+(def sample5n (cs/create-wkbk "clasew-sample.numbers" "path to desktop"
+                     {:sheet_name "Sheet1"}
+                     (cs/chain-put-range-data "Sheet1" datum)
+                     [:save-quit]))
 ```
 
 #####open-wkbk

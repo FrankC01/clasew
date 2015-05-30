@@ -139,7 +139,8 @@
   (modify-keys #(str (name %))
                (merge {:work_book wkbk, :create_ifm crf
                        :open_ifm opf :fqn_path fqn
-                       :create_parms cprm} (identity handlers))))
+                       :create_parms (if (nil? cprm) {} cprm)
+                       } (identity handlers))))
 
 (defn- handler-acc
   "Accumulator function for hanlder setup reduce"

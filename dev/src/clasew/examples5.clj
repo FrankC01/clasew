@@ -18,10 +18,24 @@
 
 (def sample1 (cs/clasew-script "clasew-ex5-sample1.numbers"
       cs/create cs/no-open "path to desktop" nil
-      {:handler_list [] :arg_list []}))
+      {:handler_list ["clasew_save_and_quit"] :arg_list [[]]}))
 
-(p sample1)
+;(p sample1)
 ;(p (an/clasew-numbers-call! sample1))
+
+(def sample1a (cs/clasew-script "clasew-ex5-sample1.numbers"
+      cs/create cs/no-open "path to desktop"
+      {"template_name" "Blank",
+       "sheet_name" "Home",
+       "table_name" "Info Table",
+       "row_count" 10,
+       "column_count" 10,
+       "header_row_count" 0,
+       "header_column_count" 0}
+      {:handler_list ["clasew_save_and_quit"] :arg_list [[]]}))
+
+;(p sample1a)
+;(p (an/clasew-numbers-call! sample1a))
 
 ;; Handler Chaining - Create, put values, get first row, save, quit
 
@@ -34,8 +48,8 @@
 
 (def sample2 (cs/clasew-script "clasew-ex5-sample2.numbers"
       cs/create cs/no-open "path to desktop" nil
-      (cs/clasew-handler [[:put-range-data "Sheet 1" "A1:J10" datum]
-                             [:get-range-data "Sheet 1" "A1:A10"]
+      (cs/clasew-handler [[:put-range-data "Sheet 1" "A1:E5" datum]
+                             [:get-range-data "Sheet 1" "A1:A5"]
                              [:save-quit]])))
 
 ;(p sample2)
@@ -90,12 +104,12 @@
 ; (def s5r (an/clasew-numbers-call! sample5))
 
 (def sample5cpm (cs/create-wkbk wrkbk-name wrkbk-path
-                      {:sheet_name "My Sheet"}
-                       (cs/chain-put-range-data "My Sheet" datum)
+                      {:sheet_name "Sheet1"}
+                       (cs/chain-put-range-data "Sheet1" datum)
                        [:save-quit]))
 
 
-; (p sample5cpm)
+(p sample5cpm)
 ; (p (an/clasew-numbers-call! sample5cpm))
 
 ;(p (cs/chain-put-range-data "Sheet 1" datum))
@@ -149,14 +163,10 @@
                                 0 0 cs/avg-by-col))
                                [:save-quit]))
 
-#_(p sample5a)
-#_(p (an/clasew-numbers-call! sample5a))
+;(p sample5a)
+;(p (an/clasew-numbers-call! sample5a))
 
 ;; Demo - cleaning up results
-
-;(p (cs/clean-result s6r))
-
-;; Demo HOF - Open, get info, quit
 
 (def sample6 (cs/open-wkbk wrkbk-name wrkbk-path
                      [:all-book-info] [:quit]))
@@ -165,21 +175,21 @@
 
 ;(p s6r)
 
-(def sample7 (cs/create-wkbk wrkbk-name wrkbk-path
+(def sample7 (cs/create-wkbk "clasew-ex5-sample7.numbers" wrkbk-path
                            (cs/chain-add-sheet
-                            "After Sheet 1" :after "Sheet 1"
-                            "Before After Sheet 1" :before "After Sheet 1"
+                            "First Add" :after "Sheet 1"
+                            "Before First Add" :before "First Add"
                             "The End" :at :end
                             "The Beginning" :at :beginning
-                            "Towards last" :at 4)
+                            "Towards last" :at 5)
                              [:save-quit]))
 
 
-; (p sample7)
+(p sample7)
 
-; (p (cs/clean-result (an/clasew-numbers-call! sample7)))
+(p (cs/clean-result (an/clasew-numbers-call! sample7)))
 
-(def sample8 (cs/open-wkbk wrkbk-name wrkbk-path
+(def sample8 (cs/open-wkbk "clasew-ex5-sample7.numbers" wrkbk-path
                  (cs/chain-delete-sheet "Sheet 1")))
 
 

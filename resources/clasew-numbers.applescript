@@ -120,7 +120,11 @@ script safe_caller_nunb
 					tell sheet 1
 						delete every table
 						make new table with properties ¬
-							{row count:row_count of create_args, column count:column_count of create_args, header row count:header_row_count of create_args, header column count:header_column_count of create_args}
+							{name: table_name of create_args, ¬
+              row count:row_count of create_args, ¬
+              column count:column_count of create_args,¬
+              header row count:header_row_count of create_args, ¬
+              header column count:header_column_count of create_args}
 					end tell
 				end tell
 				save wkbkObj in file fqn
@@ -142,7 +146,7 @@ script safe_caller_nunb
 			property create_parms : myprops
 			return create_wkbk_withparms(create_parms)
 		end script
-		if myprops is null then
+		if count of myprops is 0 then
 			return old_create
 		else
 			return new_create
@@ -181,7 +185,7 @@ script safe_caller_nunb
 		set create_if to create_ifm of setup as boolean
 		set open_if to open_ifm of setup as boolean
 		set wkbkPath to my path_converter(fqn_path of setup)
-		set create_scrpt to create_document(create_parms of (setup & {create_parms:null}))
+		set create_scrpt to my create_document(create_parms of (setup & {create_parms:null}))
 
 		set scpt_res to {}
 		if wkbkPath = "Failed" then
@@ -522,6 +526,58 @@ script safe_caller_nunb
 		end tell
 	end get_before_sheet
 
+	on new_first_sheet(before_sheet_name, my_props)
+		tell application "Numbers"
+			activate
+			local current_first, tempSheetCopyName, current_copy, new_sheet
+			tell wkbkObj
+				set current_first to sheet before_sheet_name
+				set active sheet to current_first
+				set tempSheetCopyName to "Copy Of " & before_sheet_name
+
+				-- Duplicate the current first sheet
+				tell application "System Events"
+					-- deselect all
+					keystroke "a" using {command down, shift down}
+					delay 0.1
+					-- select all containers (tables, text items, etc.)
+					keystroke "a" using {command down}
+					delay 0.1
+					-- copy the containers
+					keystroke "c" using {command down}
+  				delay 0.1
+				end tell
+
+				set current_copy to make new sheet with properties {name:tempSheetCopyName}
+				set active sheet to current_copy
+
+				tell current_copy
+					delete every table
+					delay 0.1
+					tell application "System Events"
+						keystroke "v" using {command down}
+					end tell
+					delay 0.1
+				end tell
+
+				-- Insert the new sheet after the current first
+				set active sheet to current_first
+				set new_sheet to make new sheet with properties my_props
+
+				delay 0.1
+				set active sheet to new_sheet
+
+				-- Delete the original
+				delete current_first
+
+				-- Rename the copy back to the original name
+				set name of current_copy to before_sheet_name
+
+				return new_sheet
+			end tell
+		end tell
+	end new_first_sheet
+
 	on clasew_add_sheet(arguments)
 		local my_name, my_position, my_relative, new_sheet
 		tell application "Numbers"
@@ -530,19 +586,18 @@ script safe_caller_nunb
 				set my_position to target of foo
 				set my_relative to relative_to of foo
 				tell wkbkObj
-					if my_position is -1 then -- Get location of named sheet as active then create the sheet before it (temporarily broken)
-						set active sheet to sheet my_relative
-						set new_sheet to make new sheet with properties {name:my_name}
+					if my_position is -1 then -- Get location of named sheet as active then create the sheet before it
+						my new_first_sheet(my_relative, {name:my_name})
+						set new_sheet to sheet my_name
 						-- move new_sheet to ???
 					else if my_position is 1 then -- Get location of named sheet as active then create the sheet after it
 						set active sheet to sheet my_relative
 						set new_sheet to make new sheet with properties {name:my_name}
 					else if my_position is 0 then
-						if my_relative is 0 then -- Desire to make new sheet the first one (temporarily broken)
-							set active sheet to sheet 1
-							set new_sheet to make new sheet with properties {name:my_name}
-							-- set new_sheet to make new sheet with properties {name:my_name} at beginning of wkbkObj
-						else if my_relative is -1 then -- Make the last sheet the active and then create the sheet
+						if my_relative is 0 then -- Make new sheet the first one
+							my new_first_sheet(get name of sheet 1, {name:my_name})
+							set new_sheet to sheet 1
+						else if my_relative is -1 then -- Make the new sheet the last one
 							set active sheet to sheet (count of sheets)
 							set new_sheet to make new sheet with properties {name:my_name}
 						else
@@ -554,6 +609,7 @@ script safe_caller_nunb
 						delete every table
 						make new table
 					end tell
+
 				end tell
 			end repeat
 			return {clasewl_add_sheet:name of wkbkObj's sheets}
@@ -611,7 +667,6 @@ script safe_caller_nunb
 			return {clasew_quit_no_save:"failed"}
 		end try
 	end clasew_quit_no_save
-
 
 	on clasew_save_and_quit(arguments)
 		clasew_save(arguments)

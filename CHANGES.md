@@ -12,9 +12,9 @@ With this release we have added support for Apple's Numbers spreadsheet applicat
 
 + Additions
 <table>
-<tr><th>Topic</th><th>Description</th></tr>
-<tr><td>ns spreads</td><td>Common forms applicable to spreadsheet based scripting</td></tr>
-<tr><td>ns numbers</td><td>Forms specific to script functions for Apple's Numbers</td></tr>
+<tr><th>Namespaces</th><th>Description</th></tr>
+<tr><td>spreads</td><td>Common forms applicable to spreadsheet based scripting</td></tr>
+<tr><td>numbers</td><td>Forms specific to script functions for Apple's Numbers</td></tr>
 </table>
 
 + Modifications - Form names and ns
@@ -24,9 +24,10 @@ With this release we have added support for Apple's Numbers spreadsheet applicat
 <tr><td>get-excel-a1</td><td>format-a1</td><td>spreads</td><td>Removed 'pre' check for row and column boundaries</td></tr>
 <tr><td>get-excel-range-a1</td><td>format-range-a1</td><td>spreads</td><td></td></tr>
 <tr><td>get-data-dimensions</td><td>data-dimensions</td><td>spreads</td><td></td></tr>
-<tr><td>clasew-excel-script</td><td>clasew-script</td><td>spreads</td><td></td></tr>
+<tr><td>clasew-excel-script</td><td>clasew-script</td><td>spreads</td><td>new parameter (arity), see ```clasew-spreads``` documentation</td></tr>
 <tr><td>clasew-excel-handler</td><td>clasew-handler</td><td>spreads</td><td></td></tr>
 </table>
+
 
 **Note:**All other functions that were formally in ```clasew.excel``` have been moved to ```clasew.spreads``` with exception of ```clasew-excel-call!```.
 
