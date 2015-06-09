@@ -10,14 +10,24 @@ This release includes breaking changes to clasew.
 With this release we have added support for Apple's Numbers spreadsheet application. In doing so we re-factored the common functions that are applicable to both Excel or Numbers into a new namespace ```spreads```.
 
 
-+ Additions
++ Namespace Additions
 <table>
-<tr><th>Namespaces</th><th>Description</th></tr>
-<tr><td>spreads</td><td>Common forms applicable to spreadsheet based scripting</td></tr>
-<tr><td>numbers</td><td>Forms specific to script functions for Apple's Numbers</td></tr>
+<tr><th>Namespace</th><th>Description</th></tr>
+<tr><td>spreads</td><td>Common functions applicable to spreadsheet based scripting</td></tr>
+<tr><td>numbers</td><td>Function specific to Apple's Numbers</td></tr>
 </table>
 
-+ Modifications - Form names and ns
++ Function Additions
+<table>
+<tr><th>Function</th><th>Namespaces</th><th>Description (see documentation)</th></tr>
+<tr><td>clasew-numbers-call!</td><td>numbers</td><td>main script invocation</td></tr>
+<tr><td>format-data-range</td><td>spreads</td><td>produes A1 range address from offsets and data definition</td></tr>
+<tr><td>create-parms</td><td>spreads</td><td>create workbook optional parameters</td></tr>
+<tr><td>tables</td><td>spreads</td><td>reduces table definitions (applicable to creating workbooks and/or adding sheets)</td></tr>
+<tr><td>table</td><td>spreads</td><td>table definitions</td></tr>
+</table>
+
++ Modifications - Keywords and Form names
 <table>
 <tr><th>Prior</th><th>Current</th><th>ns</th><th>notes</th></tr>
 <tr><td>clean-excel-result</td><td>clean-result</td><td>spreads</td><td></td></tr>
@@ -26,6 +36,7 @@ With this release we have added support for Apple's Numbers spreadsheet applicat
 <tr><td>get-data-dimensions</td><td>data-dimensions</td><td>spreads</td><td></td></tr>
 <tr><td>clasew-excel-script</td><td>clasew-script</td><td>spreads</td><td>new parameter (arity), see ```clasew-spreads``` documentation</td></tr>
 <tr><td>clasew-excel-handler</td><td>clasew-handler</td><td>spreads</td><td></td></tr>
+<tr><td>chain-add-sheet</td><td>chain-add-sheet</td><td>spreads</td><td>takes a table definition as last optional argument</td></tr>
 </table>
 
 

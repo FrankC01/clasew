@@ -53,6 +53,8 @@
 ;; Pure helpers
 ;;
 
+(def ^:private to-strings #(str (name %)))
+
 (defn modify-keys
   "Uses zipmap to process 'f' on keys
   Used for record types in scripts"
@@ -105,6 +107,14 @@
   [data]
   {:pre [(and (vector? data) (vector? (first data)))]}
   [(dec (count (first data))) (dec (count data))])
+
+(defn format-data-range
+  [start-col start-row data]
+  (let [[end-col end-row] (data-dimensions data)]
+    (format-range-a1 (list start-col start-row
+                           (+ start-col end-col)
+                           (+ start-row end-row)))))
+
 
 (defn pad-rows
   "Returns a collection with uniform length sub-collections. Uniform Length is
@@ -168,10 +178,24 @@
 
 (defn- resolve-add-directives
   "Fixup add sheet directives"
-  [[new_sheet target relative_to]]
+  [[new_sheet target relative_to & tables]]
   {"new_sheet" new_sheet "target" (get sheet-coords target)
-   "relative_to" (get sheet-coords relative_to relative_to)})
+   "relative_to" (get sheet-coords relative_to relative_to)
+   "table_list" (if (nil? (first tables)) [] (first tables))
+   })
 
+
+(defn- parse-sheet-adds
+  [args]
+  (loop [sa  args
+         tst   (first (drop 3 sa))
+         res   []]
+    (if (empty? sa)
+      (seq res)
+      (let [y   (if (vector? tst) 4 3)
+            acc (drop y sa)
+            rec (resolve-add-directives (take y sa))]
+        (recur acc (first (drop 3 acc)) (conj res rec))))))
 ;;
 ;; High level DSL functions ---------------------------------------------------
 ;;
@@ -186,24 +210,55 @@
       [cpm (rest chains)]
       [nil chains]))))
 
-(defn- ready-cpm
-  [chains]
-  (let [[{:keys [template_name sheet_name table_name
-                 row_count column_count
-                 header_row_count header_column_count],
-          :or {template_name "Blank", sheet_name "Sheet 1", table_name "Table 1",
-               row_count 10, column_count 10,
-               header_row_count 0,
-               header_column_count 0},
-          :as cpm} chain] (pull-cpm chains)]
-    (if cpm
-      [(modify-keys #(str (name %)) (zipmap [:template_name :sheet_name :table_name
-                :row_count :column_count
-                :header_row_count :header_column_count]
-               [template_name sheet_name table_name
-                 row_count column_count
-                 header_row_count header_column_count])) chain]
-      [nil chain])))
+(defn- table-ranges
+  "Generate ranges for table definitions. Excel utilizes these in the creation
+  of tables on a sheet. Ignored by Numbers."
+  [{:keys [column_offset row_offset column_count row_count header_content]
+    :as t-def}]
+  (let   [content (conj [] header_content)
+          header_range (if (> (count header_content) 0)
+                              (format-data-range column_offset row_offset content)
+                              "")
+          full_range   (format-range-a1 [column_offset row_offset
+                                         (+ column_offset (dec column_count))
+                                         (+ row_offset (dec row_count))])]
+    (merge t-def {:header_range header_range
+                  :full_range full_range})))
+
+(defn table
+  "Produces a table definition."
+  [& {:keys [table_name column_offset row_offset column_count row_count
+             header_column_count header_row_count header_content]
+      :or {table_name "Table 1" column_offset 0, row_offset 0
+           column_count 10, row_count 10
+           header_column_count 0, header_row_count 0 header_content []}}]
+  (table-ranges (zipmap [:table_name :column_offset :row_offset
+                    :column_count :row_count
+                    :header_row_count  :header_column_count :header_content]
+                   [table_name column_offset row_offset column_count row_count
+                    ; Set the header row count
+                    (if (> (count header_content) 0)
+                      1
+                      header_row_count)
+                    header_column_count header_content])))
+
+(defn- table-def
+  "Basic reducing, place holder for future changes
+  Drops row and column offsets used in table definitions"
+  [acc target]
+  (conj acc (modify-keys to-strings
+                         (dissoc target :row_offset :column_offset))))
+
+(defn tables
+  "Collects and reduces table definitions to vector"
+  [& table-defs]
+  (reduce table-def [] table-defs))
+
+(defn create-parms
+  [& {:keys [template_name sheet_name table_list],
+          :or {template_name "Blank", sheet_name "Sheet 1", table_list []}}]
+  (zipmap ["template_name" "sheet_name" "table_list"]
+               [template_name sheet_name table_list]))
 
 
 (defn create-wkbk
@@ -213,7 +268,7 @@
          'path to ...' AppleScript command string
   chains - 0 or more vectors, each describing handler call and arguments"
   [bookname path & chains]
-  (let [[cpm chain] (ready-cpm chains)]
+  (let [[cpm chain] (pull-cpm chains)]
     (clasew-script bookname create no-open path cpm
                       (clasew-handler chain))))
 
@@ -224,9 +279,8 @@
          'path to ...' AppleScript command string
   chains - 0 or more vectors, each describing handler call and arguments"
   [bookname path & chains]
-  (let [[cpm chain] (ready-cpm chains)]
-    (clasew-script bookname no-create open path cpm
-                      (clasew-handler chain))))
+    (clasew-script bookname no-create open path nil
+                      (clasew-handler chains)))
 
 ;;
 ;; Chain Sugar ----------------------------------------------------------------
@@ -238,14 +292,15 @@
   sheet-name - the name of the sheet to put the data in
   data - a vector of vectors with inner vectors containing the data
   start-col offset column for data 0 = A
-  start-row offset row for data 0 = 1"
-  [sheet-name data & [start-col start-row]]
+  start-row offset row for data 0 = 1
+  table-name name of table containing range"
+  [sheet-name data & [start-col start-row & table-name]]
   (let [sc (or start-col 0)
         sr (or start-row 0)
-        [ec er] (data-dimensions data)
-        a1_range (format-range-a1 (list sc sr (+ sc ec) (+ sr er)))]
-    [:put-range-data sheet-name a1_range data])
-  )
+        a1_range (format-data-range sc sr data)
+        t_name (first table-name)]
+    (into [:put-range-data]
+          (filter (complement nil?) (list sheet-name a1_range data t_name)))))
 
 (defn chain-get-range-data
   "Sets up a chain for getting a data range from workbook's sheet-name
@@ -253,19 +308,39 @@
   start-col offset column for data 0 = A
   start-row offset row for data 0 = 1
   for-col number of columns to retrieve
-  for-row number of rows to retrieve"
-  [sheet-name start-col start-row for-col for-row]
+  for-row number of rows to retrieve
+  table-name name of table containing range"
+  [sheet-name start-col start-row for-col for-row & table-name]
   (let [ec (+ start-col (dec for-col))
-        er (+ start-row (dec for-row))]
-    [:get-range-data sheet-name (str (format-a1 start-col start-row) ":"
-                                   (format-a1 ec er))]))
+        er (+ start-row (dec for-row))
+        a1_range (format-range-a1 [start-col start-row ec er])
+        t_name (first table-name)]
+    (into [:get-range-data]
+          (filter (complement nil?) (list sheet-name a1_range t_name)))))
+
+(defn chain-get-range-formulas
+  "Sets up a chain for getting a formula range from workbook's sheet-name
+  sheet-name - the name of the sheet to get the data from
+  start-col offset column for data 0 = A
+  start-row offset row for data 0 = 1
+  for-col number of columns to retrieve
+  for-row number of rows to retrieve
+  table-name name of table containing range"
+  [sheet-name start-col start-row for-col for-row & table-name ]
+  (let [ec (+ start-col (dec for-col))
+        er (+ start-row (dec for-row))
+        a1_range (format-range-a1 [start-col start-row ec er])
+        t_name (first table-name)]
+    (into [:get-range-formulas]
+          (filter (complement nil?) (list sheet-name a1_range t_name)))))
 
 (defn chain-add-sheet
   "Adds new sheets to current workbook
   directives - collection of expressions where each expression is in the form
     new_sheet (string)
     target    (keyword)
-    relative to (keyword | positive number)'
+    relative to (keyword | positive number)
+    table_list vector of table definitions
   where target is one of:
     :before - insert this new sheet before sheet-name
     :after  - insert this new sheeet after sheet-name
@@ -275,9 +350,7 @@
     :end
     positive number - if greater then worksheet count in book, put first"
   [& directives]
-  {:pre [(and (not (empty? directives)) (>= (count directives) 3)
-              (= (rem (count directives) 3) 0))]}
-  (into [:add-sheet] (map resolve-add-directives (partition 3 directives))))
+  (into [:add-sheet] (parse-sheet-adds directives)))
 
 (defn chain-delete-sheet
   "Delete existing sheets from workbook
@@ -290,13 +363,17 @@
 ;; More Sugar -----------------------------------------------------------------
 ;;
 
+(defn set-to-formula
+  [& filler]
+  (str "=" (apply str filler)))
+
 (defn formula-wrap
   "Setup the standard  '=formula(blah blah blah)' format.
   form-prefix is one of SUM, AVERAGE, etc.
   f           function to perform on arg that results in valid formula arguments
   arg -       whatever arguments are required for the f function to do it's thing"
   [form-prefix f arg]
-  (str "=" form-prefix "(" (f arg) ")"))
+  (set-to-formula form-prefix "(" (f arg) ")"))
 
 (defn fsum
   "Thin wrapper for setting up '=SUM(...)'"

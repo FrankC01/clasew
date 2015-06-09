@@ -23,6 +23,24 @@
 ;(p sample1)
 ;(p (es/clasew-excel-call! sample1))
 
+(def sample1a (cs/clasew-script
+               "clasew-ex5-sample1a.xlsx"
+               cs/create cs/no-open "path to desktop"
+               (cs/create-parms
+                :sheet_name "Content"
+                :table_list (cs/tables
+                             (cs/table :table_name "First Table",
+                                    :column_offset 1,
+                                    :row_offset 1,
+                                    :column_count 5,
+                                    :row_count 5,
+                                    :header_content ["Date","Region","Sales"])))
+               {:handler_list ["clasew_get_book_info","clasew_quit"] :arg_list [[],[]]}))
+
+;(p sample1a)
+;(def s1ar (es/clasew-excel-call! sample1a))
+;(p (first (:result s1ar)))
+
 ;; Handler Chaining - Create, put values, get first row, save, quit
 
 (def datum (into []
@@ -53,7 +71,7 @@
 
 (def sample3 (cs/clasew-script "clasew-ex4-sample2.xlsx"
       cs/no-create cs/open "path to desktop"  nil
-      (cs/clasew-handler [[:all-book-info]
+      (cs/clasew-handler [[:book-info]
                              [:quit]])))
 
 ;(p sample3)
@@ -150,12 +168,16 @@
 ;; Demo - Sheet manipulations
 
 (def sample7 (cs/create-wkbk "clasew-ex4-sample7.xlsx" wrkbk-path
-                           (cs/chain-add-sheet
-                            "Before Sheet1" :before "Sheet1"
-                            "After Before Sheet1" :after "Before Sheet1"
-                            "The End" :at :end
-                            "The Beginning" :at :beginning
-                            "Also Before Sheet1" :at 4)
+                             (cs/chain-add-sheet
+                              "Before Sheet1" :before "Sheet1"
+                              "After Before Sheet1" :after "Before Sheet1"
+                              "The End" :at :end
+                              (cs/tables
+                               (cs/table :table_name "First Table",
+                                         :row_count 5,
+                                         :column_count 5))
+                              "The Beginning" :at :beginning
+                              "Also Before Sheet1" :at 4)
                              [:save-quit]))
 
 

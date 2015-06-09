@@ -107,9 +107,31 @@ script safe_caller_nunb
 		return wkbk_created
 	end create_wkbk
 
+	on set_sheet_tables(t_sheet, t_list)
+		if (count of t_list) > 0 then
+			tell application "Numbers"
+				tell t_sheet
+					delete every table
+					repeat with atable in t_list
+						make new table with properties ¬
+							{name:table_name of atable,¬
+              row count:row_count of atable, column count:column_count of atable, ¬
+              header row count:header_row_count of atable, ¬
+              header column count:header_column_count of atable}
+            if (count header_content of atable) > 0 then
+              my clasew_put_range_data({name,header_range of atable,¬
+                          {header_content of atable}, table_name of atable})
+            end if
+					end repeat
+				end tell
+			end tell
+		end if
+	end set_sheet_tables
+
 	on create_wkbk_withparms(create_args)
-		local wkbk_created, t_name
+		local wkbk_created, t_name, t_list
 		set t_name to template_name of create_args
+		set t_list to table_list of create_args
 		set wkbk_created to true
 		set fqn to (POSIX file wkbkPath & wkbkName) as text
 		try
@@ -117,15 +139,7 @@ script safe_caller_nunb
 				set wkbkObj to make new document with properties {document template:template t_name}
 				tell wkbkObj
 					set name of sheet 1 to sheet_name of create_args
-					tell sheet 1
-						delete every table
-						make new table with properties ¬
-							{name: table_name of create_args, ¬
-              row count:row_count of create_args, ¬
-              column count:column_count of create_args,¬
-              header row count:header_row_count of create_args, ¬
-              header column count:header_column_count of create_args}
-					end tell
+					my set_sheet_tables(sheet 1, t_list)
 				end tell
 				save wkbkObj in file fqn
 				my wkbk_loaded()
@@ -146,7 +160,7 @@ script safe_caller_nunb
 			property create_parms : myprops
 			return create_wkbk_withparms(create_parms)
 		end script
-		if count of myprops is 0 then
+		if (count of myprops) is 0 then
 			return old_create
 		else
 			return new_create
@@ -314,17 +328,18 @@ script safe_caller_nunb
 		end if
 		tell application "Numbers"
 			set f_info to (info for (get file of myBook))
-			log f_info
 			set res to {book_name:name of myBook, fqn:displayed name of f_info, book_sheets:{}}
 			repeat with sheetz in (get every sheet of myBook)
 				set s_info to {sheet_name:(get name of sheetz), sheet_tables:{}}
 				repeat with tablez in (get every table of sheetz)
 					set end of sheet_tables of s_info to ¬
-						{table_name:name of tablez, table_range:name of cell range of tablez, used_range:null, header_columns:header column count of tablez, header_rows:header row count of tablez}
+						{table_name:name of tablez, table_range:name of cell range of tablez,¬
+            used_range:null, header_columns:header column count of tablez, ¬
+            header_rows:header row count of tablez}
 				end repeat
 				set end of book_sheets of res to s_info
 			end repeat
-			return res
+			return {get_book_info:res}
 		end tell
 	end clasew_get_book_info
 
@@ -345,12 +360,12 @@ script safe_caller_nunb
 	(* clasew_get_range_info returns information about a range in curent workbook specific sheet *)
 
 	on valid_range(arguments)
-		local sheetname, my_range, range_str, sheetz, tablez
-		set sheetname to item 1 of arguments
+		local sheet_name, my_range, range_str, sheetz, tablez
+		set sheet_name to item 1 of arguments
 		set range_str to item 2 of arguments
 		try
 			tell application "Numbers"
-				set sheetz to sheet sheetname of wkbkObj
+				set sheetz to sheet sheet_name of wkbkObj
 				if (count of arguments) < 3 then
 					set tablez to first table of sheetz
 				else
@@ -361,36 +376,44 @@ script safe_caller_nunb
 				end tell
 			end tell
 			return tablez
-		on error
+		on error errMsg
+      set end of scpt_res to name of errMsg
 			return null
 		end try
 	end valid_range
 
 	on get_range_values(tablez, str_range, val_else_form)
-		local my_range, r_list, varg, acc, x_list
+		local my_range, r_list, varg, x_list
 		set r_list to {}
-		set acc to 1
 		tell application "Numbers"
 			if tablez is not equal to null then
 				tell tablez
+          local i_list, i_row, i_val
 					set my_range to range str_range
 
+          -- Get the whole range as a list of lists
+
 					if val_else_form then
-						set x_list to value of every cell in my_range as list
+            set x_list to value of cells of every row of my_range
 					else
-						set x_list to formula of every cell in my_range as list
+            set x_list to formula of cells of every row of my_range
 					end if
-					repeat with r_r from 1 to (count of rows of my_range)
-						local i_list
-						set i_list to {}
-						repeat with r_c from 1 to (count of columns of my_range)
-							if item acc of x_list = missing value then
-								set end of i_list to ""
-							else
-								set end of i_list to item acc of x_list
-							end if
-							set acc to acc + 1
-						end repeat
+
+          -- For each row of data
+					repeat with r_r from 1 to (count of x_list)
+            set i_row to item r_r of x_list
+	  				set i_list to {}
+
+            -- For each value in row
+            -- Check for missing value and replace with empty string
+            repeat with cv in i_row
+              set i_val to cv as text
+              if i_val = "missing value" then
+                set end of i_list to ""
+              else
+                set end of i_list to i_val
+              end if
+            end repeat
 						set end of r_list to i_list
 					end repeat
 					return r_list
@@ -399,7 +422,7 @@ script safe_caller_nunb
 				return str_range & " is outside range of table"
 			end if
 		end tell
-	end get_range_data
+	end get_range_values
 
 	on clasew_get_range_info(arguments)
 		local sheetname, myRes, my_range, range_str, sheetz, tablez, varg
@@ -464,7 +487,7 @@ script safe_caller_nunb
 		set value_list to item 3 of arguments
 		set varg to {sheetname, str_range}
 		if (count of arguments) > 3 then set end of varg to item 4 of arguments
-    set tablez to my valid_range(varg)
+		set tablez to my valid_range(varg)
 		if tablez is not null then
 			tell application "Numbers"
 				set sheetz to sheet sheetname of wkbkObj
@@ -545,7 +568,7 @@ script safe_caller_nunb
 					delay 0.1
 					-- copy the containers
 					keystroke "c" using {command down}
-  				delay 0.1
+					delay 0.1
 				end tell
 
 				set current_copy to make new sheet with properties {name:tempSheetCopyName}
@@ -564,7 +587,6 @@ script safe_caller_nunb
 				set active sheet to current_first
 				set new_sheet to make new sheet with properties my_props
 
-				delay 0.1
 				set active sheet to new_sheet
 
 				-- Delete the original
@@ -579,37 +601,34 @@ script safe_caller_nunb
 	end new_first_sheet
 
 	on clasew_add_sheet(arguments)
-		local my_name, my_position, my_relative, new_sheet
+		local my_name, my_position, my_relative, made_sheet, t_list
 		tell application "Numbers"
 			repeat with foo in arguments
 				set my_name to new_sheet of foo
 				set my_position to target of foo
 				set my_relative to relative_to of foo
+				set t_list to table_list of foo
 				tell wkbkObj
 					if my_position is -1 then -- Get location of named sheet as active then create the sheet before it
 						my new_first_sheet(my_relative, {name:my_name})
-						set new_sheet to sheet my_name
+						set made_sheet to sheet my_name
 						-- move new_sheet to ???
 					else if my_position is 1 then -- Get location of named sheet as active then create the sheet after it
 						set active sheet to sheet my_relative
-						set new_sheet to make new sheet with properties {name:my_name}
+						set made_sheet to make new sheet with properties {name:my_name}
 					else if my_position is 0 then
 						if my_relative is 0 then -- Make new sheet the first one
 							my new_first_sheet(get name of sheet 1, {name:my_name})
-							set new_sheet to sheet 1
+							set made_sheet to sheet 1
 						else if my_relative is -1 then -- Make the new sheet the last one
 							set active sheet to sheet (count of sheets)
-							set new_sheet to make new sheet with properties {name:my_name}
+							set made_sheet to make new sheet with properties {name:my_name}
 						else
 							set active sheet to sheet (my get_before_sheet(my_relative - 1))
-							set new_sheet to make new sheet with properties {name:my_name}
+							set made_sheet to make new sheet with properties {name:my_name}
 						end if
 					end if
-					tell new_sheet
-						delete every table
-						make new table
-					end tell
-
+					my set_sheet_tables(made_sheet, t_list)
 				end tell
 			end repeat
 			return {clasewl_add_sheet:name of wkbkObj's sheets}

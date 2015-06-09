@@ -38,6 +38,7 @@ All files located [here](dev/src/clasew)
 3. [Example 3](dev/src/clasew/examples3.clj) - Demonstrates separate argument bindings
 4. [Example 4](dev/src/clasew/examples4.clj) - Demonstrates clasew-spreads and clasew-excel DSL
 5. [Example 5](dev/src/clasew/examples5.clj) - Demonstrates clasew-spreads and clasew-numbers DSL
+6. [Quarterly Sales Contrived Snippet](dev/src/clasew/quarters.clj) - Demonstrates a more realistic use for Excel and/or Numbers
 
 My dev environment:
 

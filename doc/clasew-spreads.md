@@ -49,24 +49,70 @@ The output of calling this is a map that gets set to the ```:arguments ...``` op
 </table>
 
 #####clasew-script creation parameters (cprm) keys
-This parameter of ```clasew.spreads/clasew-script``` can be *nil* or a map of pre-defined creation parameters. If you are going to use this capability, the keys and values should be defined. If the corresponding technology behavior ignores the key, then the value may be set to nil.
+This parameter of ```clasew.spreads/clasew-script``` can be *nil* or a map produced by the ```create-parms, tables and table```functions. If you are going to create your own parameters and forego the supplied functions, you must ensure that map keys are strings. If a technology does not use a particular keyword, it's value can be set to nil.
 
-The following table describes the keys (strings) and, descriptions and behavior of Numbers and Excel:
+#####create-parms
+The table below describes the function arguments keywords, values, default substitutions and spreadsheet technology behaviors.
 
 <table>
-<tr><th>Keys</th><th>Description</th><th>Excel Behavior</th><th>Numbers Behavior</th><tr>
-<tr><td>"template_name"</td><td>A string containing the name of the template to base initial format/style of the new workbook</td><td>ignored</td><td>Creates the new workbook based on template name, if template is found</td></tr>
-<tr><td>"sheet_name"</td><td>A string containing the name of the initial sheet of the new workbook</td><td>Sets name of first sheet of the new workbook</td><td>Sets name of first sheet of the new workbook</td></tr>
-<tr><td>"table_name"</td><td>A string containing the name of the table on the first sheet of the new workbook</td><td>ignored</td><td>Creates a table with name on the first sheet of the new workbook</td></tr>
-<tr><td>"row_count"</td><td>An integer to set the number of rows</td><td>ignored</td><td>Creates thew new table with the number of rows specified</td></tr>
-<tr><td>"column_count"</td><td>An integer to set the number of columns</td><td>ignored</td><td>Creates thew new table with the number of columns specified</td></tr>
-<tr><td>"header_row_count"</td><td>An integer to set the number of rows to mark as header rows</td><td>ignored</td><td>Creates thew new table with the header rows set to the number of rows specified</td></tr>
-<tr><td>"header_column_count"</td><td>An integer to set the number of columns to mark as header columns</td><td>ignored</td><td>Creates thew new table with the header columns set to the number of columns specified</td></tr>
+<tr><th>Keys</th><th>Value</th><th>Default</th><th>Excel Behavior</th><th>Numbers Behavior</th><tr>
+<tr><td>:template_name</td><td>A string containing the name of the template to base initial format/style of the new workbook</td><td>"Blank"</td><td>ignored</td><td>Creates the new workbook based on template name, if template is found</td></tr>
+<tr><td>:sheet_name</td><td>A string containing the name of the initial sheet of the new workbook</td><td>"Sheet 1"</td><td>Sets name of first sheet of the new workbook</td><td>same as Excel</td></tr>
+<tr><td>:table_list</td><td>A vector of table definition maps. *See descriptions of ```tables and table``` functions below.*</td><td>[]</td><td>Creates one or more tables on the first sheet of the new workbook</td><td>same as Excel</td></tr>
 </table>
 
-*The ```create-wkbk``` function simpifies the inclusion of cprm and is recommended unless you need  the fine grained control of ```clasew-script```. See the description of ```create-wkbk```later in this document.*
+#####tables
+The ```tables``` consumes and reduces 1 or more ```table``` definition maps and readies for usage in the AppleScript creation of workbook or additions of sheets.
 
-Here is a REPL ready example and resulting output (**not using cprm**):
+```clojure
+(defn tables
+  "Collects and reduces table definitions to vector"
+  [& table-defs]
+```
+
+#####table
+The ```table``` function produces a coherent table definition for table creation on spreadsheets. The result is ready to be consumed by the ```tables``` reduction function (see above). Table definitions are applicable to workbook and sheet creation. The following descripes the function argument keywords, value description, default substitutions and spreadsheet technology behaviors.
+
+<table>
+<tr><th>Keys</th><th>Value</th><th>Default</th><th>Excel Behavior</th><th>Numbers Behavior</th><tr>
+<tr><td>:table_name</td><td>A string containing the name to set the new table to</td><td>"Table 1"</td><td>Creates the table with the name supplied</td><td>same as Excel</td></tr>
+<tr><td>:column_offset</td><td>Table starting column offset in sheet</td><td>0</td><td>Used in  range string production</td><td>ignored</td></tr>
+<tr><td>:row_offset</td><td>Table starting row offset in sheet</td><td>0</td><td>Used in range string production</td><td>ignored</td></tr>
+<tr><td>:column_count</td><td>Total column count inclusive of headers when setting up table.</td><td>10</td><td>Sets the number of columns for the new table</td><td>same as Excel</td></tr>
+<tr><td>:row_count</td><td>Total row count inclusive of headers when setting up table.</td><td>10</td><td>Sets the number of columns for the new table</td><td>same as Excel</td></tr>
+<tr><td>:header_column_count</td><td>Sets the number of header columns for the new table</td><td>0</td><td>ignored</td><td>Sets template contrast or default color for number of columns indicated</td></tr>
+<tr><td>:header_row_count</td><td>Sets the number of header rows for the new table</td><td>0</td><td>ignored</td><td>Sets contrast template or default color for number of rows indicated</td></tr>
+<tr><td>:header_content</td><td>A vector of strings containing the column header names</td><td>[]</td><td>Fills the top of the column (header) names in the table range</td><td>same as Excel</td></tr>
+</table>
+
+Here is the usage of ```tables and table``` in the context of ```create-parms```:
+```clojure
+
+(cs/create-parms
+  :sheet_name "Content"
+  :table_list
+  (cs/tables (cs/table :table_name "First Table",
+          :column_offset 1,
+          :row_offset 1,
+          :column_count 5,
+          :row_count 5,
+          :header_content ["Date","Region","Sales"])))
+```
+Usage of ```tables and table``` is also applicable with ```chain-add-sheet```:
+```clojure
+
+(cs/chain-add-sheet
+  "Before Content" :before "Content"
+  (cs/tables (cs/table :table_name "Second Table",
+          :column_offset 1,
+          :row_offset 1,
+          :column_count 5,
+          :row_count 5,
+          :header_content ["Date","Region","Sales"])))
+```
+
+
+Here is a REPL ready example and resulting output **not using cprm**:
 ```clojure
 (ns clasew.sample
   (:require [clasew.spreads :as cs]
@@ -96,6 +142,18 @@ Here is a REPL ready example and resulting output (**not using cprm**):
  "handler_list" ["clasew_save_and_quit"],
  "arg_list" [[]]}
 
+;;;
+;;; Demonstrate same for creating a new Numbers workbook and save to desktop
+;;; The only difference is in the file name extensions
+;;;
+
+(cs/clasew-script "clasew-ex5-sample1.numbers"
+      cs/create cs/no-open "path to desktop" nil
+      {:handler_list ["clasew_save_and_quit"] :arg_list [[]]})
+
+```
+Here is a REPL ready example and resulting output **using cprm**:
+```clojure
 ;;; Using create parameters
 
 (p (cs/clasew-script "clasew-ex5-sample1.xlsx"
@@ -124,16 +182,8 @@ Here is a REPL ready example and resulting output (**not using cprm**):
  "handler_list" ["clasew_save_and_quit"],
  "arg_list" [[]]}
 
-;;;
-;;; Demonstrate same for creating a new Numbers workbook and save to desktop
-;;; The only difference is in the file name extensions
-;;;
 
-(cs/clasew-script "clasew-ex5-sample1.numbers"
-      cs/create cs/no-open "path to desktop" nil
-      {:handler_list ["clasew_save_and_quit"] :arg_list [[]]})
-
-;;; Using create parameters
+;;; Numbers using create parameters
 
 (cs/clasew-script "clasew-ex5-sample1.numbers"
       cs/create cs/no-open "path to desktop"
@@ -348,7 +398,7 @@ The following table (volatile and subject to change) describes each handler-iden
 clasew is not trying to realize every possible AppleScript application command. To that end, the intent is to provide the most common constructs in idiomatic clojure way. So in order to take advantage of the main script and the functions that clasew does provide, the ```clasew_run``` option provides the means to execute any additional/arbitrary AppleScript.
 
 At a minimum, when using this handler, the script string passed into clasew must be in the form of:
-```
+```clojure
 -- Before the script is executed, clasew prepares the two arguments
 -- as input to this script
 -- caller is the calling script object (i.e. clasew-excel.applescript)
@@ -517,7 +567,7 @@ This function will auto-caculate the range signature (e.g. "A1:J10") from the di
 
 ```
 #####chain-get-range-data
-This function will supports specifying zero based range and offset coordinates.
+This function supports specifying zero based range and offset coordinates.
 ```clojure
 (defn chain-get-range-data
   "Sets up a chain for getting a data range from workbook's sheet-name
@@ -537,14 +587,38 @@ This function will supports specifying zero based range and offset coordinates.
 ;; (cs/chain-get-range-data "Sheet1" 3 0 2 2) => C1:E3
 
 ```
+#####chain-get-range-formulas
+This function supports specifying zero based range and offset coordinates.
+```clojure
+(defn chain-get-range-formulas
+  "Sets up a chain for getting the formulas in range from workbook's sheet-name
+  sheet-name - the name of the sheet to get the formulas from
+  start-col offset column for formulas 0 = A
+  start-row offset row for formulas 0 = 1
+  for-col number of columns to retrieve
+  for-row number of rows to retrieve"
+
+  [sheet-name start-col start-row for-col for-row]
+  (...))
+
+;; Examples
+;;
+;; (cs/chain-get-range-formulas "Sheet1" 0 0) => A1
+;; (cs/chain-get-range-formulas "Sheet1" 0 0 1 1) => A1:B2
+;; (cs/chain-get-range-formulas "Sheet1" 3 0 2 2) => C1:E3
+
+```
+
 #####chain-add-sheet
+As noted earlier, ```chain-add-sheet``` supports table creations as well
 ```clojure
 (defn chain-add-sheet
   "Adds new sheets to current workbook
   directives - collection of expressions where each expression is in the form
     new_sheet (string)
     target    (keyword)
-    relative_to (keyword | positive number)'
+    relative_to (keyword | positive number)
+    table_list vector of table definitions
   where target is one of:
     :before - insert this new sheet before sheet-name
     :after  - insert this new sheeet after sheet-name
@@ -558,13 +632,27 @@ This function will supports specifying zero based range and offset coordinates.
   (...))
 
 ; Example
-(def sample7 (cs/create-wkbk wrkbk-name wrkbk-path
+(def sample7 (cs/create-wkbk "clasew-ex4-sample7.xlsx" wrkbk-path
               (cs/chain-add-sheet
               "Before Sheet1"       :before  "Sheet1"
               "After Before Sheet1" :after   "Before Sheet1"
               "The End"             :at      :end
               "The Beginning"       :at      :beginning
               "Also Before Sheet1"  :at      4)
+              [:save-quit]))
+
+; Example with table creation as well
+(def sample7 (cs/create-wkbk "clasew-ex4-sample7.xlsx" wrkbk-path
+              (cs/chain-add-sheet
+              "First Add"          :after   "Sheet1"
+              "Before First Add"   :before  "First Add"
+              "The End"            :at      :end
+                (cs/tables
+                  (cs/table :table_name "First Table",
+                  :row_count 5,
+                  :column_count 5))
+              "The Beginning"      :at     :beginning
+              "Towards last"       :at     5)
               [:save-quit]))
 
 

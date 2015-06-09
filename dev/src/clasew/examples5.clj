@@ -23,16 +23,17 @@
 ;(p sample1)
 ;(p (an/clasew-numbers-call! sample1))
 
-(def sample1a (cs/clasew-script "clasew-ex5-sample1.numbers"
-      cs/create cs/no-open "path to desktop"
-      {"template_name" "Blank",
-       "sheet_name" "Home",
-       "table_name" "Info Table",
-       "row_count" 10,
-       "column_count" 10,
-       "header_row_count" 0,
-       "header_column_count" 0}
-      {:handler_list ["clasew_save_and_quit"] :arg_list [[]]}))
+(def sample1a (cs/clasew-script
+               "clasew-ex5-sample1a.numbers"
+               cs/create cs/no-open "path to desktop"
+               (cs/create-parms
+                :sheet_name "FY15"
+                :table_list (cs/tables
+                             (cs/table :table_name "Q1 - Sales & Returns",
+                                    :column_count 8,
+                                    :row_count 10,
+                                    :header_content ["Region","Sales", "Returns"])))
+               {:handler_list ["clasew_get_book_info","clasew_quit"] :arg_list [[],[]]}))
 
 ;(p sample1a)
 ;(p (an/clasew-numbers-call! sample1a))
@@ -67,7 +68,7 @@
 
 (def sample3 (cs/clasew-script "clasew-ex5-sample2.numbers"
       cs/no-create cs/open "path to desktop" nil
-      (cs/clasew-handler [[:all-book-info]
+      (cs/clasew-handler [[:book-info]
                              [:quit]])))
 
 ; (p sample3)
@@ -102,17 +103,6 @@
 ; (p sample5)
 ; (p (an/clasew-numbers-call! sample5))
 ; (def s5r (an/clasew-numbers-call! sample5))
-
-(def sample5cpm (cs/create-wkbk wrkbk-name wrkbk-path
-                      {:sheet_name "Sheet1"}
-                       (cs/chain-put-range-data "Sheet1" datum)
-                       [:save-quit]))
-
-
-(p sample5cpm)
-; (p (an/clasew-numbers-call! sample5cpm))
-
-;(p (cs/chain-put-range-data "Sheet 1" datum))
 
 ;; Demo misc forms
 
@@ -179,15 +169,18 @@
                            (cs/chain-add-sheet
                             "First Add" :after "Sheet 1"
                             "Before First Add" :before "First Add"
-                            "The End" :at :end
+                            "The End" :at :end (cs/tables
+                             (cs/table :table_name "First Table",
+                                    :row_count 5,
+                                    :column_count 5))
                             "The Beginning" :at :beginning
                             "Towards last" :at 5)
                              [:save-quit]))
 
 
-(p sample7)
+; (p sample7)
 
-(p (cs/clean-result (an/clasew-numbers-call! sample7)))
+; (p (cs/clean-result (an/clasew-numbers-call! sample7)))
 
 (def sample8 (cs/open-wkbk "clasew-ex5-sample7.numbers" wrkbk-path
                  (cs/chain-delete-sheet "Sheet 1")))
