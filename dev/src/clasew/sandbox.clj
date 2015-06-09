@@ -3,7 +3,7 @@
       :doc "spike space"}
   clasew.sandbox
   (:require [clojure.pprint :refer :all]
-            [clojure.string :as s])
+            [clojure.set :as set])
   )
 
 ;; Demonstrate record coercion

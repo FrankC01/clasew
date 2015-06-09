@@ -1,10 +1,9 @@
 (ns
   ^{:author "Frank V. Castellucci"
-      :doc "Clojure AppleScriptEngine Wrapper - Excel DSL"}
-  clasew.excel
+      :doc "Clojure AppleScriptEngine Wrapper - Apple's Numbers DSL"}
+  clasew.numbers
   (:require [clasew.core :as as]
             [clojure.java.io :as io]))
-
 
 ;; Setup our own engine
 
@@ -15,9 +14,9 @@
 ;; Low level DSL functions ----------------------------------------------------
 ;;
 
-(def ^:private scrptfile (io/resource "clasew-excel.applescript"))
+(def ^:private scrptfile (io/resource "clasew-numbers.applescript"))
 
-(defn clasew-excel-call!
+(defn clasew-numbers-call!
   "Takes 1 or more maps produced from clasew-script and invokes AppleScript
   for execution.
   Return map is same as clasew.core/run-ascript!"

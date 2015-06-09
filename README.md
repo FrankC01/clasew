@@ -19,9 +19,12 @@ Consists of the clasew.core namespace. Contains the raw functions for interactin
 Consists of clasew.*appname* namespaces where ***appname*** is collection of idiomatic functions specific to a scriptable application.
 
 ###Documentation
-+ [Change Log](CHANGES.md)
-+ [Foundation Introduction](doc/intro.md) - Recommended first read
-+ [Excel DSL](doc/clasew-excel.md)
+
+1. [Change Log](CHANGES.md)
+2. [Foundation Introduction](doc/intro.md) - Recommended first read
+3. [Generic spreadsheet DSL](doc/clasew-spreads.md)
+4. [Numbers DSL](doc/clasew-numbers.md)
+5. [Excel DSL](doc/clasew-excel.md)
 
 ##Examples
 
@@ -30,7 +33,9 @@ All files located [here](dev/src/clasew)
 1. [Example 1](dev/src/clasew/examples1.clj) - Demonstrates standard 'tell' calls
 2. [Example 2](dev/src/clasew/examples2.clj) - Demonstrates handlers and argument passing
 3. [Example 3](dev/src/clasew/examples3.clj) - Demonstrates separate argument bindings
-4. [Example 4](dev/src/clasew/examples4.clj) - Demonstrates clasew-excel DSL
+4. [Example 4](dev/src/clasew/examples4.clj) - Demonstrates clasew-spreads and clasew-excel DSL
+5. [Example 5](dev/src/clasew/examples5.clj) - Demonstrates clasew-spreads and clasew-numbers DSL
+6. [Quarterly Sales Contrived Snippet](dev/src/clasew/quarters.clj) - Demonstrates a more realistic use for Excel and/or Numbers
 
 My dev environment:
 
