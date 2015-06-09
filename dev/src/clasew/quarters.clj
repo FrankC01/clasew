@@ -1,6 +1,6 @@
 (ns
   ^{:author "Frank V. Castellucci"
-      :doc "clasew example 5 - Apple Numbers Examples"}
+      :doc "clasew quarters - A contrived example"}
   clasew.quarters
   (:require [clasew.spreads :as cs]
             [clasew.numbers :as an]
@@ -186,8 +186,8 @@
                        [:save-quit]))
 
 ;; Execute table creations
-;(p quarters-excel)
-(p (excel! quarters-excel))
+
+;(p (excel! quarters-excel))
 ;(p (numbers! quarters-numbers))
 
 ;;;
@@ -205,11 +205,12 @@
                      [:save-quit]))
 
 ;; Execute YTD formula creations
+
 ;(p (excel! formulas-excel))
 ;(p (numbers! formulas-numbers))
 
 ;;;
-;;; Script definitions for populating Q tables with data
+;;; Script definitions for populating Q tables with data and getting totals
 ;;;
 
 (def dataQs-excel (cs/open-wkbk
@@ -231,5 +232,6 @@
                      [:save-quit]))
 
 ;; Execute quarter population and YTD results
+
 ;(p (excel! dataQs-excel))
 ;(p (numbers! dataQs-numbers))

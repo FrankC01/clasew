@@ -19,15 +19,12 @@ Consists of the clasew.core namespace. Contains the raw functions for interactin
 Consists of clasew.*appname* namespaces where ***appname*** is collection of idiomatic functions specific to a scriptable application.
 
 ###Documentation
-<ol>
-<li>[Change Log](CHANGES.md)
-<li>[Foundation Introduction](doc/intro.md) - Recommended first read
-<li>[Generic spreadsheet DSL](doc/clasew-spreads.md)
-<ul>
-<li>[Numbers DSL](doc/clasew-numbers.md)
-<li>[Excel DSL](doc/clasew-excel.md)
-</ul>
-</ol>
+
+1. [Change Log](CHANGES.md)
+2. [Foundation Introduction](doc/intro.md) - Recommended first read
+3. [Generic spreadsheet DSL](doc/clasew-spreads.md)
+4. [Numbers DSL](doc/clasew-numbers.md)
+5. [Excel DSL](doc/clasew-excel.md)
 
 ##Examples
 
