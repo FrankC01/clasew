@@ -3,9 +3,13 @@
       :doc "spike space"}
   clasew.sandbox
   (:require [clojure.pprint :refer :all]
-            [clojure.set :as set])
+            [clasew.identities :as ident]
+            [clasew.contacts :as cont])
   )
 
 ;; Demonstrate record coercion
 (def p pprint)
 
+
+
+(println (cont/get-individuals (cont/get-address)))
