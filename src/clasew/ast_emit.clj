@@ -6,9 +6,16 @@
             [clojure.java.io :as io]
             [clojure.walk :as w]))
 
-;;;
-;;; AST Emitters
-;;;
+;;
+;; Hack
+;;
+
+(def lookaside
+  {:addresses :address_list})
+
+;;
+;; AST Emitters
+;;
 
 (defn locals
   [& vals]
@@ -28,8 +35,8 @@
   (fn [] (into [target :map] srcs)))
 
 (defn set-map-set
-  [target & srcs]
-  (fn [] (into [target :map-set] srcs)))
+  [mapset-fn target & srcs]
+  (fn [] (into [target :map-set mapset-fn] srcs)))
 
 (defn set-map-extend
   [localmap targetkey targetlist]
@@ -92,38 +99,77 @@
                        (repeat-ast x)))))))
 
 (defn- primary-sets-ast
-  [mymap myloop setters]
+  ""
+  [mymap myloop setters setlu-fn]
   (loop [x (first setters)
          r (rest setters)
          a (vector (apply set-map mymap (seq setters)))]
     (if (nil? x)
       (apply sets a)
-      (recur (first r) (rest r) (conj a (set-map-set x mymap x myloop))))))
+      (recur (first r) (rest r) (conj a (set-map-set setlu-fn x mymap x myloop))))))
+
+(defn extract-primary-sets
+  [{:keys [instance sub-setters setters map-name mapset-fn] :as crs}]
+  (let [ps (vector (primary-sets-ast map-name instance setters mapset-fn))
+        ss (conj ps (map #(primary-sets-ast
+                           (:map-name %)
+                           instance
+                           (:setters %)
+                           (:mapset-fn %)) sub-setters))]
+  (flatten ss)))
+
+(defn extract-primary-results
+  "Creates the set end of or map extend results for sub-setters"
+  [{:keys [map-name sub-setters] :as crs}]
+  (let [lr (map #(set-list-end (:result-list %) (:map-name %) ) sub-setters)
+        fs (filter #(not (nil? (:result-map %))) sub-setters)
+        mr (reduce #(conj %1 (set-map-extend
+                              map-name
+                              (get lookaside (:result-map %2))
+                              (:result-list %2))) (vector lr) fs)]
+    (apply sets (flatten mr)))
+  )
 
 (defn- secondary-sets-ast
+  ""
   [{:keys [result-list map-name nesters]}]
   (let [fs (set-list-end result-list map-name)
         res (reduce #(conj %1 (set-map-extend map-name
-                                      (first (:target %2))
+                                      (get lookaside (first (:target %2)) (first (:target %2)))
                                       (:result-list %2)
                                       ))
             (list fs) nesters)]
     (apply sets res))
   )
 
-(defn- get-glocals
-  [nesters]
-  (map #(:global-locals %) nesters))
+(defn collect-locals
+  "Mapcat function that recurses through tree pulling all
+  :global-locals declarations"
+  [[k v]]
+  (if (or (= k :sub-setters) (= k :nesters))
+    (if (seq? v)
+      (for [x v
+            y (mapcat collect-locals x)]
+        y)
+      (mapcat collect-locals v))
+    (if (= k :global-locals)
+      v
+      nil))
+  )
 
-(defn- nester-locals
-  [nesters]
-  (let [gl (first (get-glocals nesters))]
-    (if (nil? gl)
+
+(defn- extract-locals
+  "Extracts the symbol(s) designated for the local(s)
+  and returns the locals-fn"
+  [crs]
+  (let [x (map first (mapcat collect-locals crs))]
+    (if (empty? x)
       nil
-      (apply locals (reduce #(conj %1 (first %2)) '() gl)))))
+      (apply locals x))))
 
 
-(defn- nester-set-reduction
+(defn- local-set-reduction
+  ""
   [acc [f k & a]]
   (conj acc
         (cond
@@ -131,30 +177,45 @@
          (= k :map)  (set-map f a))))
 
 
-(defn- nester-locals-set
-  [nesters]
-  (let [gl (filter #(> (count %) 1) (first (get-glocals nesters)))]
-    (if (empty? gl)
+(defn- extract-local-sets
+  "Extracts the set of type to the locals and includes
+  in a set-fn"
+  [crs]
+  (let [x (mapcat collect-locals crs)]
+    (if (empty? x)
       nil
-      (apply sets (reduce nester-set-reduction '() gl)))))
+      (apply sets (reduce local-set-reduction '() x)))))
+
+;; Extract for:
+;; global-locals (i.e. local x, y , z) for immediate/sub-setters
+;; initializing locals (i.e. set x to {}) for immediate/sub-setters
+;; set or set map (i.e. set x of y to z) for immediate/sub-setters
+;; result assignments (i.e. set x to end of y) sub-setters
+;; map extension (i.e. set x to x & {foo:bar} sub-setters
+
+(defn primary-setup
+  [crs]
+    (flatten
+     (filter #(not (nil? %))
+             [(extract-locals crs)
+              (extract-local-sets crs)
+              (extract-primary-sets crs)
+              (extract-primary-results crs)])))
 
 (defn repeat-ast
-  [{:keys [instance target nesters setters map-name
+  "Top level repeat block emitter"
+  [{:keys [instance sub-setters target nesters setters map-name
            result-list result-map] :as crs}]
-  (let [nst (extend-nesters :target instance
+  (let [nested (extend-nesters :target instance
                             (set-nesters :result-map  map-name nesters))
-        crs1 (assoc-in crs [:nesters] nst)
+        crs1 (assoc-in crs [:nesters] nested)
         ; Repeat fn
         rh   (repeat-head instance (first target) (rest target))
-        ; local fn for nesteds
-        gl   (nester-locals nst)
-        ; sets fn - sets for nested locals
-        gs   (nester-locals-set nst)
-        ; sets fn before nesters
-        ps (primary-sets-ast map-name instance setters)
+        ; Initial 'sets' and other data manip
+        head (primary-setup crs1)
         ; sets fn post nesters
         ss (secondary-sets-ast crs1)
         block (sequence-args
-               (flatten (filter #(not (nil? %)) [ps gl gs nst ss])))]
+               (flatten (filter #(not (nil? %)) [head nested ss])))]
     (repeater rh (apply do-block block))
     ))

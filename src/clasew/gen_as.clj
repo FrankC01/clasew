@@ -8,33 +8,37 @@
 
 
 (def identities
-  {:suffix       "suffix",
-   :name         "name",
-   :first_name   "first name",
-   :middle_name, "middle name",
-   :last_name    "last name",
-   :company      "organization",
-   :title        "job title",
-   :department   "department",
-   :addresses    "addresses",
-   :city         "city",
-   :street       "street"
+  {:name_suffix          "suffix",
+   :full_name            "name",           ; display name in outlook
+   :first_name           "first name",
+   :middle_name,         "middle name",
+   :last_name            "last name",
+   :primary_company      "organization",   ; company in outlook
+   :primary_title        "job title",
+   :primary_department   "department",
+   :city_name            "city",           ; home xxx and business xxx in outlook
+   :street_name          "street",         ; home xxx and business xxx in outlook
+   :zip_code             "zip",            ; home xxx and business xxx in outlook
+   :country_name         "country",        ; home xxx and business xxx in outlook
+   :state_name           "state"           ; home xxx and business xxx in outlook
     })
 
 (def null ":null")
 
 (def identities-v
-  {:suffix       null,
-   :name         null,
-   :first_name   null,
-   :middle_name, null,
-   :last_name    null,
-   :company      null,
-   :title        null,
-   :department   null,
-   :addresses    ":{}"
-   :city         null,
-   :street       null
+  {:name_suffix          null,
+   :full_name            null,
+   :first_name           null,
+   :middle_name,         null,
+   :last_name            null,
+   :primary_company      null,
+   :primary_title        null,
+   :primary_department   null,
+   :city_name           null,
+   :street_name         null,
+   :zip_code            null,
+   :country_name        null,
+   :state_name          null
     })
 
 (defn gen-map
@@ -48,11 +52,13 @@
 ;;;
 
 (defn- map-set-handler
-  [lhs & [[lhsc rhs & [rhsc]]]]
-  (str (name lhs)
+  "Generates a 'set lhs of lhsc to rhs of rhsc'"
+  [lhs & [[mapset-fn  lhsc rhs & [rhsc]]]]
+  (let [z (or mapset-fn (partial get identities))]
+    (str (name lhs)
            " of " (name lhsc)
-           " to " (name (get identities rhs :bad_error))
-           (if rhsc (str " of " (name rhsc)) "")))
+           (str " to my cleanval(" (name (z rhs))
+             (if rhsc (str " of " (name rhsc)) "") ")"))))
 
 (defn- map-extend-handler
   [lhs [rhk rhv]]
