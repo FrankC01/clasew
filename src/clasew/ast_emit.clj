@@ -26,9 +26,24 @@
   [targ source]
   (fn [] [targ source]))
 
+(defn set-properties-of
+  [targ source]
+  (fn [] [targ :properties-of source]))
+
 (defn set-list-end
   [lid vid]
   (fn [] [lid :end-of-list vid]))
+
+(defn set-filter-on
+  "Creates the filtering construct
+  filters : instance of clasew.identities/repeat-filters
+  mnfn : name lookup mapping function"
+  [filters mnfn]
+  (fn [] [(:control-field filters)
+          :filters
+          (first (:control-target filters))
+          (:user-filter filters)
+          mnfn]))
 
 (defn set-map
   [target & srcs]
@@ -52,7 +67,10 @@
 
 (defn reduce-expr
   [acc expressions]
-  (reduce #(update-in %1 [1] conj (%2)) acc expressions))
+  (let [fltr nil]
+  (reduce #(if (nil? %2)
+             %1
+             (update-in %1 [1] conj (%2))) acc expressions)))
 
 (defn sets
   [& expressions]
@@ -109,11 +127,12 @@
       (recur (first r) (rest r) (conj a (set-map-set setlu-fn x mymap x myloop))))))
 
 (defn extract-primary-sets
-  [{:keys [instance sub-setters setters map-name mapset-fn] :as crs}]
-  (let [ps (vector (primary-sets-ast map-name instance setters mapset-fn))
+  [{:keys [instance instance-flt sub-setters setters map-name mapset-fn]}]
+  (let [ps (vector (primary-sets-ast map-name (or instance-flt instance)
+                                     setters mapset-fn))
         ss (conj ps (map #(primary-sets-ast
                            (:map-name %)
-                           instance
+                           (or instance-flt instance)
                            (:setters %)
                            (:mapset-fn %)) sub-setters))]
   (flatten ss)))
@@ -174,7 +193,8 @@
   (conj acc
         (cond
          (= k :list) (set-assign f k)
-         (= k :map)  (set-map f a))))
+         (= k :map)  (set-map f a)
+         (= k :properties) (set-properties-of f a))))
 
 
 (defn- extract-local-sets
@@ -204,7 +224,7 @@
 
 (defn repeat-ast
   "Top level repeat block emitter"
-  [{:keys [instance sub-setters target nesters setters map-name
+  [{:keys [instance instance-flt sub-setters target nesters setters map-name
            result-list result-map] :as crs}]
   (let [nested (extend-nesters :target instance
                             (set-nesters :result-map  map-name nesters))
@@ -217,5 +237,21 @@
         ss (secondary-sets-ast crs1)
         block (sequence-args
                (flatten (filter #(not (nil? %)) [head nested ss])))]
-    (repeater rh (apply do-block block))
-    ))
+    (repeater rh (apply do-block block))))
+
+(defn preprocess-locals
+  "Processes any pre-process assertions if present for
+  local declarations"
+  [cstruct]
+  (if (nil? (:filters cstruct))
+    nil
+    (locals (:control-field (:filters cstruct)))))
+
+(defn preprocess-filters
+  "Processes any pre-procession assertions if present for
+  creating the executable filtering setter"
+  [cstruct]
+  (if (nil? (:filters cstruct))
+    nil
+    (sets (set-filter-on (:filters cstruct)
+                         (:mapset-fn cstruct)))))

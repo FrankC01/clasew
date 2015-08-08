@@ -1,3 +1,13 @@
+(*
+tell application "Contacts"
+	set peeps to people whose (first name contains "Frank")
+	repeat with mid in peeps
+		set lprop to (get properties of mid)
+		log (first name of lprop)
+	end repeat
+end tell
+*)
+
 script safe_caller
 	property args : null
 	property scpt_res : {}

@@ -1,3 +1,4 @@
+
 script safe_caller
 	property args : null
 	property scpt_res : {}

@@ -7,22 +7,6 @@
             [clojure.walk :as w]))
 
 
-(def identities
-  {:name_suffix          "suffix",
-   :full_name            "name",           ; display name in outlook
-   :first_name           "first name",
-   :middle_name,         "middle name",
-   :last_name            "last name",
-   :primary_company      "organization",   ; company in outlook
-   :primary_title        "job title",
-   :primary_department   "department",
-   :city_name            "city",           ; home xxx and business xxx in outlook
-   :street_name          "street",         ; home xxx and business xxx in outlook
-   :zip_code             "zip",            ; home xxx and business xxx in outlook
-   :country_name         "country",        ; home xxx and business xxx in outlook
-   :state_name           "state"           ; home xxx and business xxx in outlook
-    })
-
 (def null ":null")
 
 (def identities-v
@@ -41,7 +25,7 @@
    :state_name          null
     })
 
-(defn gen-map
+(defn- gen-map
   [kws]
   (str "{"
   (apply str (interpose ","
@@ -54,15 +38,34 @@
 (defn- map-set-handler
   "Generates a 'set lhs of lhsc to rhs of rhsc'"
   [lhs & [[mapset-fn  lhsc rhs & [rhsc]]]]
-  (let [z (or mapset-fn (partial get identities))]
-    (str (name lhs)
-           " of " (name lhsc)
-           (str " to my cleanval(" (name (z rhs))
-             (if rhsc (str " of " (name rhsc)) "") ")"))))
+  (str (name lhs)
+       " of " (name lhsc)
+       (str " to my cleanval(" (name (mapset-fn rhs))
+            (if rhsc (str " of " (name rhsc)) "") ")")))
 
 (defn- map-extend-handler
   [lhs [rhk rhv]]
   (str (name lhs) " to " (name lhs) " & {" (name rhk) ":"(name rhv)"}"))
+
+(defn properties-set-handler
+  [lhs [[rhs]]]
+  (str (name lhs) " to properties of " (name rhs)))
+
+(defn filter-reduce
+  "Converts filter map to individual search criteria. Multiple are
+  conjoined (e.g. and'ed)"
+  [filter-map mpnm-fn]
+  (apply str
+         (interpose " and "
+                    (reduce-kv
+                     #(conj %1 (str (mpnm-fn %2) " contains " \" %3 \"))
+                     []
+                     filter-map))))
+
+(defn filter-set-handler
+  [lhs [rhs rhm mpnm-fn]]
+  (let [d (filter-reduce rhm mpnm-fn)]
+  (str (name lhs) " to " (name rhs) " whose (" d ")")))
 
 (defn- repeat-head-handler
   [[item & [oftarget]]]
@@ -70,13 +73,15 @@
 
 (def ^:private as-ast-handlers
   {
-   :list         "{}"
-   :map          #(str (name %1) " to " (gen-map %2))
-   :map-set      map-set-handler
-   :map-extend   map-extend-handler
-   :end-of-list  #(str "end of " (name %1) " to " (name (first %2)))
-   :in           repeat-head-handler
-   :from         #(name %2)
+   :list           "{}"
+   :map            #(str (name %1) " to " (gen-map %2))
+   :map-set        map-set-handler
+   :map-extend     map-extend-handler
+   :properties-of  properties-set-handler
+   :filters        filter-set-handler
+   :end-of-list    #(str "end of " (name %1) " to " (name (first %2)))
+   :in             repeat-head-handler
+   :from           #(name %2)
    })
 
 

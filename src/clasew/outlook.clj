@@ -11,7 +11,7 @@
 (def ^:private scrpteval (io/resource "clasew-outlook.applescript"))
 (def ^:private scrptcore (io/resource "clasew-core.applescript"))
 
-(def identities-outlook
+(def ^:private identities-outlook
   {:name_suffix          "suffix",
    :full_name            "display name",           ; display name in outlook
    :first_name           "first name",
@@ -28,7 +28,7 @@
     })
 
 
-(def outlook-home-address
+(def ^:private outlook-home-address
   {
    :zip_code         "home zip",
    :city_name        "home city",
@@ -37,7 +37,7 @@
    :state_name       "home state"
    })
 
-(def outlook-business-address
+(def ^:private outlook-business-address
   {
    :zip_code         "business zip",
    :city_name        "business city",
@@ -46,22 +46,40 @@
    :state_name       "business state"
    })
 
-(defn outlook-mapset-core
+(defn- outlook-mapset-core
   [term-kw]
   (term-kw identities-outlook :bad_error))
 
-(defn outlook-mapset-home
+(defn- outlook-mapset-home
   [term-kw]
   (term-kw outlook-home-address :bad_error))
 
-(defn outlook-mapset-business
+(defn- outlook-mapset-business
   [term-kw]
   (term-kw outlook-business-address :bad_error))
 
-(defn setup-addys
+(defn- setup-addys
   [imap]
   (reduce-kv #(assoc %1 %2 (if (= %3 :gen) (keyword (gensym)) %3))
              {} imap ))
+
+;; Ability to specify a pre-filter to the repeat
+;; in essence, the result of the filter is what should be
+;; iterated upon
+
+(defn gen-cstruct-filter
+  [base-map flt-map]
+  (if (empty? (first flt-map))
+    base-map
+    (let [flt   (assoc ident/repeat-filters :user-filter (first flt-map))
+          fltg  (assoc (reduce ident/genpass flt flt) :control-target (:target base-map))]
+      (merge base-map {:instance (:loop-field fltg)
+                       :filters fltg
+                       :instance-flt (:prop-field fltg)
+                       :target [(:control-field fltg)]
+                       :global-locals [[(:prop-field fltg) :properties (:loop-field fltg) ]]
+                       })
+      )))
 
 (defn gen-cstruct-individuals
   "MS Outlook people extract AST generation.
@@ -74,10 +92,15 @@
      (ident/merge-repeat-cstruct {:map-name :indy
                                   :setters svec
                                   :target [:contacts]
-                                  :mapset-fn outlook-mapset-core}))
-   ))
+                                  :mapset-fn outlook-mapset-core})))
+   ([svec flt-map]
+    (let [base (if (empty? svec)
+                 (gen-cstruct-individuals)
+                 (gen-cstruct-individuals svec))]
+      (gen-cstruct-filter base flt-map)
+      )))
 
-(defn gen-cstruct-addresses
+(defn- gen-cstruct-addresses
   "Microsoft Outlook address extract AST generation.
   no-args : creates prepares for retriving all standard fields
   svec : a vector of keys to extract from record type"
@@ -110,7 +133,11 @@
 (defn individuals
   [& args]
   (let [va (reduce #(conj %1 (reduce-addendum %2)) [] (filter vector? args))
-        sa (gen-cstruct-individuals(into [] (filter #(= (vector? %) false) args)))
+        flt (filter map? args)
+        sa (gen-cstruct-individuals
+            (into [] (filter #(and (= (vector? %) false)
+                                   (= (map? %) false)) args))
+            flt)
         sv (assoc sa :sub-setters (first va))
         sc (ident/genscript (ident/emit-ast :outlook sv))]
   (with-open [rdr (io/reader scrptcore)]

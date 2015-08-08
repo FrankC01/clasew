@@ -5,7 +5,7 @@
   (:require [clasew.utility :as util]
             [clasew.ast-emit :as aste]
             [clasew.gen-as :as gen]
-            [clojure.java.io :as io]
+            ;[clojure.java.io :as io]
             [clojure.walk :as w]))
 
 
@@ -36,12 +36,16 @@
 
 (def address-standard address-attrs)
 
-;;
-;; EXPERIMENTAL - EXPR->AST->AS emit/gen
-;;
+;;;
+;;; EXPERIMENTAL - EXPR->AST->AS emit/gen
+;;;
+
+;; Core repeat controls
 
 (def repeat-controls
-  {:instance       :gen    ; The first part 'repeat with instance ...' | :gen
+  {:filters        nil     ; If present, alters the repeat instance
+   :instance       :gen    ; The first part 'repeat with instance ...' | :gen
+   :instance-flt   nil     ; Set when filtering is managing the loop
    :target         nil     ; The second 'repeat with instance in target'
    :global-locals  nil     ; List of tokens with initialization instructions
    :setters        nil     ; List of setters to construct my map
@@ -49,18 +53,30 @@
    :map-name       :gen    ; Name of map used to collect from setters | :gen
    :mapset-fn      nil
    :result-list    :gen    ; If the map results are put end of list
-   :result-map     nil     ; If the map results are put in list and extends a map
-   :nesters        nil     ; List of nested cstruct chunks
+   :result-map     nil     ; If  map results are put in list and extends a map
+   :nesters        nil     ; List of nested cstruct chunks (optional)
    })
 
+;; Additional setter blocks (optional)
+
 (def repeat-subsetters
-  {
-   :setters       nil
+  {:setters       nil
    :map-name      :gen
    :mapset-fn     nil
    :result-list   :gen
    :result-map    nil
    :global-locals nil
+   })
+
+;; Filter control - is merge/extended with user field filters
+;; Modifies associated repeat controls as needed
+
+(def repeat-filters
+  {:control-target  nil    ; Set to target object type (e.g. contacts/people)
+   :control-field   :gen   ; Receipient of the 'whose' query (local and set)
+   :loop-field      :gen   ; Same as repeat instance for intermmediate looping
+   :prop-field      :gen   ; Property of loop-field instance, the meat
+   :user-filter     nil    ; Placeholder for filterable keys/values map
    })
 
 (defn genpass
@@ -97,13 +113,14 @@
   (let [result    (keyword (gensym "res"))
         ast       (assoc-in (produce-ast target-app) [:returns] result)
         lcls      (aste/locals result)
+        plcls     (aste/preprocess-locals repeat-ast-struct)
         sts       (aste/sets (aste/set-assign result :list))
+        psts      (aste/preprocess-filters repeat-ast-struct)
         rpts      (aste/repeat-ast
                    (assoc-in repeat-ast-struct [:result-list] result))
-        outr      (aste/do-block lcls sts rpts)
+        outr      (aste/do-block lcls sts plcls psts rpts)
         ]
-    (conj ast (outr))
-    ))
+    (conj ast (outr))))
 
 (defn genscript
   "Generate the AppleScript from the passed in AST"
@@ -124,8 +141,7 @@
   "Takes N handler vectors [:handler_map_key argument(s)] and produces
   a vector of maps converted"
   [& handlers]
-  (reduce reduce-chandler [] handlers)
-  )
+  (reduce reduce-chandler [] handlers))
 
 ;;
 ;; High level DSL functions ---------------------------------------------------
