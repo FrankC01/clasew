@@ -11,7 +11,7 @@
 (def ^:private scrpteval (io/resource "clasew-outlook.applescript"))
 (def ^:private scrptcore (io/resource "clasew-core.applescript"))
 
-(def ^:private identities-outlook
+(def ^:private outlook-identities
   {:name_suffix          "suffix",
    :full_name            "display name",           ; display name in outlook
    :first_name           "first name",
@@ -25,8 +25,8 @@
    :zip_code             "zip",            ; home xxx and business xxx in outlook
    :country_name         "country",        ; home xxx and business xxx in outlook
    :state_name           "state"           ; home xxx and business xxx in outlook
+   :contacts             "contacts"
     })
-
 
 (def ^:private outlook-home-address
   {
@@ -46,9 +46,15 @@
    :state_name       "business state"
    })
 
+(def ^:private outlook-emails
+  {
+   :emails          "email addresses"
+   :email_address   "address"
+   })
+
 (defn- outlook-mapset-core
   [term-kw]
-  (term-kw identities-outlook :bad_error))
+  (get outlook-identities term-kw term-kw))
 
 (defn- outlook-mapset-home
   [term-kw]
@@ -57,6 +63,10 @@
 (defn- outlook-mapset-business
   [term-kw]
   (term-kw outlook-business-address :bad_error))
+
+(defn- outloook-mapset-emails
+  [term-kw]
+  (term-kw outlook-emails :bad_error))
 
 (defn- setup-addys
   [imap]
@@ -119,30 +129,45 @@
                  :result-map :addresses))
                ))))
 
-(defn addresses
-  "Adds ability to retrieve standard address elements or those
-  identified in collection"
-  ([] [:addresses ident/address-standard])
-  ([& col] [:addresses (into [] col)]))
+(defn- gen-cstruct-emails
+  ([] (gen-cstruct-emails (into [] ident/email-standard)))
+  ([svec]
+   (if (empty? svec)
+     (gen-cstruct-emails)
+     (ident/merge-repeat-cstruct {:setters svec
+                                :result-list :elist
+                                :global-locals [[:elist :list]]
+                                :target [:emails]
+                                :mapset-fn outloook-mapset-emails})
+     )))
 
 (defn- reduce-addendum
   [[v args]]
   (cond
-   (= v :addresses) (gen-cstruct-addresses args)))
+   (= v :addresses) (gen-cstruct-addresses args)
+   (= v :emails) (gen-cstruct-emails args)))
+
+(def ^:private split-nested #(and (vector? %1) (= (first %1) :emails)))
+(def ^:private split-subset #(and (vector? %1) (= (first %1) :addresses)))
+
+(defn split-up
+  "Separates the nester types from subsetter types"
+  [args]
+  [(reduce #(conj %1 (reduce-addendum %2)) [] (filter split-nested args))
+   (reduce #(conj %1 (reduce-addendum %2)) [] (filter split-subset args))])
 
 (defn individuals
+  "EXPERIMENTAL: Entry point to setup for ast-emit"
   [& args]
-  (let [va (reduce #(conj %1 (reduce-addendum %2)) [] (filter vector? args))
-        flt (filter map? args)
+  (let [[nst ssp] (split-up args)
         sa (gen-cstruct-individuals
             (into [] (filter #(and (= (vector? %) false)
                                    (= (map? %) false)) args))
-            flt)
-        sv (assoc sa :sub-setters (first va))
+            (filter map? args))
+        sv (assoc (assoc sa :sub-setters  (first ssp)) :nesters nst)
         sc (ident/genscript (ident/emit-ast :outlook sv))]
-  (with-open [rdr (io/reader scrptcore)]
-    [:run-script (str (slurp rdr) sc)])
-    ))
+    (with-open [rdr (io/reader scrptcore)]
+      [:run-script (str (slurp rdr) sc)])))
 
 (defn clasew-contacts-call!
   "Takes 1 or more maps produced from XXX and invokes AppleScript

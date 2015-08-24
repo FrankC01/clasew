@@ -22,7 +22,9 @@
    :street_name         null,
    :zip_code            null,
    :country_name        null,
-   :state_name          null
+   :state_name          null,
+   :email_address      null,
+   :email_type         null
     })
 
 (defn- gen-map
@@ -68,8 +70,10 @@
   (str (name lhs) " to " (name rhs) " whose (" d ")")))
 
 (defn- repeat-head-handler
-  [[item & [oftarget]]]
-  (str " in " (name item) (if oftarget (str " of " (name oftarget)) "")))
+  [map-fn [item & [oftarget]]]
+  (str " in (get " (name (map-fn item))
+       (if oftarget (str " of " (name oftarget)) "")
+       ")"))
 
 (def ^:private as-ast-handlers
   {
@@ -87,6 +91,7 @@
 
 (defn- assignment
   [[lhs assign & rhs]]
+  ;(println "LHS = " lhs " assign = " assign " RHS = " rhs)
   (let [r (get as-ast-handlers assign :not-found)]
   (str "set "
        (cond
@@ -119,8 +124,8 @@
        (apply str (interpose "," (map #(name (first %)) ldefs))))))
 
 (defn- repeat-header
-  [[base infor & targs]]
-  (str "repeat with " (name base) ((infor as-ast-handlers) targs)))
+  [[mapset-fn base infor & targs]]
+  (str "repeat with " (name base) ((infor as-ast-handlers) mapset-fn targs)))
 
 (declare block-dispatch)
 

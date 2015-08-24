@@ -11,10 +11,12 @@
 ;;
 
 (def lookaside
-  {:addresses :address_list})
+  {:addresses :address_list
+   :emails :email_list}
+  )
 
 ;;
-;; AST Emitters
+;; AST Emitters - Old version
 ;;
 
 (defn locals
@@ -59,11 +61,11 @@
     [localmap :map-extend targetkey targetlist]))
 
 (defn repeat-head
-  [iter base & [source]]
+  [iter base mapset-fn & [source]]
   (fn rh-fns []
     (if (or (= (count source) 0))
-      [:repeat [[iter :in base]]]
-      [:repeat [(into [iter :in base] source)]])))
+      [:repeat [[mapset-fn iter :in base]]]
+      [:repeat [(into [mapset-fn iter :in base] source)]])))
 
 (defn reduce-expr
   [acc expressions]
@@ -114,7 +116,7 @@
       (recur (first y) (rest y)
              (conj a (if (fn? x)
                        x
-                       (repeat-ast x)))))))
+                       (repeat-ast x true)))))))
 
 (defn- primary-sets-ast
   ""
@@ -214,25 +216,25 @@
 ;; map extension (i.e. set x to x & {foo:bar} sub-setters
 
 (defn primary-setup
-  [crs]
+  [crs inbase]
     (flatten
      (filter #(not (nil? %))
-             [(extract-locals crs)
-              (extract-local-sets crs)
+             [(if inbase (extract-locals crs))
+              (if inbase (extract-local-sets crs))
               (extract-primary-sets crs)
               (extract-primary-results crs)])))
 
 (defn repeat-ast
   "Top level repeat block emitter"
   [{:keys [instance instance-flt sub-setters target nesters setters map-name
-           result-list result-map] :as crs}]
-  (let [nested (extend-nesters :target instance
+           mapset-fn result-list result-map] :as crs} & [lvl]]
+  (let [nested (extend-nesters :target (or instance-flt instance)
                             (set-nesters :result-map  map-name nesters))
         crs1 (assoc-in crs [:nesters] nested)
         ; Repeat fn
-        rh   (repeat-head instance (first target) (rest target))
+        rh   (repeat-head instance (first target) mapset-fn (rest target))
         ; Initial 'sets' and other data manip
-        head (primary-setup crs1)
+        head (primary-setup crs1 (nil? lvl))
         ; sets fn post nesters
         ss (secondary-sets-ast crs1)
         block (sequence-args
@@ -255,3 +257,219 @@
     nil
     (sets (set-filter-on (:filters cstruct)
                          (:mapset-fn cstruct)))))
+
+;;;
+;;;   AST Model - New Version
+;;;
+
+(defn mapset-none
+  [term-kw]
+  term-kw)
+
+(def ^:private generic-predicate "If predicate expression"
+  {
+   :E   " equal "
+   :NE  " not equal "
+   :GT  " greater than "
+   :LT  " less than "
+   :missing "missing value"
+   })
+
+(defn mapset-expressions
+  [term-kw]
+  (get generic-predicate term-kw term-kw))
+
+(defn reduce-gen
+  [dmap]
+  (reduce-kv #(assoc %1 %2 (if (= %3 :gen) (keyword (gensym)) %3)) dmap dmap))
+
+(defn do-tell
+  "Sets up the enclosing tell application construct"
+  [token-fn target returns & expressions]
+  {:type :do-tell
+   :token-fn token-fn
+   :target target
+   :return returns
+   :expressions expressions})
+
+
+(defn do-routine
+  "Setup the routine (in AS this is a handler)"
+  [token-fn rname parameters & expressions]
+  {:type :do-routine
+   :token-fn token-fn
+   :routine-name rname
+   :parameters parameters
+   :expressions expressions})
+
+(defn do-if-then
+  "Setup if statement"
+  [token-fn value pred operand & then-expressions]
+  {:type :do-ifthen
+   :token-fn token-fn
+   :test-value value
+   :predicate pred
+   :operand operand
+   :expressions then-expressions})
+
+(defn do-if-else
+  "Set else statements"
+  [token-fn & else-expressions]
+  {:type :do-ifelse
+   :token-fn token-fn
+   :expressions else-expressions})
+
+(defn do-return
+  [token-fn retval]
+  {:type :do-return
+   :token-fn token-fn
+   :return-val retval})
+
+
+(defn do-block
+  "Primary container of expressions - does not emit"
+  [token-fn & expressions]
+  {:type :do-block
+   :token-fn token-fn
+   :expressions expressions})
+
+(defn do-blockf
+  "Primary container of expressions - does not emit"
+  [token-fn expressions]
+  {:type :do-block
+   :token-fn token-fn
+   :expressions expressions})
+
+(defn do-setlocal
+  "Sets any locals described - emits 'local x,y,z'"
+  [token-fn & terms]
+  {:type :do-setlocal
+   :token-fn token-fn
+   :local-terms terms})
+
+
+(defn do-setassign
+  [token-fn target source]
+  {:type :do-setassign
+   :token-fn token-fn
+   :setvalue target
+   :setvalue-of source})
+
+
+(defn do-setmap
+  "Sets a map to mapvars - emits 'set target to {mv1: null, mvN:null}'"
+  [token-fn target mapvars]
+  {:type :do-setmap
+   :token-fn token-fn
+   :set target
+   :set-to mapvars})
+
+
+(defn do-setpropertiesof
+  "Sets a variable to the properties of a class"
+  [token-fn value properties-of]
+  {:type :do-setpropertiesof
+   :token-fn token-fn
+   :value value
+   :properties-of properties-of})
+
+(defn do-setfilter
+  "Set a variable to the result of a filter 'whose' statement"
+  [token-fn value source source-of user-filter]
+  {:type :do-setfilter
+   :token-fn token-fn
+   :source source       ; e.g. contacts/people
+   :source-of source-of ;
+   :value value         ; what var are we setting result to
+   :user-filter user-filter})
+
+
+(defn do-setvalueof
+  "Sets a value from another value"
+  [token-fn value from apply-function]
+  {:type :do-setvalueof
+   :token-fn token-fn
+   :value value
+   :from from
+   :apply-function apply-function})
+
+
+(defn do-setmapextent
+  "Sets a value from another value"
+  [token-fn targetmap keyw value]
+  {:type :do-setmapextent
+   :token-fn token-fn
+   :target-map targetmap
+   :value value
+   :keywrd keyw})
+
+(defn do-setmapvalue
+  "Sets a value of key in map"
+  [token-fn ofmap mapval to-expression]
+  {:type :do-setmapvalue
+   :token-fn token-fn
+   :mapvalue mapval
+   :ofmap ofmap
+   :to to-expression})
+
+(defn do-setlist
+  "Sets target to a list type - emits 'set target to {}'"
+  [token-fn target]
+  {:type :do-setlist
+   :token-fn token-fn
+   :set target})
+
+(defn do-setlist-end
+  "Sets the end of target list to source - emits 'set end of target to source'"
+  [token-fn target source]
+  {:type :do-setlist-end
+   :token-fn token-fn
+   :set target
+   :to source})
+
+(defn do-repeat
+  "Creates a repeat block - emits 'repeat with itervar in source'"
+  [token-fn itervar source sourceof & repeat-expressions]
+  {:type :do-repeat
+   :token-fn token-fn
+   :source source
+   :iteration-var itervar
+   :source-of sourceof
+   :expressions repeat-expressions})
+
+(defn do-repeatf
+  "Creates a repeat block - emits 'repeat with itervar in source'"
+  [token-fn itervar source sourceof repeat-expressions]
+  {:type :do-repeat
+   :token-fn token-fn
+   :source source
+   :iteration-var itervar
+   :source-of sourceof
+   :expressions repeat-expressions})
+
+(defn do-filtered-repeat
+  "Creates a filtering construct for repeating over"
+  [token-fn property-var user-filter source sourceof & repeat-expressions]
+  (reduce-gen {:type :do-filtered-repeat
+   :token-fn token-fn
+   :user-filter user-filter   ; user filter map
+   :filter-result :gen        ; put result of filter 'whose' set
+   :source source             ; target source object
+   :source-of sourceof        ; target source object owner (optional)
+   :iteration-var :gen        ; internal loop over filter-result
+   :property-var property-var ; target of get properties of iteration-var
+   :expressions repeat-expressions}))
+
+;;
+;; AST Functions
+;;
+
+(def cleanval "Takes an argument and test for 'missing value'. Returns value or null"
+  (do-routine
+   nil :cleanval :val
+   (do-setlocal nil :oval)
+   (do-setassign nil :oval :null)
+   (do-if-then mapset-expressions :val :NE :missing
+               (do-setassign nil :oval :val))
+   (do-return nil :oval)))
+

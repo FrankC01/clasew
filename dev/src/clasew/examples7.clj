@@ -44,7 +44,18 @@
 #_(def ol4 (ident/clasew-script
          (ident/get-identities
           (outl/individuals :full_name :primary_company
-                            {:first_name "Frank" :last_name "Castellucci"}))))
+                            {:first_name "Frank"}))))
 
 ;(println ol4)
 ;(p (time (outl/clasew-contacts-call! ol4)))
+
+#_(def ol5 (ident/clasew-script
+            (ident/get-identities
+             (outl/individuals :full_name :primary_company
+                               {:first_name "Frank"}
+                               (ident/addresses)
+                               (ident/emails)))
+            [:quit]))
+
+;(println ol5)
+;(p (time (outl/clasew-contacts-call! ol5)))

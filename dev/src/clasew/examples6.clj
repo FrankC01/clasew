@@ -23,8 +23,8 @@
 ;(p (time (cont/clasew-contacts-call! cs1)))
 
 
-#_(def cs2 (ident/clasew-script
-          (ident/get-identities (cont/individuals (cont/addresses)))
+;(def cs2 (ident/clasew-script
+          (ident/get-identities (cont/individuals-d (ident/addresses)))
           [:quit]))
 
 
@@ -34,7 +34,7 @@
 #_(def cs3 (ident/clasew-script
           (ident/get-identities
            (cont/individuals :full_name
-                             (cont/addresses :state_name)))
+                             (ident/addresses :state_name)))
             [:quit]))
 
 ;(println (p cs3))

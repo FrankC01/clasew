@@ -36,6 +36,11 @@
 
 (def address-standard address-attrs)
 
+(def ^:private email-attrs
+  #{:email_address})
+
+(def email-standard email-attrs)
+
 ;;;
 ;;; EXPERIMENTAL - EXPR->AST->AS emit/gen
 ;;;
@@ -126,6 +131,18 @@
   "Generate the AppleScript from the passed in AST"
   [ast]
   (gen/generate-script ast))
+
+(defn addresses
+  "Adds ability to retrieve standard address elements or those
+  identified in collection"
+  ([] [:addresses address-standard])
+  ([& col] [:addresses (into [] col)]))
+
+(defn emails
+  "Adds ability to retrieve standard address elements or those
+  identified in collection"
+  ([] [:emails email-standard])
+  ([& col] [:emails (into [] col)]))
 
 ;;
 ;; Low level DSL functions ----------------------------------------------------

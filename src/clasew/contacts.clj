@@ -11,7 +11,7 @@
 (def ^:private scrpteval (io/resource "clasew-contacts.applescript"))
 (def ^:private scrptcore (io/resource "clasew-core.applescript"))
 
-(def ^:private identities-contacts
+(def ^:private contacts-identities
   {:name_suffix          "suffix",
    :full_name            "name",           ; display name in outlook
    :first_name           "first name",
@@ -25,11 +25,24 @@
    :zip_code             "zip",            ; home xxx and business xxx in outlook
    :country_name         "country",        ; home xxx and business xxx in outlook
    :state_name           "state"           ; home xxx and business xxx in outlook
+   :people               "people"
+   :addresses            "addresses"
     })
+
+(def ^:private contacts-emails
+  {
+   :emails          "emails"
+   :email_address   "value"
+   })
 
 (defn- contacts-mapset-core
   [term-kw]
-  (term-kw identities-contacts :bad_error))
+  (get contacts-identities term-kw :bad_error))
+
+(defn- contacts-mapset-emails
+  [term-kw]
+  (get contacts-emails term-kw :bad_error))
+
 
 ;; Ability to specify a pre-filter to the repeat
 ;; in essence, the result of the filter is what should be
@@ -59,7 +72,7 @@
   ([svec]
    (if (empty? svec)
      (gen-cstruct-individuals)
-     (ident/merge-repeat-cstruct {:map-name :indy
+       (ident/merge-repeat-cstruct {:map-name :indy
                                   :setters svec
                                   :target [:people]
                                   :mapset-fn contacts-mapset-core})))
@@ -84,29 +97,49 @@
                                 :target [:addresses]
                                 :mapset-fn contacts-mapset-core}))))
 
+(defn- gen-cstruct-emails
+  "Apple's Contacts email extract AST generation.
+  no-args : creates prepares for retriving all standard fields
+  svec : a vector of keys to extract from record type"
+  ([] (gen-cstruct-addresses (into [] ident/email-standard)))
+  ([svec]
+   (if (empty? svec)
+     (gen-cstruct-addresses)
+     (ident/merge-repeat-cstruct {:setters svec
+                                :result-list :elist
+                                :global-locals [[:elist :list]]
+                                :target [:emails]
+                                :mapset-fn contacts-mapset-emails}))))
 
-(defn addresses
-  "Adds ability to retrieve standard address elements or those
-  identified in collection"
-  ([] [:addresses])
-  ([& col] (into [:addresses] col)))
 
 (defn- reduce-addendum
-  [[v & args]]
+  [[v args]]
   (cond
-   (= v :addresses) (gen-cstruct-addresses args)))
+   (= v :addresses) (gen-cstruct-addresses args)
+   (= v :emails) (gen-cstruct-emails args)))
+
+(def ^:private split-nested #(and (vector? %1) (or (= (first %1) :emails) (= (first %1) :addresses))))
+;(def ^:private split-subset #(and (vector? %1) (= (first %1) :addresses)))
+
+(defn split-up
+  "Separates the nester types from subsetter types"
+  [args]
+  [(reduce #(conj %1 (reduce-addendum %2)) [] (filter split-nested args))
+   ;(reduce #(conj %1 (reduce-addendum %2)) [] (filter split-subset args))
+   '(ni)
+   ])
+
 
 (defn individuals
+  "EXPERIMENTAL: Entry point to setup for ast-emit"
   [& args]
-  (let [va (reduce #(conj %1 (reduce-addendum %2))
-                   [] (filter vector? args))
-        flt (filter map? args)
+  (let [[nst ssp] (split-up args)
         sa (gen-cstruct-individuals
             (into [] (filter #(and (= (vector? %) false)
                                    (= (map? %) false)) args))
-            flt)
-        sc (ident/genscript (ident/emit-ast :contacts
-                    (assoc-in sa [:nesters] va)))]
+            (filter map? args))
+        sv (assoc (assoc sa :sub-setters  (first ssp)) :nesters nst)
+        sc (ident/genscript (ident/emit-ast :contacts sv))]
   (with-open [rdr (io/reader scrptcore)]
     [:run-script (str (slurp rdr) sc)])))
 
