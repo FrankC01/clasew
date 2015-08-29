@@ -28,7 +28,7 @@
 (def email-standard email-attrs)
 
 ;;
-;;
+;;  Script runner for indentities
 ;;
 
 (defn run-script!
@@ -55,10 +55,12 @@
    })
 
 (defn mapset-expressions
+  "Lookup to expression predicate"
   [term-kw]
   (get generic-predicate term-kw term-kw))
 
-(def cleanval "Takes an argument and test for 'missing value'. Returns value or null"
+(def cleanval "Takes an argument and test for 'missing value'.
+  Returns value or null"
   (ast/routine
    nil :cleanval :val
    (ast/define-locals nil :oval)
@@ -72,22 +74,36 @@
   "Given a list of vars, generate constructs to set a map value
   to a source value from another map"
   [token-fn mapvars targetmap sourcemap]
-  (reduce #(conj %1 (ast/record-value token-fn targetmap %2
-                                    (ast/value-of token-fn %2 sourcemap :cleanval)))
+  (reduce #(conj
+            %1
+            (ast/record-value token-fn targetmap %2
+                              (ast/value-of token-fn %2 sourcemap :cleanval)))
           [] mapvars))
 
 
 (defn quit
+  "Script to quit an application"
   [appkw]
   (genas/ast-consume (ast/tell nil appkw :results
                                (ast/define-locals nil :results)
                                (ast/define-list nil :results)
-                               (ast/extend-list nil :results "\"quit successful\"")
+                               (ast/extend-list nil :results
+                                                "\"quit successful\"")
                                (ast/quit))))
 
 ;;
 ;; High level DSL functions ---------------------------------------------------
 ;;
+
+(defn- address-filter
+  "Filter addresses vector from sequence"
+  [args]
+  (first (filter #(and (vector? %) (= (first %) :addresses)) args)))
+
+(defn- email-filter
+  "Filter emails vector from sequence"
+  [args]
+  (first (filter #(and (vector? %) (= (first %) :emails)) args)))
 
 (defn addresses
   "Adds ability to retrieve standard address elements or those
@@ -106,6 +122,6 @@
   (let [ia (filter keyword? args)]
     {:individuals (if (empty? ia) identity-standard ia)
      :filters     (first (filter map? args))
-     :emails      (first (filter #(and (vector? %) (= (first %) :emails)) args))
-     :addresses   (first (filter #(and (vector? %) (= (first %) :addresses)) args))
+     :emails      (email-filter args)
+     :addresses   (address-filter args)
      }))
