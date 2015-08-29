@@ -2,14 +2,11 @@
   ^{:author "Frank V. Castellucci"
       :doc "Clojure AppleScriptEngine Wrapper - Microsoft Outlook DSL"}
   clasew.outlook
-  (:require [clasew.core :as as]
-            [clasew.utility :as util]
-            [clasew.identities :as ident]
-            [clojure.java.io :as io]))
+  (:require [clasew.gen-as :as genas]
+            [clasew.ast-emit :as ast]
+            [clasew.identities :as ident]))
 
-(defonce ^:private local-eng as/new-eng)   ; Use engine for this namespace
-(def ^:private scrpteval (io/resource "clasew-outlook.applescript"))
-(def ^:private scrptcore (io/resource "clasew-core.applescript"))
+
 
 (def ^:private outlook-identities
   {:name_suffix          "suffix",
@@ -52,132 +49,140 @@
    :email_address   "address"
    })
 
-(defn- outlook-mapset-core
+(defn outlook-mapset-core
   [term-kw]
   (get outlook-identities term-kw term-kw))
 
-(defn- outlook-mapset-home
+(defn outlook-mapset-home
   [term-kw]
   (term-kw outlook-home-address :bad_error))
 
-(defn- outlook-mapset-business
+(defn outlook-mapset-business
   [term-kw]
   (term-kw outlook-business-address :bad_error))
 
-(defn- outloook-mapset-emails
+(defn outloook-mapset-emails
   [term-kw]
   (term-kw outlook-emails :bad_error))
 
-(defn- setup-addys
-  [imap]
-  (reduce-kv #(assoc %1 %2 (if (= %3 :gen) (keyword (gensym)) %3))
-             {} imap ))
+;; Outlook test structure
 
-;; Ability to specify a pre-filter to the repeat
-;; in essence, the result of the filter is what should be
-;; iterated upon
+#_(def t0 (ast/block
+         nil
+         ident/cleanval
+         (ast/tell nil :outlook :results
+                      (ast/define-locals nil :ident :results :cloop)
+                      (ast/define-list nil :results)
+                      (ast/filtered-repeat-loop
+                       outl/outlook-mapset-core
+                       :cloop
+                       {:first_name "Frank"}
+                       :contacts nil
+                       (ast/define-record nil :ident ident/identity-standard)
+                       (ast/blockf
+                        nil
+                        (conj
+                         (ident/setrecordvalues nil ident/identity-standard
+                                          :ident :cloop)
+                         ;; Address Management - Outlook
+                         (ast/define-locals nil :aloop :hadd :badd)
+                         (ast/define-list nil :aloop)
+                         (ast/define-record nil :hadd ident/address-standard)
+                         (ast/define-record nil :badd ident/address-standard)
 
-(defn gen-cstruct-filter
-  [base-map flt-map]
-  (if (empty? (first flt-map))
-    base-map
-    (let [flt   (assoc ident/repeat-filters :user-filter (first flt-map))
-          fltg  (assoc (reduce ident/genpass flt flt) :control-target (:target base-map))]
-      (merge base-map {:instance (:loop-field fltg)
-                       :filters fltg
-                       :instance-flt (:prop-field fltg)
-                       :target [(:control-field fltg)]
-                       :global-locals [[(:prop-field fltg) :properties (:loop-field fltg) ]]
-                       })
-      )))
+                         ;; Home address
+                         (ast/blockf
+                          nil
+                          (conj
+                           (ident/setrecordvalues
+                            outl/outlook-mapset-home
+                            ident/address-standard
+                            :hadd :cloop)
+                           (ast/extend-list nil :aloop :hadd)))
 
-(defn gen-cstruct-individuals
-  "MS Outlook people extract AST generation.
-  no-args : creates prepares for retriving all standard fields
-  svec : a vector of keys to extract from record type"
-  ([] (gen-cstruct-individuals (into [] ident/identity-standard)))
-  ([svec]
-   (if (empty? svec)
-     (gen-cstruct-individuals)
-     (ident/merge-repeat-cstruct {:map-name :indy
-                                  :setters svec
-                                  :target [:contacts]
-                                  :mapset-fn outlook-mapset-core})))
-   ([svec flt-map]
-    (let [base (if (empty? svec)
-                 (gen-cstruct-individuals)
-                 (gen-cstruct-individuals svec))]
-      (gen-cstruct-filter base flt-map)
-      )))
+                         ;; Business address
+                         (ast/blockf
+                          nil
+                          (conj
+                           (ident/setrecordvalues
+                            outl/outlook-mapset-business
+                            ident/address-standard
+                            :badd :cloop)
+                           (ast/extend-list nil :aloop :badd)))
+                         (ast/extend-record nil :ident :address_list :aloop)
+                         (ast/extend-list nil :results :ident)))))))
 
-(defn- gen-cstruct-addresses
-  "Microsoft Outlook address extract AST generation.
-  no-args : creates prepares for retriving all standard fields
-  svec : a vector of keys to extract from record type"
-  ([] (gen-cstruct-addresses (into [] ident/address-standard)))
-  ([svec]
-   (if (empty? svec)
-     (gen-cstruct-addresses)
-     (map setup-addys (list
-      (assoc (assoc ident/repeat-subsetters :mapset-fn outlook-mapset-home)
-                 :setters svec
-                 :global-locals [[:add_list :list]]
-                 :result-list :add_list)
-      (assoc (assoc ident/repeat-subsetters :mapset-fn outlook-mapset-business)
-                 :setters svec
-                 :result-list :add_list
-                 :result-map :addresses))
-               ))))
+;(p t0)
+;(println (time (genas/ast-consume t0)))
 
-(defn- gen-cstruct-emails
-  ([] (gen-cstruct-emails (into [] ident/email-standard)))
-  ([svec]
-   (if (empty? svec)
-     (gen-cstruct-emails)
-     (ident/merge-repeat-cstruct {:setters svec
-                                :result-list :elist
-                                :global-locals [[:elist :list]]
-                                :target [:emails]
-                                :mapset-fn outloook-mapset-emails})
-     )))
 
-(defn- reduce-addendum
-  [[v args]]
-  (cond
-   (= v :addresses) (gen-cstruct-addresses args)
-   (= v :emails) (gen-cstruct-emails args)))
+(defn builder
+  [fn & args]
+  (apply fn args))
 
-(def ^:private split-nested #(and (vector? %1) (= (first %1) :emails)))
-(def ^:private split-subset #(and (vector? %1) (= (first %1) :addresses)))
+(defn build-tell
+  [body]
+  (ast/tell nil :outlook :results
+               (ast/define-locals nil :results :cloop :ident)
+               (ast/define-list nil :results)
+               body))
 
-(defn split-up
-  "Separates the nester types from subsetter types"
-  [args]
-  [(reduce #(conj %1 (reduce-addendum %2)) [] (filter split-nested args))
-   (reduce #(conj %1 (reduce-addendum %2)) [] (filter split-subset args))])
 
-(defn individuals
-  "EXPERIMENTAL: Entry point to setup for ast-emit"
-  [& args]
-  (let [[nst ssp] (split-up args)
-        sa (gen-cstruct-individuals
-            (into [] (filter #(and (= (vector? %) false)
-                                   (= (map? %) false)) args))
-            (filter map? args))
-        sv (assoc (assoc sa :sub-setters  (first ssp)) :nesters nst)
-        sc (ident/genscript (ident/emit-ast :outlook sv))]
-    (with-open [rdr (io/reader scrptcore)]
-      [:run-script (str (slurp rdr) sc)])))
+(defn build-address
+  [tkey args]
+  (if (nil? args)
+    args
+    (ast/block
+     (ast/define-locals nil :aloop :hadd :badd)
+     (ast/define-list nil :aloop)
+     (ast/define-record nil :hadd args)
+     (ast/define-record nil :badd args)
 
-(defn clasew-contacts-call!
-  "Takes 1 or more maps produced from XXX and invokes AppleScript
-  for execution.
-  Return map is same as clasew.core/run-ascript!"
-  [& scripts]
-  {:pre [(> (count scripts) 0)]}
-  (let [argv (list (into [] scripts))]
-    (with-open [rdr (io/reader scrpteval)]
-      (util/clean-result (as/run-ascript! local-eng rdr
-                      :reset-binding true
-                      :bind-function "clasew_eval"
-                      :arguments argv)))))
+     ;; Home address
+     (ast/blockf
+      nil
+      (conj
+       (ident/setrecordvalues
+        outlook-mapset-home
+        args
+        :hadd tkey)
+       (ast/extend-list nil :aloop :hadd)))
+
+     ;; Business address
+     (ast/blockf
+      nil
+      (conj
+       (ident/setrecordvalues
+        outlook-mapset-business
+        args
+        :badd tkey)
+       (ast/extend-list nil :aloop :badd)))
+     (ast/extend-record nil :ident :address_list :aloop))))
+
+
+(defn build-individual
+  [args lkw addr filt]
+  (let [gets  (apply (partial ast/block nil)
+                     (filter #(not (nil? %))
+                             (conj (ident/setrecordvalues nil args :ident :cloop)
+                                   (if addr addr)
+                                   (ast/extend-list nil :results :ident))))]
+    (build-tell
+     (if (not-empty filt)
+       (ast/filtered-repeat-loop outlook-mapset-core lkw filt :contacts nil
+                               (ast/define-record nil :ident args)
+                               gets)
+       (ast/repeat-loop outlook-mapset-core lkw :contacts nil
+                      (ast/define-record nil :ident args)
+                      gets)))))
+
+
+(defn script
+  [{:keys [individuals filters emails addresses] :as directives}]
+  (genas/ast-consume (builder (partial ast/block nil) ident/cleanval
+                              (build-individual
+                               individuals :cloop
+                               (build-address :cloop (rest addresses))
+                               filters))))
+
+
