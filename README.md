@@ -7,7 +7,7 @@ A Clojure AppleScriptEngine Wrapper
 clasew provide an idiomatic clojure wrapper for Java ScriptManager, specifically AppleScriptManager,  and scriptable application DSLs for common usage.
 
 
-##Architecture 0.1.10
+##Architecture 0.2.0
 As per the Intent, the clasew architecture is very straight forward.
 
 <img style="float: " src="doc/clasew-arch.png" alt="clasew architecture" title="clasew architecture" height="400" width="600"/>
@@ -25,6 +25,7 @@ Consists of clasew.*appname* namespaces where ***appname*** is collection of idi
 3. [Generic spreadsheet DSL](doc/clasew-spreads.md)
 4. [Numbers DSL](doc/clasew-numbers.md)
 5. [Excel DSL](doc/clasew-excel.md)
+6. [Identities DSL](doc/clasew-identities.md)
 
 ##Examples
 
@@ -36,10 +37,13 @@ All files located [here](dev/src/clasew)
 4. [Example 4](dev/src/clasew/examples4.clj) - Demonstrates clasew-spreads and clasew-excel DSL
 5. [Example 5](dev/src/clasew/examples5.clj) - Demonstrates clasew-spreads and clasew-numbers DSL
 6. [Quarterly Sales Contrived Snippet](dev/src/clasew/quarters.clj) - Demonstrates a more realistic use for Excel and/or Numbers
+7. [Example 6](dev/src/clasew/examples6.clj) - Demonstracts clasew-identities and clasew-contacts DSL
+8. [Example 7](dev/src/clasew/examples7.clj) - Demonstracts clasew-identities and clasew-outlook DSL
 
 My dev environment:
 
-* Yosemite 10.10.3
+* Clojure 1.6
+* Yosemite 10.10.4
 * Oracle Java 1.8.0_31
 * Lighttable 0.72
 

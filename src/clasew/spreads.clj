@@ -2,8 +2,7 @@
   ^{:author "Frank V. Castellucci"
       :doc "Clojure AppleScriptEngine Wrapper - common Spreadsheet DSL"}
   clasew.spreads
-  (:require [clojure.java.io :as io]
-            [clojure.walk :as w]))
+  (:require [clasew.utility :as util]))
 
 ;; True/False strings for sending into AppleScript (converted in script)
 
@@ -14,7 +13,7 @@
 
 ;; Well know handler map
 
-(def handler-map
+(def ^:private handler-map
   {
    :get-range-info      "clasew_get_range_info"
 
@@ -53,32 +52,6 @@
 ;; Pure helpers
 ;;
 
-(def ^:private to-strings #(str (name %)))
-
-(defn modify-keys
-  "Uses zipmap to process 'f' on keys
-  Used for record types in scripts"
-  [f m]
-  (if (map? m)
-    (zipmap (map f (keys m)) (vals m))
-    m))
-
-(defn- ocm
-  "prewalk function takes output from AppleScript
-  converts to clojure types and, if map, swizzle string to keyword keys"
-  [item]
-  (if (instance? java.util.ArrayList item)
-    (into [] item)
-    (if (instance? java.util.HashMap item)
-      (modify-keys keyword (into {} item))
-      item)))
-
-
-(defn clean-result
-  "Iterates through the result vectors exchanging keywords for
-  strings in any maps"
-  [{:keys [result] :as return-map}]
-  (assoc return-map :result (w/prewalk ocm result)))
 
 (def ^:const ^:private base-divisor 26)          ; letters in ascii alphabet
 (def ^:const ^:private base-char 65)             ; "A"
@@ -146,24 +119,18 @@
   cprm     - Creation Parameter Map
   handler  - result from clasew-excel-handler call"
   [wkbk crf opf fqn cprm handlers]
-  (modify-keys #(str (name %))
+  (util/modify-keys #(str (name %))
                (merge {:work_book wkbk, :create_ifm crf
                        :open_ifm opf :fqn_path fqn
                        :create_parms (if (nil? cprm) {} cprm)
                        } (identity handlers))))
 
-(defn- handler-acc
-  "Accumulator function for hanlder setup reduce"
-  [acc [v1 & v2]]
-  (update-in (update-in acc [:handler_list] conj (or (get handler-map v1) v1))
-             [:arg_list] conj (if (nil? v2)
-                                []
-                                (if (vector? v2) v2 (into [] v2)))))
 (defn clasew-handler
   "Sets up the handler and argument lists
   chains - a collection of one or more chains"
   [chains]
-  (reduce handler-acc {:handler_list [] :arg_list []} chains))
+  (reduce #(util/handler-acc handler-map %1 %2)
+          {:handler_list [] :arg_list []} chains))
 
 ;; High level support
 
@@ -246,7 +213,7 @@
   "Basic reducing, place holder for future changes
   Drops row and column offsets used in table definitions"
   [acc target]
-  (conj acc (modify-keys to-strings
+  (conj acc (util/modify-keys util/to-strings
                          (dissoc target :row_offset :column_offset))))
 
 (defn tables

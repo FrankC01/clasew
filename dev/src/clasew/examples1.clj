@@ -32,7 +32,7 @@
 ;; Assumes:
 ;;   1. Use of the engine's default binding
 
-(p (as/run-ascript! local-eng hello-world))
+;(p (as/run-ascript! local-eng hello-world))
 
 ;; returns {:result {1651009908 "OK"}} or {:result {"not_ok" "Cancel"}}
 
@@ -41,7 +41,6 @@
 ;; Also useful when you have preceding calls from other scripts
 ;; run-ascript, in addition to :result, will contain any calling options
 
-(p (as/run-ascript local-eng hello-world
-                   :reset-binding true))
+;(p (as/run-ascript! local-eng hello-world :reset-binding true))
 
 ;; returns {:reset-binding true, :result {1651009908 "OK"}}
