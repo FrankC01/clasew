@@ -37,6 +37,8 @@
 ;;
 
 (defn run-script!
+  "Invokes the AppleScript interpreter passing one or more scripts
+  to be evaluated"
   [& scripts]
   {:pre [(> (count scripts) 0)]}
   (let [argv (vector (into [] scripts))]
@@ -75,7 +77,9 @@
    (ast/return nil :oval)))
 
 (defn quit
-  "Script to quit an application"
+  "Script to quit an application
+  appkw - keyword (:outlook or :contacts) identies the application
+  to shut down"
   [appkw]
   (genas/ast-consume (ast/tell nil appkw :results
                                (ast/define-locals nil :results)
@@ -86,8 +90,8 @@
 
 
 (defn setrecordvalues
-  "Given a list of vars, generate constructs to set a map value
-  to a source value from another map"
+  "Given a list of vars, generate constructs to set a Applescript record value
+  from a source value found in another record"
   [token-fn mapvars targetmap sourcemap]
   (reduce #(conj
             %1
