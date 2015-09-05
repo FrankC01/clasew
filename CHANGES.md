@@ -5,7 +5,7 @@ clasew: A Clojure AppleScriptEngine Wrapper
 ## 0.2.0
 This release includes a few minor breaking changes to clasew.
 ### Enhancements
-With this release we have added support for MS Outlook and Apple Contacts applications. Some refactoring has occured, primarily between ```spreads.clj``` and a new namespace ```utility.clj```.
+With this release we have added support for an identities DSL backed by MS Outlook and Apple Contacts applications. Right now the functions are fairly simple as this release also introduces an experimental AST and emitter. Some refactoring has occured, primarily between ```spreads.clj``` and a new namespace ```utility.clj```.
 
 + Namespace Additions
 <table>

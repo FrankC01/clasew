@@ -18,14 +18,19 @@
 (def identity-standard identity-attrs)
 
 (def ^:private address-attrs
-  #{:city_name, :street_name, :zip_code, :country_name, :state_name})
+  #{:address_type, :city_name, :street_name, :zip_code, :country_name, :state_name})
 
 (def address-standard address-attrs)
 
 (def ^:private email-attrs
-  #{:email_address})
+  #{:email_address, :email_type})
 
 (def email-standard email-attrs)
+
+(def ^:private phone-attrs
+  #{:number_value, :number_type})
+
+(def phone-standard phone-attrs)
 
 ;;
 ;;  Script runner for indentities
@@ -36,10 +41,10 @@
   {:pre [(> (count scripts) 0)]}
   (let [argv (vector (into [] scripts))]
     (with-open [rdr (io/reader scrpteval)]
-      (util/clean-result (as/run-ascript! local-eng rdr
+      (:result (util/clean-result (as/run-ascript! local-eng rdr
                       :reset-binding true
                       :bind-function "clasew_eval"
-                      :arguments argv)))))
+                      :arguments argv))))))
 
 ;;
 ;; Special handlers
@@ -69,6 +74,16 @@
                (ast/assign nil :oval :val))
    (ast/return nil :oval)))
 
+(defn quit
+  "Script to quit an application"
+  [appkw]
+  (genas/ast-consume (ast/tell nil appkw :results
+                               (ast/define-locals nil :results)
+                               (ast/define-list nil :results)
+                               (ast/extend-list nil :results
+                                                "\"quit successful\"")
+                               (ast/quit))))
+
 
 (defn setrecordvalues
   "Given a list of vars, generate constructs to set a map value
@@ -81,47 +96,44 @@
           [] mapvars))
 
 
-(defn quit
-  "Script to quit an application"
-  [appkw]
-  (genas/ast-consume (ast/tell nil appkw :results
-                               (ast/define-locals nil :results)
-                               (ast/define-list nil :results)
-                               (ast/extend-list nil :results
-                                                "\"quit successful\"")
-                               (ast/quit))))
+(defn- filter-forv
+  [kw args]
+  (first (filter #(and (vector? %) (= (first %) kw)) args)))
 
 ;;
 ;; High level DSL functions ---------------------------------------------------
 ;;
 
-(defn- address-filter
-  "Filter addresses vector from sequence"
-  [args]
-  (first (filter #(and (vector? %) (= (first %) :addresses)) args)))
-
-(defn- email-filter
-  "Filter emails vector from sequence"
-  [args]
-  (first (filter #(and (vector? %) (= (first %) :emails)) args)))
-
 (defn addresses
-  "Adds ability to retrieve standard address elements or those
-  identified in collection"
+  "Adds ability to retrieve addresses"
   [& args]
   (into [:addresses] (if (empty? args) address-standard args)))
 
-(defn emails
-  "Adds ability to retrieve standard address elements or those
-  identified in collection"
-  [& args]
-  (into [:emails] (if (empty? args) email-standard args)))
+(defn email-addresses
+  "Adds ability to retrieve email addresses"
+  []
+  (into [:emails] email-standard))
+
+(defn phones
+  "Adds ability to retrieve phone numbers"
+  []
+  (into [:phones] phone-standard))
 
 (defn individuals
+  "Returns script for retrieving attributes of individuals from the identity
+  source (e.g. Outlook vs. Contacts)
+  along with any additional sub-attributes. Also supports minor filtering."
   [& args]
   (let [ia (filter keyword? args)]
     {:individuals (if (empty? ia) identity-standard ia)
      :filters     (first (filter map? args))
-     :emails      (email-filter args)
-     :addresses   (address-filter args)
+     :emails      (filter-forv :emails args)
+     :addresses   (filter-forv :addresses args)
+     :phones      (filter-forv :phones args)
      }))
+
+(defn individuals-all
+  "Prepares script for retriving **all** individuals and associated attributes"
+  []
+  (individuals (addresses) (email-addresses) (phones)))
+

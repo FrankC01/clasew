@@ -59,6 +59,10 @@
   [{:keys [setvalue setvalue-of]}]
   (str "set "(name setvalue)" to "(name setvalue-of)"\n"))
 
+(defn scalar-handler
+  [{:keys [to-value]}]
+  (str " to " to-value))
+
 (defn list-handler
   [expression]
   (str "set " (name (:set expression)) " to {}\n"))
@@ -81,6 +85,10 @@
   (if apply-function
     (str " to my " (name apply-function) "(" (*lookup-fn* value) " of " (name from) ")")
   (str " to " (*lookup-fn* value) " of " (name from) )))
+
+(defn valueof-asstring-handler
+  [vo-map]
+  (str (valueof-handler vo-map) " as string"))
 
 (defn recordvalue-handler
   "Results in 'set x of y to z'"
@@ -114,11 +122,11 @@
   (str "set " (name value) " to " (name source) " whose (" d ")\n")))
 
 (defn repeat-handler
-  [{:keys [source source-of expressions iteration-var]}]
+  [{:keys [source source-of expressions iteration-var] :as block}]
   (let [body (apply str (map ast-consume expressions))]
   (str "repeat with " (name iteration-var)
-       " in " (name source) (if source-of
-                              (str " of " (name source-of) " \n") "\n")
+       " in (get " (*lookup-fn* source) (if source-of
+                              (str " of " (name source-of) ")\n") ")\n")
        body
        "end repeat\n")))
 
@@ -153,8 +161,10 @@
    :define-record    record-handler
    :define-list      list-handler
    :assign           assign-handler
+   :scalar-value     scalar-handler
    :record-value     recordvalue-handler
    :value-of         valueof-handler
+   :value-of-as-string valueof-asstring-handler
    :properties-of    propertiesof-handler
    :extend-list      extendlist-handler
    :extend-record    extendrecord-handler

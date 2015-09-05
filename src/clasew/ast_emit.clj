@@ -113,6 +113,13 @@
    :setvalue-of source})
 
 
+(defn scalar-value
+  [token-fn to-value]
+  {:type :scalar-value
+   :token-fn token-fn
+   :to-value to-value})
+
+
 (defn properties-of
   "Sets a variable to the properties of a class"
   [token-fn value properties-of]
@@ -125,6 +132,15 @@
   "Sets a value from another value"
   [token-fn value from apply-function]
   {:type :value-of
+   :token-fn token-fn
+   :value value
+   :from from
+   :apply-function apply-function})
+
+(defn value-of-as-string
+  "Sets a value from another value"
+  [token-fn value from apply-function]
+  {:type :value-of-as-string
    :token-fn token-fn
    :value value
    :from from
@@ -197,7 +213,7 @@
    :filter-result :gen        ; put result of filter 'whose' set
    :source source             ; target source object
    :source-of sourceof        ; target source object owner (optional)
-   :iteration-var :gen        ; internal loop over filter-result
+   :iteration-var :fitr       ; internal loop over filter-result
    :property-var property-var ; target of get properties of iteration-var
    :expressions repeat-expressions}))
 
