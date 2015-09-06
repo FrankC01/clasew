@@ -10,22 +10,22 @@
 
 (def ^:private outlook-identities
   {:name_suffix          "suffix",
-   :full_name            "display name",           ; display name in outlook
+   :full_name            "display name",
    :first_name           "first name",
    :middle_name,         "middle name",
    :last_name            "last name",
    :primary_company      "company",
    :primary_title        "job title",
    :primary_department   "department",
-   :city_name            "city",           ; home xxx and business xxx in outlook
-   :street_name          "street",         ; home xxx and business xxx in outlook
-   :zip_code             "zip",            ; home xxx and business xxx in outlook
-   :country_name         "country",        ; home xxx and business xxx in outlook
-   :state_name           "state"           ; home xxx and business xxx in outlook
-   :contacts             "contacts"
-   :emails          "email addresses"
-   :email_address   "address"
-   :email_type      "type"
+   :city_name            "city",
+   :street_name          "street",
+   :zip_code             "zip",
+   :country_name         "country",
+   :state_name           "state",
+   :contacts             "contacts",
+   :emails               "email addresses",
+   :email_address        "address",
+   :email_type           "type"
     })
 
 
@@ -70,10 +70,11 @@
 
 (defn build-tell
   [body]
-  (ast/tell nil :outlook :results
+  (ast/tell nil :outlook
                (ast/define-locals nil :results :cloop :ident)
                (ast/define-list nil :results)
-               body))
+               body
+            (ast/return nil :results)))
 
 
 (defn- setaddressvalues
@@ -216,9 +217,7 @@
   (let [gets  (apply (partial ast/block nil)
                      (filter #(not (nil? %))
                              (conj (ident/setrecordvalues nil args :ident :cloop)
-                                   (if addr addr nil)
-                                   (if emls emls nil)
-                                   (if phns phns nil)
+                                   addr emls  phns
                                    (ast/extend-list nil :results :ident))))]
     (build-tell
      (if (not-empty filt)

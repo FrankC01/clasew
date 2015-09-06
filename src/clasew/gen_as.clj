@@ -19,8 +19,7 @@
 (defn tell-handler
   [expression]
   (let   [body (apply str (map ast-consume (:expressions expression)))]
-  (str "tell application " (:target expression) "\n" body
-       "return " (name (:return expression))"\nend tell\n")))
+  (str "tell application " (:target expression) "\n" body "end tell\n")))
 
 (defn routine-handler
   [{:keys [routine-name parameters expressions]}]

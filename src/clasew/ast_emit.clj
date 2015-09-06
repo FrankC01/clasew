@@ -26,11 +26,10 @@
 
 (defn tell
   "Sets up the enclosing tell application construct"
-  [token-fn target returns & expressions]
+  [token-fn target & expressions]
   {:type :tell
    :token-fn token-fn
    :target (get-application target)
-   :return returns
    :expressions expressions})
 
 

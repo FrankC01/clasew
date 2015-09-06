@@ -42,10 +42,11 @@
 
 (defn build-tell
   [body]
-  (ast/tell nil :contacts :results
+  (ast/tell nil :contacts
                (ast/define-locals nil :results :cloop :ident)
                (ast/define-list nil :results)
-               body))
+               body
+            (ast/return nil :results)))
 
 
 (defn build-address
@@ -106,9 +107,7 @@
   (let [gets  (apply (partial ast/block nil)
                      (filter #(not (nil? %))
                              (conj (ident/setrecordvalues nil args :ident :cloop)
-                                   (if addr addr nil)
-                                   (if emls emls nil)
-                                   (if phns phns nil)
+                                   addr emls phns
                                    (ast/extend-list nil :results :ident))))]
     (build-tell
      (if (not-empty filt)

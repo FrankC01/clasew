@@ -7,7 +7,7 @@ A Clojure AppleScriptEngine Wrapper
 clasew provide an idiomatic clojure wrapper for Java ScriptManager, specifically AppleScriptManager,  and scriptable application DSLs for common usage.
 
 
-##Architecture 0.2.0
+##Architecture 0.2.1
 As per the Intent, the clasew architecture is very straight forward.
 
 <img style="float: " src="doc/clasew-arch.png" alt="clasew architecture" title="clasew architecture" height="400" width="600"/>

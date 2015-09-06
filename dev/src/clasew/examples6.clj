@@ -1,7 +1,7 @@
 (ns
   ^{:author "Frank V. Castellucci"
       :doc "Apple Contacts Examples"}
-  clasew.examples8
+  clasew.examples6
   (:require [clojure.pprint :refer :all]
             [clasew.contacts :as contacts]
             [clasew.identities :as ident])
@@ -16,6 +16,7 @@
     (contacts/script
      (ident/individuals))
     (ident/quit :contacts)))
+
 
 ;; Fetch all individuals and email addresses where
 ;; individual's first name contains "Frank"
