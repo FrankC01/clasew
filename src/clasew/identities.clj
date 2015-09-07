@@ -81,12 +81,13 @@
   appkw - keyword (:outlook or :contacts) identies the application
   to shut down"
   [appkw]
-  (genas/ast-consume (ast/tell nil appkw :results
+  (genas/ast-consume (ast/tell nil appkw
                                (ast/define-locals nil :results)
                                (ast/define-list nil :results)
                                (ast/extend-list nil :results
                                                 "\"quit successful\"")
-                               (ast/quit))))
+                               (ast/quit)
+                               (ast/return nil :results))))
 
 
 (defn setrecordvalues

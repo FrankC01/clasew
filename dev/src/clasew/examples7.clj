@@ -17,6 +17,7 @@
      (ident/individuals))
     (ident/quit :outlook)))
 
+
 ;; Fetch all individuals and email addresses where
 ;; individual's first name contains "Frank"
 
