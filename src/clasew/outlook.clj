@@ -140,7 +140,7 @@
      (ast/define-locals nil :elist :eadd)
      (ast/define-list nil :elist)
      (ast/repeat-loopf
-      outlook-mapset-core ; outloook-mapset-emails
+      nil ;outlook-mapset-core
       :eml :emails tkey
       (conj (seq (conj
        (setemailvalues
@@ -229,8 +229,8 @@
                       gets)))))
 
 
-(defn script
-  [{:keys [individuals filters emails addresses phones] :as directives}]
+(defn- get-individuals
+  [{:keys [individuals filters emails addresses phones]}]
   (genas/ast-consume (builder (partial ast/block nil) ident/cleanval
                               (build-individual
                                individuals :cloop
@@ -238,5 +238,12 @@
                                (build-emails :cloop (rest emails))
                                (build-phones :cloop (rest phones))
                                filters))))
+
+(defn script
+  [{:keys [action] :as directives}]
+  (condp = action
+    :get-individuals (get-individuals directives)
+    (str "Don't know how to complete " action)))
+
 
 

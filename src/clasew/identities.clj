@@ -135,6 +135,7 @@
      :emails      (filter-forv :emails args)
      :addresses   (filter-forv :addresses args)
      :phones      (filter-forv :phones args)
+     :action      :get-individuals
      }))
 
 (defn individuals-all

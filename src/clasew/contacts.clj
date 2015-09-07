@@ -119,8 +119,8 @@
                       gets)))))
 
 
-(defn script
-  [{:keys [individuals filters emails addresses phones] :as directives}]
+(defn- get-individuals
+  [{:keys [individuals filters emails addresses phones]}]
   (let [lctl (if (not-empty filters) :fitr :cloop)]
   (genas/ast-consume (builder (partial ast/block nil) ident/cleanval
                               (build-individual
@@ -129,3 +129,9 @@
                                (build-emails lctl (rest emails))
                                (build-phones lctl (rest phones))
                                filters)))))
+
+(defn script
+  [{:keys [action] :as directives}]
+  (condp = action
+    :get-individuals (get-individuals directives)
+    (str "Don't know how to complete " action)))
