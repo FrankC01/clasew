@@ -2,6 +2,26 @@
 
 clasew: A Clojure AppleScriptEngine Wrapper
 
+## 0.2.1
+This release includes a few minor breaking changes to clasew.
+### Enhancements
+With this release we have *extended support* for ***Microsoft Outlook*** and ***Apple Contacts*** applications.
+
+
++ New Functions
+<table>
+<tr><th>Function</th><th>Description</th></tr>
+<tr><td>add-individuals</td><td>Ability to add new individuals</td></tr>
+<tr><td>delete-individual</td><td>Ability to delete individuals</td></tr>
+</table>
+
+### Bug Fixes
+
+<table>
+<tr><th>GitHub issue #</th><th>Description</th></tr>
+<tr><td>02</td><td>Namespace incorrect</td></tr>
+</table>
+
 ## 0.2.0
 This release includes a few minor breaking changes to clasew.
 ### Enhancements

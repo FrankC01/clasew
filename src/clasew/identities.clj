@@ -114,18 +114,30 @@
   [& args]
   (into [:addresses] (if (empty? args) address-standard args)))
 
+(defn add-addresses
+  [addr1 & addrs]
+  (into [:addresses] (conj addrs addr1)))
+
 (defn email-addresses
   "Adds ability to retrieve email addresses"
   []
   (into [:emails] email-standard))
+
+(defn add-email-addresses
+  [addr1 & addrs]
+  (into [:emails] (conj addrs addr1)))
 
 (defn phones
   "Adds ability to retrieve phone numbers"
   []
   (into [:phones] phone-standard))
 
+(defn add-phones
+  [phn1 & phns]
+  (into [:phones] (conj phns phn1)))
+
 (defn individuals
-  "Returns script for retrieving attributes of individuals from the identity
+  "Returns script directives for retrieving attributes of individuals from the identity
   source (e.g. Outlook vs. Contacts)
   along with any additional sub-attributes. Also supports minor filtering."
   [& args]
@@ -143,3 +155,14 @@
   []
   (individuals (addresses) (email-addresses) (phones)))
 
+(defn add-individuals
+  "Returns script directives for adding  one or more individuals"
+  [add1 & adds]
+  {:action     :add-individuals
+   :adds       (conj adds add1)})
+
+(defn delete-individual
+  "Returns script directives for deleting individuals matching feature"
+  [filt]
+  {:action   :delete-individual
+   :filters  filt})

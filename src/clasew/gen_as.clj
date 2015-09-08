@@ -62,6 +62,18 @@
   [{:keys [to-value]}]
   (str " to " to-value))
 
+(defn term-handler
+  [{:keys [to-value]}]
+  (name to-value))
+
+(defn count-of-handler
+  [{:keys [set-target expressions]}]
+  (str "set "(name set-target)" to count of " (ast-consume expressions) "\n"))
+
+(defn sp1r-handler
+  [{:keys [set-target string-0 ref-1]}]
+  (str "set "(name set-target)" to \"" string-0"\" & " (name ref-1)"\n"))
+
 (defn list-handler
   [expression]
   (str "set " (name (:set expression)) " to {}\n"))
@@ -70,6 +82,10 @@
   [expression]
   (str "set end of " (name (:set expression))
        " to " (name (:to expression)) "\n"))
+
+(defn extendlist-expression-handler
+  [{:keys [target to-expression]}]
+  (str "set end of "(name target) " to "(ast-consume to-expression)))
 
 (defn record-handler
   [expression]
@@ -120,6 +136,16 @@
   (let [d (filter-reduce user-filter)]
   (str "set " (name value) " to " (name source) " whose (" d ")\n")))
 
+(defn filter-expression-handler
+  [{:keys [source source-of user-filter]}]
+  (str "("(*lookup-fn* source) " whose " (filter-reduce user-filter) ")"))
+
+
+(defn filtered-delete-handler
+  [{:keys [user-filter record-set]}]
+  (str "delete ("(*lookup-fn* record-set) " whose " (filter-reduce user-filter) ")\n")
+  )
+
 (defn repeat-handler
   [{:keys [source source-of expressions iteration-var] :as block}]
   (let [body (apply str (map ast-consume expressions))]
@@ -150,6 +176,43 @@
   [args]
   (str (name :quit)"\n"))
 
+(defn save-handler
+  [args]
+  (str (name :save)"\n"))
+
+
+(defn- symboltype
+  [k v]
+  (if (or (= k :email_type) (= k :number_type) (= k :address_type))
+    (symbol v)
+    v))
+
+(defn- inner-records
+  [rmap]
+  (let [i (interpose "," rmap)]
+  (loop [x (first i)
+         z (rest i)
+        y []]
+    (if (nil? x)
+      (symbol (str "{" (apply str y) "}"))
+      (recur (first z) (rest z) (conj y x))))))
+
+(defn- reduce-record
+  [property-map]
+  (reduce-kv #(assoc %1 (symbol (str (*lookup-fn* %2) ":"))
+                (if (map? %3)
+                  (reduce-record %3)
+                  (if (seq? %3)
+                    (inner-records (map reduce-record %3))
+                    (symboltype %2 %3))))
+             {} property-map))
+
+(defn make-new-record-handler
+  [{:keys [property-map record-type]}]
+  (str "make new " (*lookup-fn* record-type)
+       " with properties " (reduce-record property-map)
+       "\n"))
+
 (def ast-jump "Jump Table for AST Expression"
   {:routine          routine-handler
    :ifthen           ifthen-handler
@@ -161,16 +224,24 @@
    :define-list      list-handler
    :assign           assign-handler
    :scalar-value     scalar-handler
+   :count-of         count-of-handler
    :record-value     recordvalue-handler
    :value-of         valueof-handler
    :value-of-as-string valueof-asstring-handler
    :properties-of    propertiesof-handler
    :extend-list      extendlist-handler
+   :extend-list-with-expression extendlist-expression-handler
    :extend-record    extendrecord-handler
+   :make-new-record  make-new-record-handler
    :from-filter      filter-handler
    :repeat-loop      repeat-handler
    :filtered-repeat-loop  filtered-repeat-handler
+   :filtered-delete    filtered-delete-handler
+   :filter-expression  filter-expression-handler
+   :string-p1-reference sp1r-handler
    :quit             quit-handler
+   :save             save-handler
+   :term             term-handler
    })
 
 

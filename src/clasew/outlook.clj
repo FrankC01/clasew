@@ -229,7 +229,7 @@
                       gets)))))
 
 
-(defn- get-individuals
+(defn- get-contacts
   [{:keys [individuals filters emails addresses phones]}]
   (genas/ast-consume (builder (partial ast/block nil) ident/cleanval
                               (build-individual
@@ -239,10 +239,48 @@
                                (build-phones :cloop (rest phones))
                                filters))))
 
+(defn- delete-contact
+  [{:keys [filters]}]
+  (genas/ast-consume
+   (ast/tell
+    outlook-mapset-core :outlook
+    (ast/define-locals nil :results :dlist :rstring)
+    (ast/define-list nil :results)
+    (ast/count-of nil :dlist
+                  (ast/filter-expression nil :contacts nil filters))
+    (ast/filtered-delete nil filters :contacts)
+    (ast/string-p1-reference nil :rstring "Records deleted = " :dlist)
+    (ast/extend-list nil :results :rstring)
+    (ast/return nil :results))))
+
+(defn- add-contacts
+  [{:keys [adds]}]
+  (genas/ast-consume
+   (ast/tell
+    outlook-mapset-core :outlook
+    (ast/define-locals nil :results :alist :dlist :rstring)
+    (ast/define-list nil :alist)
+    (ast/define-list nil :results)
+    (ast/blockf
+     nil
+     (seq (reduce
+           #(conj %1
+                  (ast/extend-list-with-expression nil :alist
+                  (ast/make-new-record nil :contact %2)))
+           [] adds)))
+    (ast/count-of nil :dlist
+                  (ast/term nil :alist))
+    (ast/string-p1-reference nil :rstring "Records added = " :dlist)
+    (ast/extend-list nil :results :rstring)
+    (ast/return nil :results)
+    )))
+
 (defn script
   [{:keys [action] :as directives}]
   (condp = action
-    :get-individuals (get-individuals directives)
+    :get-individuals     (get-contacts directives)
+    :delete-individual   (delete-contact directives)
+    :add-individuals     (add-contacts directives)
     (str "Don't know how to complete " action)))
 
 

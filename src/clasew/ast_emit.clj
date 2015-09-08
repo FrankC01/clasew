@@ -96,6 +96,23 @@
    :set target
    :set-to mapvars})
 
+(defn make-new-record
+  "Create a new record type with associated properties
+  emits 'make new rectype with properties {...}'"
+  [token-fn rectype prop-map]
+  {:type :make-new-record
+   :token-fn token-fn
+   :record-type rectype
+   :property-map prop-map})
+
+
+(defn filtered-delete
+  [token-fn user-filter rectype]
+  {:type         :filtered-delete
+   :token-fn     token-fn
+   :record-set   rectype
+   :user-filter  user-filter})
+
 (defn define-list
   "Sets target to a list type - emits 'set target to {}'"
   [token-fn target]
@@ -111,6 +128,14 @@
    :setvalue target
    :setvalue-of source})
 
+(defn string-p1-reference
+  [token-fn target sp0 sp1]
+  {:type :string-p1-reference
+   :token-fn token-fn
+   :set-target target
+   :string-0 sp0
+   :ref-1 sp1})
+
 
 (defn scalar-value
   [token-fn to-value]
@@ -118,6 +143,19 @@
    :token-fn token-fn
    :to-value to-value})
 
+(defn term
+  [token-fn to-value]
+  {:type :term
+   :token-fn token-fn
+   :to-value to-value})
+
+(defn count-of
+  "Sets a value to the count of expression results"
+  [token-fn target expression]
+  {:type :count-of
+   :token-fn token-fn
+   :set-target target
+   :expressions expression})
 
 (defn properties-of
   "Sets a variable to the properties of a class"
@@ -164,6 +202,14 @@
    :ofmap ofmap
    :to to-expression})
 
+(defn filter-expression
+  [token-fn source source-of user-filter]
+  {:type :filter-expression
+   :token-fn token-fn
+   :source source
+   :source-of source-of
+   :user-filter user-filter})
+
 (defn from-filter
   "Set a variable to the result of a filter 'whose' statement"
   [token-fn value source source-of user-filter]
@@ -182,6 +228,14 @@
    :token-fn token-fn
    :set target
    :to source})
+
+(defn extend-list-with-expression
+  "Sets the end of target list to source - emits 'set end of target to source'"
+  [token-fn target to-expression]
+  {:type :extend-list-with-expression
+   :token-fn token-fn
+   :target target
+   :to-expression to-expression})
 
 (defn repeat-loop
   "Creates a repeat block - emits 'repeat with itervar in source'"
@@ -219,5 +273,9 @@
 (defn quit
   []
   {:type :quit :token-fn nil})
+
+(defn save
+  []
+  {:type :save :token-fn nil})
 
 
