@@ -99,12 +99,31 @@
 (defn make-new-record
   "Create a new record type with associated properties
   emits 'make new rectype with properties {...}'"
-  [token-fn rectype prop-map]
+  [token-fn rectype prop-map & [symbolflag]]
   {:type :make-new-record
    :token-fn token-fn
    :record-type rectype
+   :symbol-flag (or symbolflag false)
    :property-map prop-map})
 
+(defn make-new-inlist-record
+  "Create a new record type with associated properties
+  emits 'make new rectype with properties {...}'"
+  [token-fn rectype reclist in-container prop-map & [symbolflag]]
+  {:type :make-new-inlist-record
+   :token-fn token-fn
+   :record-type rectype
+   :record-list reclist
+   :symbol-flag (or symbolflag false)
+   :container in-container
+   :property-map prop-map})
+
+(defn set-expression
+  [token-fn target from-expression]
+  {:type :set-expression
+   :token-fn token-fn
+   :set-target target
+   :from-expression from-expression})
 
 (defn filtered-delete
   [token-fn user-filter rectype]

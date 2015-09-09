@@ -22,17 +22,23 @@
                   :email_address "oxnard@mybusiness.com"}
                  {:email_type "home"
                   :email_address "oxnard@myhome.com"})
+   :addresses (list {:address_type "work"
+                     :city_name "West Somewhere"}
+                    {:address_type "home"
+                     :city_name "New York"})
+   :phones    (list {:number_type "home phone"
+                     :number_value "999 999-0000"}
+                    {:number_type "mobile"
+                     :number_value "999 999 0001"})
    })
 
-(def picard
-  {:first_name "Jean-Luc" :last_name "Picard"})
 
+;; Create a new individual
 
 #_(p (ident/run-script!
     (outlook/script
-     (ident/add-individuals oxnard picard))
+     (ident/add-individuals oxnard))
     (ident/quit :outlook)))
-
 
 ;; Fetch individuals from outlook contacts
 
@@ -41,9 +47,8 @@
      (ident/individuals))
     (ident/quit :outlook)))
 
-
 ;; Fetch all individuals and email addresses where
-;; individual's first name contains "Frank"
+;; individual's first name contains "Oxnard"
 
 #_(p (ident/run-script!
     (outlook/script
@@ -51,18 +56,17 @@
       (ident/email-addresses)))
     (ident/quit :outlook)))
 
-
 ;; Fetch all individuals and phone numbers where
-;; individual's first name contains "Frank"
+;; individual's first name contains "Oxnard"
 
 #_(p (ident/run-script!
     (outlook/script
-     (ident/individuals {:first_name "Frank"}
+     (ident/individuals {:first_name "Oxnard"}
       (ident/phones)))
     (ident/quit :outlook)))
 
 ;; Fetch all individuals (full name only) their streeet address,
-;;phones and emails where individuals first name contains Frank
+;;phones and emails where individuals first name contains Oxnard
 
 #_(p (ident/run-script!
       (outlook/script
@@ -70,9 +74,8 @@
                           (ident/addresses)
                           (ident/email-addresses)
                           (ident/phones)
-                          {:first_name "Frank"}))
+                          {:first_name "Oxnard"}))
       (ident/quit :outlook)))
-
 
 ;; Fetch all individuals their email addresses,street addresses and
 ;; phone numbers. This is equivalent to call (individuals-all...) as
@@ -91,15 +94,10 @@
      (ident/individuals-all))
     (ident/quit :outlook)))
 
-
 #_(p (ident/run-script!
       (outlook/script
        (ident/delete-individual {:first_name "Oxnard"}))
       (ident/quit :outlook)))
 
-#_(p (ident/run-script!
-      (outlook/script
-       (ident/delete-individual {:last_name "Picard"}))
-      (ident/quit :outlook)))
 
 

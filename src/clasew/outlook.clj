@@ -25,14 +25,32 @@
    :contacts             "contacts",
    :emails               "email addresses",
    :email_address        "address",
-   :email_type           "type"
+   :email_type           "type",
+   :home_zip             "home zip",
+   :home_city            "home city",
+   :home_street_address  "home street address",
+   :home_country         "home country",
+   :home_state           "home state",
+   :business_zip             "business zip",
+   :business_city            "business city",
+   :business_street_address  "business street address",
+   :business_country         "business country",
+   :business_state           "business state",
+   :default_phone    "phone",
+   :home_phone       "home phone number"
+   :home2_phone      "other home phone number"
+   :home_fax         "home fax number"
+   :business_phone   "business phone number"
+   :business2_phone  "other business phone number"
+   :business_fax     "business fax number"
+   :pager            "pager number"
+   :mobile           "mobile number"
     })
 
 
 (defn outlook-mapset-core
   [term-kw]
   (get outlook-identities term-kw (name term-kw)))
-
 
 
 (def ^:private outlook-home-address
@@ -253,7 +271,62 @@
     (ast/extend-list nil :results :rstring)
     (ast/return nil :results))))
 
+(defn kwmaker
+  [strw]
+  (keyword (clojure.string/replace strw #" " "_")))
+
+(defn- phone-reduce
+  [a m]
+  (if (nil? (:number_value m))
+    a
+    (assoc a
+      (condp = (kwmaker (:number_type m))
+        :default :default_phone
+        :home (if (:home_phone a)
+                :home2_phone
+                :home_phone)
+        :home_phone :home_phone
+        :home_fax  :home_fax
+        :work (if (:business_phone a)
+                :business2_phone
+                :business_phone)
+        :work_fax :business_fax
+        :mobile :mobile
+        :pager  :pager
+        :unknown
+        )
+      (:number_value m))))
+
+(defn- flatten-phones
+  [coll]
+  (if (nil? coll)
+    nil
+    (reduce phone-reduce {} coll)))
+
+(defn- address-reduce
+  [a m]
+  (if (nil? (:address_type m))
+    a
+    (merge a (let [kw (kwmaker (:address_type m))
+          lu (if (= kw :home) outlook-mapset-home outlook-mapset-business)
+          m1 (dissoc m :address_type)]
+      (reduce-kv #(assoc %1 (kwmaker (lu %2)) %3) {} m1)))))
+
+(defn- flatten-addresses
+  [coll]
+  (if (nil? coll)
+    nil
+    (reduce address-reduce {} coll)))
+
+(defn- flatten-map
+  [imap]
+  (merge (dissoc imap :addresses :phones)
+         (flatten-phones (get imap :phones nil))
+         (flatten-addresses (get imap :addresses nil))))
+
 (defn- add-contacts
+  "Adds new individuals to outlook contacts. Requires flattening
+  addresses and phones to main map"
   [{:keys [adds]}]
   (genas/ast-consume
    (ast/tell
@@ -266,14 +339,13 @@
      (seq (reduce
            #(conj %1
                   (ast/extend-list-with-expression nil :alist
-                  (ast/make-new-record nil :contact %2)))
+                  (ast/make-new-record nil :contact (flatten-map %2))))
            [] adds)))
     (ast/count-of nil :dlist
                   (ast/term nil :alist))
     (ast/string-p1-reference nil :rstring "Records added = " :dlist)
     (ast/extend-list nil :results :rstring)
-    (ast/return nil :results)
-    )))
+    (ast/return nil :results))))
 
 (defn script
   [{:keys [action] :as directives}]

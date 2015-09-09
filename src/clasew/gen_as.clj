@@ -66,6 +66,10 @@
   [{:keys [to-value]}]
   (name to-value))
 
+(defn set-expression-handler
+  [{:keys [set-target from-expression]}]
+  (str "set "(name set-target) " to " (ast-consume from-expression)))
+
 (defn count-of-handler
   [{:keys [set-target expressions]}]
   (str "set "(name set-target)" to count of " (ast-consume expressions) "\n"))
@@ -85,7 +89,7 @@
 
 (defn extendlist-expression-handler
   [{:keys [target to-expression]}]
-  (str "set end of "(name target) " to "(ast-consume to-expression)))
+  (str "set end of "(name target) " to "(ast-consume to-expression)"\n"))
 
 (defn record-handler
   [expression]
@@ -198,19 +202,27 @@
       (recur (first z) (rest z) (conj y x))))))
 
 (defn- reduce-record
-  [property-map]
+  [property-map symbolflag]
   (reduce-kv #(assoc %1 (symbol (str (*lookup-fn* %2) ":"))
                 (if (map? %3)
                   (reduce-record %3)
                   (if (seq? %3)
                     (inner-records (map reduce-record %3))
-                    (symboltype %2 %3))))
+                    (if symbolflag %3 (symboltype %2 %3)))))
              {} property-map))
 
 (defn make-new-record-handler
-  [{:keys [property-map record-type]}]
+  [{:keys [property-map record-type symbol-flag]}]
   (str "make new " (*lookup-fn* record-type)
-       " with properties " (reduce-record property-map)
+       " with properties " (reduce-record property-map symbol-flag)
+       "\n"))
+
+(defn make-new-inlist-record-hander
+  [{:keys [property-map record-type record-list container symbol-flag] }]
+  (str "make new " (*lookup-fn* record-type)
+       " at end of " (*lookup-fn* record-list)
+       " of " (name container)
+       " with properties " (reduce-record property-map symbol-flag)
        "\n"))
 
 (def ast-jump "Jump Table for AST Expression"
@@ -231,8 +243,10 @@
    :properties-of    propertiesof-handler
    :extend-list      extendlist-handler
    :extend-list-with-expression extendlist-expression-handler
+   :set-expression   set-expression-handler
    :extend-record    extendrecord-handler
    :make-new-record  make-new-record-handler
+   :make-new-inlist-record make-new-inlist-record-hander
    :from-filter      filter-handler
    :repeat-loop      repeat-handler
    :filtered-repeat-loop  filtered-repeat-handler
