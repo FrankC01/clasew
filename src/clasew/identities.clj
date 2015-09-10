@@ -83,7 +83,7 @@
   [appkw]
   (genas/ast-consume (ast/tell nil appkw
                                (ast/define-locals nil :results)
-                               (ast/define-list nil :results)
+                               (ast/set-statement nil (ast/term nil :results) (ast/empty-list))
                                (ast/extend-list nil :results
                                                 "\"quit successful\"")
                                (ast/quit)

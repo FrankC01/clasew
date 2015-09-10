@@ -24,6 +24,80 @@
   [akey]
   (get applications akey "Unknown Application"))
 
+(defn term
+  [token-fn to-value]
+  {:type :term
+   :token-fn token-fn
+   :to-value to-value})
+
+(defn string-literal
+  [value]
+  {:type :string-literal
+   :token-fn nil
+   :svalue value})
+
+(defn eol-cmd
+  "End of list command"
+  [token-fn target-list list-owner]
+  {:type :eol-cmd
+   :token-fn token-fn
+   :target-list target-list
+   :list-owner  list-owner})
+
+(defn list-items-cmd
+  ""
+  [token-fn target-list]
+  {:type :li-cmd
+   :token-fn token-fn
+   :target-owner target-list})
+
+(defn expression
+  [token-fn exp & exps]
+  {:type :expression
+   :token-fn token-fn
+   :expressions (conj exps exp)})
+
+(defn set-statement
+  [token-fn set-lhs set-rhs]
+  {:type :set-statement
+   :token-fn token-fn
+   :set-lhs-expression set-lhs
+   :set-rhs-expression set-rhs})
+
+(defn set-expression
+  [token-fn target from-expression]
+  {:type :set-expression
+   :token-fn token-fn
+   :set-target target
+   :from-expression from-expression})
+
+
+(defn save
+  ([] (save :none))
+  ([object] {:type :save :token-fn nil :object object}))
+
+; Quick terms
+
+(defn empty-list [] (term nil "{}"))
+(defn quit [] (term nil "quit\n"))
+
+; Quick expressions
+
+(defn delete-expression
+  [token-fn target-expression]
+  (expression token-fn (term nil :delete)
+              target-expression))
+
+(defn count-expression
+  [token-fn of-expression]
+  (expression token-fn (term nil "count of ") of-expression))
+
+(defn string-builder
+  [token-fn & expressions]
+  {:type :string-builder
+   :token-fn token-fn
+   :expressions expressions})
+
 (defn tell
   "Sets up the enclosing tell application construct"
   [token-fn target & expressions]
@@ -118,12 +192,6 @@
    :container in-container
    :property-map prop-map})
 
-(defn set-expression
-  [token-fn target from-expression]
-  {:type :set-expression
-   :token-fn token-fn
-   :set-target target
-   :from-expression from-expression})
 
 (defn filtered-delete
   [token-fn user-filter rectype]
@@ -131,13 +199,6 @@
    :token-fn     token-fn
    :record-set   rectype
    :user-filter  user-filter})
-
-(defn define-list
-  "Sets target to a list type - emits 'set target to {}'"
-  [token-fn target]
-  {:type :define-list
-   :token-fn token-fn
-   :set target})
 
 
 (defn assign
@@ -162,11 +223,6 @@
    :token-fn token-fn
    :to-value to-value})
 
-(defn term
-  [token-fn to-value]
-  {:type :term
-   :token-fn token-fn
-   :to-value to-value})
 
 (defn count-of
   "Sets a value to the count of expression results"
@@ -289,12 +345,5 @@
    :property-var property-var ; target of get properties of iteration-var
    :expressions repeat-expressions}))
 
-(defn quit
-  []
-  {:type :quit :token-fn nil})
-
-(defn save
-  []
-  {:type :save :token-fn nil})
 
 

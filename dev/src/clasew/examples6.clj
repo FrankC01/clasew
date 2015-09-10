@@ -31,11 +31,27 @@
                      :number_value "999 999 0001"})
    })
 
+(def sally
+  {:first_name "Sally" :last_name "Abercrombe"
+   :emails (list {:email_type "work"
+                  :email_address "sally@clasew.com"}
+                 {:email_type "home"
+                  :email_address "sally@gmail.com"})
+   :addresses (list {:address_type "work"
+                     :city_name "East Somewhere"}
+                    {:address_type "home"
+                     :city_name "Maine"})
+   :phones    (list {:number_type "home"
+                     :number_value "999 999-0002"}
+                    {:number_type "mobile"
+                     :number_value "999 999 0003"})
+   })
+
 ;; Create a new individual
 
-(p (ident/run-script!
+#_(p (ident/run-script!
     (contacts/script
-     (ident/add-individuals oxnard))
+     (ident/add-individuals oxnard sally))
     (ident/quit :contacts)))
 
 ;; Fetch individuals from Contacs people
@@ -55,11 +71,11 @@
     (ident/quit :contacts)))
 
 ;; Fetch all individuals and phone numbers where
-;; individual's first name contains "Oxnard"
+;; individual's first name contains "Sally"
 
 #_(p (ident/run-script!
     (contacts/script
-     (ident/individuals {:first_name "Oxnard"}
+     (ident/individuals {:first_name "Sally"}
       (ident/phones)))
     (ident/quit :contacts)))
 
@@ -94,5 +110,11 @@
 #_(p (ident/run-script!
       (contacts/script
        (ident/delete-individual {:first_name "Oxnard"}))
+      (ident/quit :contacts)))
+
+#_(p (ident/run-script!
+      (contacts/script
+       (ident/delete-individual {:first_name "Sally"
+                                 :last_name "Abercrombe"}))
       (ident/quit :contacts)))
 

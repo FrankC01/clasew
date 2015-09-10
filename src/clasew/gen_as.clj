@@ -16,6 +16,55 @@
   [expression]
   (str expression " not handled.\n"))
 
+(defn endline
+  [s]
+  (if (= (get s (dec (count s))) \newline)
+    s
+    (str s "\n")))
+
+(defn term-handler
+  [{:keys [to-value]}]
+  (name to-value))
+
+(defn string-literal-handler
+  [{:keys [svalue]}]
+  (str "\"" svalue "\""))
+
+(defn end-of-list-cmd-handler
+  [{:keys [target-list list-owner]}]
+  (str "end of "(name target-list)
+       (if list-owner (str " of " (name list-owner)) "")))
+
+(defn list-items-cmd-handler
+  [{:keys [target-owner]}]
+  (str " " (name target-owner)"'s items"))
+
+(defn expression-handler
+  [{:keys [expressions]}]
+  (endline (apply str (map ast-consume expressions))))
+
+(defn set-statement-handler
+  "Emit set (expression) to (expression) cr"
+  [{:keys [set-lhs-expression set-rhs-expression]}]
+  (endline (str "set " (ast-consume set-lhs-expression)
+       " to " (ast-consume set-rhs-expression))))
+
+(defn set-expression-handler
+  "Emit set (value) to (expression) cr"
+  [{:keys [set-target from-expression]}]
+  (str "set "(name set-target) " to " (ast-consume from-expression)))
+
+(defn save-handler
+  [{:keys [object]}]
+  (str (name :save)
+       (if (= object :none) "" (name object))
+       "\n"))
+
+(defn string-builder-handler
+  [{:keys [expressions]}]
+  (str (apply str
+              (interpose " & "(map ast-consume expressions)))))
+
 (defn tell-handler
   [expression]
   (let   [body (apply str (map ast-consume (:expressions expression)))]
@@ -53,7 +102,6 @@
   [expression]
   (apply str (map ast-consume (:expressions expression))))
 
-
 (defn assign-handler
   [{:keys [setvalue setvalue-of]}]
   (str "set "(name setvalue)" to "(name setvalue-of)"\n"))
@@ -62,14 +110,6 @@
   [{:keys [to-value]}]
   (str " to " to-value))
 
-(defn term-handler
-  [{:keys [to-value]}]
-  (name to-value))
-
-(defn set-expression-handler
-  [{:keys [set-target from-expression]}]
-  (str "set "(name set-target) " to " (ast-consume from-expression)))
-
 (defn count-of-handler
   [{:keys [set-target expressions]}]
   (str "set "(name set-target)" to count of " (ast-consume expressions) "\n"))
@@ -77,10 +117,6 @@
 (defn sp1r-handler
   [{:keys [set-target string-0 ref-1]}]
   (str "set "(name set-target)" to \"" string-0"\" & " (name ref-1)"\n"))
-
-(defn list-handler
-  [expression]
-  (str "set " (name (:set expression)) " to {}\n"))
 
 (defn extendlist-handler
   [expression]
@@ -176,14 +212,6 @@
         body (apply str (map ast-consume expres))]
   (str body)))
 
-(defn quit-handler
-  [args]
-  (str (name :quit)"\n"))
-
-(defn save-handler
-  [args]
-  (str (name :save)"\n"))
-
 
 (defn- symboltype
   [k v]
@@ -205,9 +233,9 @@
   [property-map symbolflag]
   (reduce-kv #(assoc %1 (symbol (str (*lookup-fn* %2) ":"))
                 (if (map? %3)
-                  (reduce-record %3)
+                  (reduce-record %3 symbolflag)
                   (if (seq? %3)
-                    (inner-records (map reduce-record %3))
+                    (inner-records (map (fn [x] (reduce-record x symbolflag)) %3))
                     (if symbolflag %3 (symboltype %2 %3)))))
              {} property-map))
 
@@ -226,14 +254,26 @@
        "\n"))
 
 (def ast-jump "Jump Table for AST Expression"
-  {:routine          routine-handler
+  {
+   :term             term-handler
+   :string-literal   string-literal-handler
+   :eol-cmd          end-of-list-cmd-handler
+   :li-cmd           list-items-cmd-handler
+   :expression       expression-handler
+   :set-expression   set-expression-handler
+   :set-statement    set-statement-handler ;Should deprecate
+   :save             save-handler
+   :string-builder   string-builder-handler
+
+   :routine          routine-handler
    :ifthen           ifthen-handler
-   :return           return-handler
    :tell             tell-handler
    :block            block-handler
+   :return           return-handler
+
    :define-locals    local-handler
    :define-record    record-handler
-   :define-list      list-handler
+
    :assign           assign-handler
    :scalar-value     scalar-handler
    :count-of         count-of-handler
@@ -243,7 +283,6 @@
    :properties-of    propertiesof-handler
    :extend-list      extendlist-handler
    :extend-list-with-expression extendlist-expression-handler
-   :set-expression   set-expression-handler
    :extend-record    extendrecord-handler
    :make-new-record  make-new-record-handler
    :make-new-inlist-record make-new-inlist-record-hander
@@ -253,9 +292,6 @@
    :filtered-delete    filtered-delete-handler
    :filter-expression  filter-expression-handler
    :string-p1-reference sp1r-handler
-   :quit             quit-handler
-   :save             save-handler
-   :term             term-handler
    })
 
 

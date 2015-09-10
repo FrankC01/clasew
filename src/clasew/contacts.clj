@@ -44,7 +44,7 @@
   [body]
   (ast/tell nil :contacts
                (ast/define-locals nil :results :cloop :ident)
-               (ast/define-list nil :results)
+               (ast/set-statement nil (ast/term nil :results) (ast/empty-list))
                body
             (ast/return nil :results)))
 
@@ -55,7 +55,7 @@
     nil
     (ast/block
      (ast/define-locals nil :add_list :hadd)
-     (ast/define-list nil :add_list)
+     (ast/set-statement nil (ast/term nil :add_list) (ast/empty-list))
      (ast/define-record nil :hadd args)
      (ast/repeat-loopf
       contacts-mapset-core :addr :addresses tkey
@@ -73,7 +73,7 @@
     nil
     (ast/block nil
      (ast/define-locals nil :elist :eadd)
-     (ast/define-list nil :elist)
+    (ast/set-statement nil (ast/term nil :elist) (ast/empty-list))
      (ast/repeat-loopf
       contacts-mapset-core :eml :emails tkey
       (conj (seq (conj
@@ -90,7 +90,7 @@
     nil
     (ast/block nil
      (ast/define-locals nil :plist :padd)
-     (ast/define-list nil :plist)
+    (ast/set-statement nil (ast/term nil :plist) (ast/empty-list))
      (ast/repeat-loopf
       contacts-mapset-core :phn :phones tkey
       (conj (seq (conj
@@ -135,13 +135,18 @@
   (genas/ast-consume
    (ast/tell
     contacts-mapset-core :contacts
-    (ast/define-locals nil :results :dlist :rstring)
-    (ast/define-list nil :results)
-    (ast/count-of nil :dlist
-                  (ast/filter-expression nil :people nil filters))
-    (ast/filtered-delete nil filters :people)
-    (ast/string-p1-reference nil :rstring "Records deleted = " :dlist)
-    (ast/extend-list nil :results :rstring)
+    (ast/define-locals nil :results :dlist)
+    (ast/set-statement nil (ast/term nil :results) (ast/empty-list))
+    (ast/set-statement nil (ast/term nil :dlist)
+                       (ast/filter-expression nil :people nil filters))
+    (ast/delete-expression nil (ast/list-items-cmd nil :dlist))
+    (ast/set-statement nil
+                       (ast/eol-cmd nil :results nil)
+                       (ast/string-builder
+                        nil
+                        (ast/string-literal "Records deleted :")
+                        (ast/count-expression nil
+                                              (ast/term nil :dlist))))
     (ast/save)
     (ast/return nil :results))))
 
@@ -182,8 +187,8 @@
    (ast/tell
     contacts-mapset-core :contacts
     (ast/define-locals nil :results :alist :dlist :rstring :thePerson)
-    (ast/define-list nil :alist)
-    (ast/define-list nil :results)
+    (ast/set-statement nil (ast/term nil :alist) (ast/empty-list))
+    (ast/set-statement nil (ast/term nil :results) (ast/empty-list))
     (ast/blockf
      nil
      (seq

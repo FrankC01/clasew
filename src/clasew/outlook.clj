@@ -88,10 +88,11 @@
 
 (defn build-tell
   [body]
-  (ast/tell nil :outlook
-               (ast/define-locals nil :results :cloop :ident)
-               (ast/define-list nil :results)
-               body
+  (ast/tell nil
+            :outlook
+            (ast/define-locals nil :results :cloop :ident)
+            (ast/set-statement nil (ast/term nil :results) (ast/empty-list))
+            body
             (ast/return nil :results)))
 
 
@@ -113,7 +114,7 @@
     nil
     (ast/block nil
      (ast/define-locals nil :aloop :hadd :badd)
-     (ast/define-list nil :aloop)
+     (ast/set-statement nil (ast/term nil :aloop) (ast/empty-list))
      (ast/define-record nil :hadd args)
      (ast/define-record nil :badd args)
 
@@ -156,7 +157,7 @@
     nil
     (ast/block nil
      (ast/define-locals nil :elist :eadd)
-     (ast/define-list nil :elist)
+     (ast/set-statement nil (ast/term nil :elist) (ast/empty-list))
      (ast/repeat-loopf
       nil ;outlook-mapset-core
       :eml :emails tkey
@@ -225,7 +226,7 @@
     (ast/block
      nil
      (ast/define-locals nil :plist)
-     (ast/define-list nil :plist) ; Individual list holder
+     (ast/set-statement nil (ast/term nil :plist) (ast/empty-list))
      (setphonevalues tkey :plist)
      (ast/extend-record nil :ident :phone_list :plist)
      )))
@@ -262,13 +263,21 @@
   (genas/ast-consume
    (ast/tell
     outlook-mapset-core :outlook
-    (ast/define-locals nil :results :dlist :rstring)
-    (ast/define-list nil :results)
-    (ast/count-of nil :dlist
-                  (ast/filter-expression nil :contacts nil filters))
-    (ast/filtered-delete nil filters :contacts)
-    (ast/string-p1-reference nil :rstring "Records deleted = " :dlist)
-    (ast/extend-list nil :results :rstring)
+    (ast/define-locals nil :results :dlist)
+    (ast/set-statement nil (ast/term nil :results) (ast/empty-list))
+    (ast/set-statement nil (ast/term nil :dlist)
+                       (ast/filter-expression nil :contacts nil filters))
+    (ast/delete-expression nil
+                           (ast/filter-expression nil :contacts nil filters))
+    ;(ast/delete-expression nil (ast/list-items-cmd nil :dlist))
+    (ast/set-statement nil
+                       (ast/eol-cmd nil :results nil)
+                       (ast/string-builder
+                        nil
+                        (ast/string-literal "Records deleted :")
+                        (ast/count-expression nil
+                                              (ast/term nil :dlist))))
+    (ast/save)
     (ast/return nil :results))))
 
 (defn kwmaker
@@ -332,8 +341,8 @@
    (ast/tell
     outlook-mapset-core :outlook
     (ast/define-locals nil :results :alist :dlist :rstring)
-    (ast/define-list nil :alist)
-    (ast/define-list nil :results)
+    (ast/set-statement nil (ast/term nil :alist) (ast/empty-list))
+    (ast/set-statement nil (ast/term nil :results) (ast/empty-list))
     (ast/blockf
      nil
      (seq (reduce
