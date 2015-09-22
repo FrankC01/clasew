@@ -173,10 +173,7 @@
     (ast/blockf nil
              (conj nnl
                    (ast/set-expression nil mkey
-                                 (ast/make-new-record nil :person base))
-               )))
-
-  )
+                                 (ast/make-new-record nil :person base))))))
 
 (defn- add-contacts
   "Adds new individuals to contacts people. Requires breaking out

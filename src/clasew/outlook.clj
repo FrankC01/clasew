@@ -9,42 +9,43 @@
 
 
 (def ^:private outlook-identities
-  {:name_suffix          "suffix",
-   :full_name            "display name",
-   :first_name           "first name",
-   :middle_name,         "middle name",
-   :last_name            "last name",
-   :primary_company      "company",
-   :primary_title        "job title",
-   :primary_department   "department",
-   :city_name            "city",
-   :street_name          "street",
-   :zip_code             "zip",
-   :country_name         "country",
-   :state_name           "state",
-   :contacts             "contacts",
-   :emails               "email addresses",
-   :email_address        "address",
-   :email_type           "type",
-   :home_zip             "home zip",
-   :home_city            "home city",
-   :home_street_address  "home street address",
-   :home_country         "home country",
-   :home_state           "home state",
+  {:name_suffix              "suffix",
+   :full_name                "display name",
+   :first_name               "first name",
+   :middle_name,             "middle name",
+   :last_name                "last name",
+   :primary_company          "company",
+   :primary_title            "job title",
+   :primary_department       "department",
+   :city_name                "city",
+   :street_name              "street",
+   :zip_code                 "zip",
+   :country_name             "country",
+   :state_name               "state",
+   :contacts                 "contacts",
+   :emails                   "email addresses",
+   :email_individual         "contact email address",
+   :email_address            "address",
+   :email_type               "type",
+   :home_zip                 "home zip",
+   :home_city                "home city",
+   :home_street_address      "home street address",
+   :home_country             "home country",
+   :home_state               "home state",
    :business_zip             "business zip",
    :business_city            "business city",
    :business_street_address  "business street address",
    :business_country         "business country",
    :business_state           "business state",
-   :default_phone    "phone",
-   :home_phone       "home phone number"
-   :home2_phone      "other home phone number"
-   :home_fax         "home fax number"
-   :business_phone   "business phone number"
-   :business2_phone  "other business phone number"
-   :business_fax     "business fax number"
-   :pager            "pager number"
-   :mobile           "mobile number"
+   :default_phone            "phone",
+   :home_phone               "home phone number"
+   :home2_phone              "other home phone number"
+   :home_fax                 "home fax number"
+   :business_phone           "business phone number"
+   :business2_phone          "other business phone number"
+   :business_fax             "business fax number"
+   :pager                    "pager number"
+   :mobile                   "mobile number"
     })
 
 
@@ -126,7 +127,9 @@
         outlook-mapset-home
         args
         :hadd tkey "\"home\"")
-       (ast/extend-list nil :aloop :hadd)))
+       (ast/set-statement nil
+                          (ast/eol-cmd nil :aloop nil)
+                          (ast/term nil :hadd))))
 
      ;; Business address
      (ast/blockf
@@ -136,7 +139,9 @@
         outlook-mapset-business
         args
         :badd tkey "\"work\"")
-       (ast/extend-list nil :aloop :badd)))
+       (ast/set-statement nil
+                          (ast/eol-cmd nil :aloop nil)
+                          (ast/term nil :badd))))
      (ast/extend-record nil :ident :address_list :aloop))))
 
 (defn- setemailvalues
@@ -166,7 +171,10 @@
         nil
         args
         :eadd :eml)
-       (ast/extend-list nil :elist :eadd))) (ast/define-record nil :eadd args)))
+       (ast/set-statement nil
+                          (ast/eol-cmd nil :elist nil)
+                          (ast/term nil :eadd))))
+            (ast/define-record nil :eadd args)))
      (ast/extend-record nil :ident :email_list :elist))))
 
 (def ^:private outlook-phones
@@ -210,12 +218,24 @@
       (ast/block
        nil
        (ast/define-locals nil %2)
-       (ast/define-record nil %2 '(:number_value :number_type))
+       (ast/set-statement
+        nil (ast/term nil %2)
+        (ast/record-definition nil
+                               (ast/key-value nil
+                                              (ast/key-term :number_value)
+                                              (ast/null))
+                               (ast/key-value nil
+                                              (ast/key-term :number_type)
+                                              (ast/null))))
        (ast/record-value nil %2 :number_value
                          (ast/value-of nil %2 fromval :cleanval))
        (ast/record-value nil %2 :number_type
                          (ast/scalar-value nil (str (%2 outlook-phones-types))))
-       (ast/extend-list nil reslist %2)))
+       (ast/set-statement
+        nil
+        (ast/eol-cmd nil reslist nil)
+        (ast/term nil %2))
+       ))
     [] (keys outlook-phones-types))))
 
 
@@ -228,8 +248,7 @@
      (ast/define-locals nil :plist)
      (ast/set-statement nil (ast/term nil :plist) (ast/empty-list))
      (setphonevalues tkey :plist)
-     (ast/extend-record nil :ident :phone_list :plist)
-     )))
+     (ast/extend-record nil :ident :phone_list :plist))))
 
 (defn build-individual
   [args lkw addr emls phns filt]
@@ -237,7 +256,10 @@
                      (filter #(not (nil? %))
                              (conj (ident/setrecordvalues nil args :ident :cloop)
                                    addr emls  phns
-                                   (ast/extend-list nil :results :ident))))]
+                                   (ast/set-statement
+                                    nil
+                                    (ast/eol-cmd nil :results nil)
+                                    (ast/term nil :ident)))))]
     (build-tell
      (if (not-empty filt)
        (ast/filtered-repeat-loop outlook-mapset-core lkw filt :contacts nil
@@ -269,15 +291,14 @@
                        (ast/filter-expression nil :contacts nil filters))
     (ast/delete-expression nil
                            (ast/filter-expression nil :contacts nil filters))
-    ;(ast/delete-expression nil (ast/list-items-cmd nil :dlist))
     (ast/set-statement nil
                        (ast/eol-cmd nil :results nil)
                        (ast/string-builder
                         nil
-                        (ast/string-literal "Records deleted :")
+                        (ast/string-literal "Records deleted : ")
                         (ast/count-expression nil
                                               (ast/term nil :dlist))))
-    (ast/save)
+    (ast/save-expression)
     (ast/return nil :results))))
 
 (defn kwmaker
@@ -344,17 +365,129 @@
     (ast/set-statement nil (ast/term nil :alist) (ast/empty-list))
     (ast/set-statement nil (ast/term nil :results) (ast/empty-list))
     (ast/blockf
-     nil
+     outlook-mapset-core
      (seq (reduce
            #(conj %1
-                  (ast/extend-list-with-expression nil :alist
-                  (ast/make-new-record nil :contact (flatten-map %2))))
+                  (ast/set-statement
+                   nil
+                   (ast/eol-cmd nil :alist nil)
+                   (ast/make-new-record nil :contact (flatten-map %2))))
            [] adds)))
-    (ast/count-of nil :dlist
-                  (ast/term nil :alist))
-    (ast/string-p1-reference nil :rstring "Records added = " :dlist)
-    (ast/extend-list nil :results :rstring)
+    (ast/set-statement outlook-mapset-core
+                       (ast/eol-cmd nil :results nil)
+                       (ast/string-builder
+                        nil
+                        (ast/string-literal "Records added : ")
+                        (ast/count-expression nil
+                                              (ast/term nil :alist))))
     (ast/return nil :results))))
+
+(defn- gen-sets
+  "Generate the value set to's in process"
+  [ckw setters]
+  (let [smap (reduce #(assoc %1 (first %2) (second %2)) {} (partition 2 setters))]
+  (reduce-kv #(conj %1
+                 (ast/set-statement
+                  nil
+                  (ast/xofy-expression
+                   nil
+                   (ast/term nil %2) (ast/term nil ckw))
+                  (ast/string-literal %3))) [] smap)))
+
+(defn- gen-records
+  [emap]
+  (reduce-kv
+   #(update-in %1 [:expressions] conj
+               (ast/key-value
+                nil
+                (ast/key-term %2)
+                (if (= %2 :email_type)
+                  (ast/symbol-literal %3)
+                  (ast/string-literal %3))))
+   (ast/record-definition nil) emap))
+
+(defn- gen-subsets
+  "Generate the additions for contained subsets, ie:
+  set end of email address to make new email address with properties xx yy"
+  [tkw elistkw [subkey {:keys [filters sets adds]}]]
+  (ast/blockf
+   nil
+   (conj (reduce #(conj %1
+                        (ast/set-statement
+                         nil
+                         (ast/eol-cmd nil elistkw nil)
+                         (gen-records %2))) [] adds)
+         (ast/set-statement
+          nil
+          (ast/xofy-expression
+           nil
+           (ast/term nil subkey) (ast/term nil tkw))
+          (ast/block
+           nil
+           (ast/xofy-expression
+            nil
+            (ast/term nil subkey)
+            (ast/term nil tkw))
+           (ast/append-object-expression
+            nil
+            elistkw))))))
+
+(defn- redfilter
+  [sset]
+  (if (or (nil? sset) (and (nil? (:filters sset)) (empty? (:sets sset))))
+    nil
+    sset))
+
+(defn- redistribute
+  "Redistribute the subsets group
+  1. if there are adds, redistributes to core sets
+  2. if there are filters and sets then conj in remaining subsets"
+  [mmap mkw smap]
+  (let [red (seq (flatten-map {mkw (:adds smap)}))
+        sset (redfilter (dissoc smap :adds))
+        rmap (assoc mmap
+               :sets (reduce
+                      #(conj %1 (first %2) (second %2)) (:sets mmap) red))]
+    (if sset
+      (update-in rmap [:ifsets] conj [mkw sset])
+      rmap)))
+
+(defn- reduce-inline-subsets
+  "Reduce through redistribution"
+  [ckw {:keys [filters sets subsets] :as bblock}]
+  (let [nblk (redistribute
+              (redistribute
+               (assoc bblock :subsets (ident/filter-forv :emails subsets))
+               :phones (second (ident/filter-forv :phones subsets)))
+              :addresses (second (ident/filter-forv :addresses subsets)))]
+    (if (not-empty (:subsets nblk))
+      nblk
+      nblk)))
+
+(defn- refactor-update
+  [f block]
+  (let [nmap (reduce-inline-subsets :cloop block)]
+    (f nmap)))
+
+(defn- update-contacts
+  "Updates individuals or child values"
+  [{:keys [filters sets subsets]}]
+  (let [ssets nil
+        ttl
+   (ast/tell
+    outlook-mapset-core :outlook
+    (ast/define-locals nil :results :cloop :esets)
+    (ast/set-statement nil (ast/term nil :results) (ast/empty-list))
+    (ast/for-in-expression
+     nil (ast/term nil :cloop)
+     (if filters
+       (ast/filter-expression
+        nil :contacts nil filters)
+       (ast/term nil :contacts))
+     (ast/set-statement nil (ast/term nil :esets) (ast/empty-list))
+     (ast/blockf nil (gen-sets :cloop sets))
+     (gen-subsets :cloop :esets subsets))(ast/return nil :results))]
+    (genas/ast-consume ttl)))
 
 (defn script
   [{:keys [action] :as directives}]
@@ -362,6 +495,7 @@
     :get-individuals     (get-contacts directives)
     :delete-individual   (delete-contact directives)
     :add-individuals     (add-contacts directives)
+    :update-individual   (refactor-update update-contacts directives)
     (str "Don't know how to complete " action)))
 
 

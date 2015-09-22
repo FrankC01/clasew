@@ -30,9 +30,21 @@
    :token-fn token-fn
    :to-value to-value})
 
+(defn key-term
+  [key-value]
+  {:type :key-term
+   :token-fn nil
+   :key-term key-value})
+
 (defn string-literal
   [value]
   {:type :string-literal
+   :token-fn nil
+   :svalue value})
+
+(defn symbol-literal
+  [value]
+  {:type :symbol-literal
    :token-fn nil
    :svalue value})
 
@@ -57,6 +69,12 @@
    :token-fn token-fn
    :expressions (conj exps exp)})
 
+(defn append-object-expression
+  [token-fn value]
+  {:type :append-object
+   :token-fn token-fn
+   :svalue value})
+
 (defn set-statement
   [token-fn set-lhs set-rhs]
   {:type :set-statement
@@ -72,14 +90,11 @@
    :from-expression from-expression})
 
 
-(defn save
-  ([] (save :none))
-  ([object] {:type :save :token-fn nil :object object}))
-
 ; Quick terms
 
 (defn empty-list [] (term nil "{}"))
 (defn quit [] (term nil "quit\n"))
+(defn null [] (term nil "null"))
 
 ; Quick expressions
 
@@ -92,11 +107,47 @@
   [token-fn of-expression]
   (expression token-fn (term nil "count of ") of-expression))
 
+(defn xofy-expression
+  [token-fn x y]
+  {:type :xofy-expression
+   :token-fn token-fn
+   :x-expression x
+   :y-expression y})
+
+(defn for-in-expression
+  [token-fn control-expression in-expression & expressions]
+  {:type :for-in-expression
+   :token-fn token-fn
+   :control control-expression
+   :in      in-expression
+   :expressions expressions})
+
+(defn save-expression
+  ([] (expression nil (term nil :save)))
+  ([object]
+   (expression nil (term nil :save) (term nil object))))
+
 (defn string-builder
   [token-fn & expressions]
   {:type :string-builder
    :token-fn token-fn
    :expressions expressions})
+
+(defn key-value
+  [token-fn key-term-value value-expression]
+  {:type     :key-value
+   :token-fn token-fn
+   :key-term key-term-value
+   :value-expression value-expression})
+;  (expression token-fn (key-term key-term-value) value-expression))
+
+
+(defn record-definition
+  [token-fn & key-value-pairs]
+  {:type :record-definition
+   :token-fn token-fn
+   :expressions key-value-pairs})
+
 
 (defn tell
   "Sets up the enclosing tell application construct"
@@ -161,7 +212,6 @@
    :token-fn token-fn
    :local-terms terms})
 
-
 (defn define-record
   "Sets a record to mapvars - emits 'set target to {mv1: null, mvN:null}'"
   [token-fn target mapvars]
@@ -200,13 +250,6 @@
    :record-set   rectype
    :user-filter  user-filter})
 
-
-(defn assign
-  [token-fn target source]
-  {:type :assign
-   :token-fn token-fn
-   :setvalue target
-   :setvalue-of source})
 
 (defn string-p1-reference
   [token-fn target sp0 sp1]

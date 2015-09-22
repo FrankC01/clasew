@@ -14,7 +14,8 @@
 
 (defn nil-handler
   [expression]
-  (str expression " not handled.\n"))
+  (throw (Exception. (str expression " not handled"))))
+;  (str expression " not handled.\n"))
 
 (defn endline
   [s]
@@ -22,18 +23,30 @@
     s
     (str s "\n")))
 
+(defn map-and-interpose
+  [coll s]
+  (apply str (interpose s (map ast-consume coll))))
+
 (defn term-handler
   [{:keys [to-value]}]
-  (name to-value))
+  (*lookup-fn* to-value))
+
+(defn key-term-handler
+  [{:keys [key-term]}]
+  (str (*lookup-fn* key-term) ":"))
 
 (defn string-literal-handler
   [{:keys [svalue]}]
   (str "\"" svalue "\""))
 
+(defn symbol-literal-handler
+  [{:keys [svalue]}]
+  (symbol svalue))
+
 (defn end-of-list-cmd-handler
   [{:keys [target-list list-owner]}]
-  (str "end of "(name target-list)
-       (if list-owner (str " of " (name list-owner)) "")))
+  (str "end of "(*lookup-fn* target-list)
+       (if list-owner (str " of " (*lookup-fn* list-owner)) "")))
 
 (defn list-items-cmd-handler
   [{:keys [target-owner]}]
@@ -43,27 +56,29 @@
   [{:keys [expressions]}]
   (endline (apply str (map ast-consume expressions))))
 
+(defn append-object-handler
+  [{:keys [svalue]}]
+  (str " & " (*lookup-fn* svalue)))
+
+(defn key-value-handler
+  [{:keys [key-term value-expression]}]
+  (str (ast-consume key-term) (ast-consume value-expression)))
+
+
 (defn set-statement-handler
   "Emit set (expression) to (expression) cr"
   [{:keys [set-lhs-expression set-rhs-expression]}]
   (endline (str "set " (ast-consume set-lhs-expression)
        " to " (ast-consume set-rhs-expression))))
 
-(defn set-expression-handler
-  "Emit set (value) to (expression) cr"
-  [{:keys [set-target from-expression]}]
-  (str "set "(name set-target) " to " (ast-consume from-expression)))
-
-(defn save-handler
-  [{:keys [object]}]
-  (str (name :save)
-       (if (= object :none) "" (name object))
-       "\n"))
-
 (defn string-builder-handler
   [{:keys [expressions]}]
   (str (apply str
               (interpose " & "(map ast-consume expressions)))))
+
+(defn record-definition-handler
+  [{:keys [expressions]}]
+  (str "{" (map-and-interpose expressions ",") "}"))
 
 (defn tell-handler
   [expression]
@@ -91,6 +106,20 @@
   [{:keys [return-val]}]
   (str "return " (name return-val)"\n"))
 
+(defn xofy-handler
+  [{:keys [x-expression y-expression]}]
+  (str (ast-consume x-expression) " of " (ast-consume y-expression)))
+
+(defn for-in-handler
+  [{:keys [control in expressions]}]
+  (str "repeat with "
+       (ast-consume control)
+       " in "
+       (ast-consume in)
+       "\n"
+       (apply str (map ast-consume expressions))
+       "end repeat\n"))
+
 (defn local-handler
   [expression]
   (str "local "
@@ -101,10 +130,6 @@
 (defn block-handler
   [expression]
   (apply str (map ast-consume (:expressions expression))))
-
-(defn assign-handler
-  [{:keys [setvalue setvalue-of]}]
-  (str "set "(name setvalue)" to "(name setvalue-of)"\n"))
 
 (defn scalar-handler
   [{:keys [to-value]}]
@@ -117,11 +142,6 @@
 (defn sp1r-handler
   [{:keys [set-target string-0 ref-1]}]
   (str "set "(name set-target)" to \"" string-0"\" & " (name ref-1)"\n"))
-
-(defn extendlist-handler
-  [expression]
-  (str "set end of " (name (:set expression))
-       " to " (name (:to expression)) "\n"))
 
 (defn extendlist-expression-handler
   [{:keys [target to-expression]}]
@@ -160,16 +180,63 @@
   (str "set " (name target-map) " to " (name target-map) " & {"(name keywrd)":" (name value)"}\n")
   )
 
+(declare new-filter-reduce)
+
+(def filterp
+  {:equal-to "equals"
+   :not-equal-to "is not equal to"
+   :less-than "<"
+   :not-less-than "not less than"
+   :greater-than ">"
+   :not-greater-than "not greater than"
+   :contains "contains"
+   :not-contains "does not contain"
+   :starts-with "starts with"
+   :ends-with "ends with"
+   :is-in "is in"
+   :is-not-in "is not in"
+   :and "and"
+   :or "or"
+   })
+
+
+(defn reduce-filter-args
+  [acc [kv eq tv]]
+  (conj acc
+        (apply str
+               (interpose " "
+                          (conj []
+                                (*lookup-fn* kv)
+                                (get filterp eq)
+                                (if (string? tv)
+                                  (str "\"" tv "\"")
+                                  tv))))))
+
+(defn reduce-filter-joins
+  [acc [kw joinmap]]
+  (conj acc
+        (str " " (name kw) " " "(" (new-filter-reduce joinmap) ")")))
+
+(defn new-filter-reduce
+  [{:keys [args joins]}]
+  (let [base (apply str (interpose " and " (reduce reduce-filter-args [] args)))]
+    (if (empty? joins)
+      base
+      (str base (apply str (reduce reduce-filter-joins [] joins))))))
+
+
 (defn filter-reduce
   "Converts filter map to individual search criteria. Multiple are
   conjoined (e.g. and'ed)"
   [filter-map]
+  (if (contains? filter-map :joins)
+    (new-filter-reduce filter-map)
   (apply str
          (interpose " and "
                     (reduce-kv
                      #(conj %1 (str (*lookup-fn* %2) " contains " \" %3 \"))
                      []
-                     filter-map))))
+                     filter-map)))))
 
 (defn filter-handler
   [{:keys [source value soure-of user-filter]}]
@@ -256,32 +323,37 @@
 (def ast-jump "Jump Table for AST Expression"
   {
    :term             term-handler
+   :key-term         key-term-handler
    :string-literal   string-literal-handler
+   :symbol-literal   symbol-literal-handler
    :eol-cmd          end-of-list-cmd-handler
    :li-cmd           list-items-cmd-handler
    :expression       expression-handler
-   :set-expression   set-expression-handler
-   :set-statement    set-statement-handler ;Should deprecate
-   :save             save-handler
+   :append-object    append-object-handler
+   :set-statement    set-statement-handler
    :string-builder   string-builder-handler
+   :record-definition record-definition-handler
+   :key-value        key-value-handler
 
    :routine          routine-handler
    :ifthen           ifthen-handler
    :tell             tell-handler
    :block            block-handler
    :return           return-handler
+   :for-in-expression for-in-handler
+   :xofy-expression  xofy-handler
 
    :define-locals    local-handler
    :define-record    record-handler
 
-   :assign           assign-handler
+   ;; TODO: Evaluate below for deprecation
+
    :scalar-value     scalar-handler
    :count-of         count-of-handler
    :record-value     recordvalue-handler
    :value-of         valueof-handler
    :value-of-as-string valueof-asstring-handler
    :properties-of    propertiesof-handler
-   :extend-list      extendlist-handler
    :extend-list-with-expression extendlist-expression-handler
    :extend-record    extendrecord-handler
    :make-new-record  make-new-record-handler
@@ -294,11 +366,23 @@
    :string-p1-reference sp1r-handler
    })
 
+(def instrument (atom {}))
+
+(defn ginstrument
+  [arg]
+  (condp = arg
+    nil @instrument
+    :r  (reset! instrument {})))
 
 (defn ast-consume
   [{:keys [type token-fn] :as block}]
+  (if (nil? (get @instrument type nil))
+    (swap! instrument assoc type 1)
+    (swap! instrument update-in [type] inc))
   (if token-fn
-    (binding [*lookup-fn* token-fn]
-      ((get ast-jump type nil-handler) block))
-    ((get ast-jump type nil-handler) block)))
+    (do
+      (binding [*lookup-fn* token-fn]
+        ((get ast-jump type nil-handler) block)))
+    (do
+      ((get ast-jump type nil-handler) block))))
 
