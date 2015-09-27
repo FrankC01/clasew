@@ -10,7 +10,7 @@
 
 (declare ast-consume)
 
-(def ^:dynamic *lookup-fn*)
+(def ^:dynamic *lookup-fn* (fn [term-kw] (name term-kw)))
 
 (defn nil-handler
   [expression]
@@ -48,6 +48,13 @@
   (str "end of "(*lookup-fn* target-list)
        (if list-owner (str " of " (*lookup-fn* list-owner)) "")))
 
+(defn end-of-rec-cmd-handler
+  [{:keys [target-rec rec-owner source]}]
+  (str (*lookup-fn* target-rec)
+       (if rec-owner (str " of " (*lookup-fn* rec-owner)) "")
+       " & "
+       (ast-consume source)))
+
 (defn list-items-cmd-handler
   [{:keys [target-owner]}]
   (str " " (name target-owner)"'s items"))
@@ -63,7 +70,6 @@
 (defn key-value-handler
   [{:keys [key-term value-expression]}]
   (str (ast-consume key-term) (ast-consume value-expression)))
-
 
 (defn set-statement-handler
   "Emit set (expression) to (expression) cr"
@@ -92,15 +98,16 @@
        body
        "end "(name routine-name)"\n")))
 
-(defn ifthen-handler
-  [{:keys [test-value predicate operand expressions]}]
-  (str "if " (name test-value) " is"
-       (*lookup-fn* predicate)
-       (*lookup-fn* operand) " then \n"
-       (apply str (map ast-consume expressions))
-       "end if\n"
-       ))
+(defn elseif-handler
+  [{:keys [ifexp]}]
+  (str "else " (ast-consume ifexp)))
 
+(defn ifs-handler
+  [{:keys [i-expression e-expressions]}]
+  (str (ast-consume i-expression)
+       (apply str (map ast-consume e-expressions))
+       "end if\n")
+  )
 
 (defn return-handler
   [{:keys [return-val]}]
@@ -109,6 +116,7 @@
 (defn xofy-handler
   [{:keys [x-expression y-expression]}]
   (str (ast-consume x-expression) " of " (ast-consume y-expression)))
+
 
 (defn for-in-handler
   [{:keys [control in expressions]}]
@@ -175,11 +183,6 @@
   [{:keys [value properties-of]}]
   (str "set " (name value) " to properties of " (name properties-of) "\n"))
 
-(defn extendrecord-handler
-  [{:keys [target-map value keywrd]}]
-  (str "set " (name target-map) " to " (name target-map) " & {"(name keywrd)":" (name value)"}\n")
-  )
-
 (declare new-filter-reduce)
 
 (def filterp
@@ -197,20 +200,25 @@
    :is-not-in "is not in"
    :and "and"
    :or "or"
+   :missing "missing value"
    })
 
 
 (defn reduce-filter-args
-  [acc [kv eq tv]]
+  [acc exp]
+  (let [[term predicate value & [larg]] exp]
   (conj acc
         (apply str
                (interpose " "
                           (conj []
-                                (*lookup-fn* kv)
-                                (get filterp eq)
-                                (if (string? tv)
-                                  (str "\"" tv "\"")
-                                  tv))))))
+                                (*lookup-fn* term)
+                                (if larg (str " of " (*lookup-fn* larg)) "")
+                                (get filterp predicate)
+                                (if (string? value)
+                                  (str "\"" value "\"")
+                                  (or (get filterp value nil)
+                                      (*lookup-fn* value))
+                                  )))))))
 
 (defn reduce-filter-joins
   [acc [kw joinmap]]
@@ -224,6 +232,10 @@
       base
       (str base (apply str (reduce reduce-filter-joins [] joins))))))
 
+(defn if-handler
+  [{:keys [predicate expressions]}]
+  (str "if (" (new-filter-reduce predicate) ") then\n"
+       (apply str (map ast-consume expressions))))
 
 (defn filter-reduce
   "Converts filter map to individual search criteria. Multiple are
@@ -327,6 +339,7 @@
    :string-literal   string-literal-handler
    :symbol-literal   symbol-literal-handler
    :eol-cmd          end-of-list-cmd-handler
+   :eor-cmd          end-of-rec-cmd-handler
    :li-cmd           list-items-cmd-handler
    :expression       expression-handler
    :append-object    append-object-handler
@@ -336,12 +349,18 @@
    :key-value        key-value-handler
 
    :routine          routine-handler
-   :ifthen           ifthen-handler
+
+   :from-filter      filter-handler
+
    :tell             tell-handler
    :block            block-handler
    :return           return-handler
    :for-in-expression for-in-handler
    :xofy-expression  xofy-handler
+
+   :if-expression      if-handler
+   :else-if-expression elseif-handler
+   :if-statement     ifs-handler
 
    :define-locals    local-handler
    :define-record    record-handler
@@ -355,15 +374,14 @@
    :value-of-as-string valueof-asstring-handler
    :properties-of    propertiesof-handler
    :extend-list-with-expression extendlist-expression-handler
-   :extend-record    extendrecord-handler
    :make-new-record  make-new-record-handler
    :make-new-inlist-record make-new-inlist-record-hander
-   :from-filter      filter-handler
-   :repeat-loop      repeat-handler
-   :filtered-repeat-loop  filtered-repeat-handler
-   :filtered-delete    filtered-delete-handler
-   :filter-expression  filter-expression-handler
-   :string-p1-reference sp1r-handler
+
+   :repeat-loop      repeat-handler                 ; deprecate
+   :filtered-repeat-loop  filtered-repeat-handler   ; deprecate
+   :filtered-delete    filtered-delete-handler      ; deprecate
+   :filter-expression  filter-expression-handler    ; deprecate
+   :string-p1-reference sp1r-handler                ; deprecate
    })
 
 (def instrument (atom {}))

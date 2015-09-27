@@ -7,9 +7,36 @@
             [clasew.identities :as ident]))
 
 
+(def ^:private phone-set
+  {
+   :default_phone            "phone",
+   :home_phone               "home phone number"
+   :home2_phone              "other home phone number"
+   :home_fax                 "home fax number"
+   :business_phone           "business phone number"
+   :business2_phone          "other business phone number"
+   :business_fax             "business fax number"
+   :pager                    "pager number"
+   :mobile                   "mobile number"
+   })
+
+(def ^:private address-set
+  {
+   :home_zip                 "home zip",
+   :home_city                "home city",
+   :home_street_address      "home street address",
+   :home_country             "home country",
+   :home_state               "home state",
+   :business_zip             "business zip",
+   :business_city            "business city",
+   :business_street_address  "business street address",
+   :business_country         "business country",
+   :business_state           "business state"
+   })
 
 (def ^:private outlook-identities
-  {:name_suffix              "suffix",
+  (merge {
+   :name_suffix              "suffix",
    :full_name                "display name",
    :first_name               "first name",
    :middle_name,             "middle name",
@@ -26,33 +53,13 @@
    :emails                   "email addresses",
    :email_individual         "contact email address",
    :email_address            "address",
-   :email_type               "type",
-   :home_zip                 "home zip",
-   :home_city                "home city",
-   :home_street_address      "home street address",
-   :home_country             "home country",
-   :home_state               "home state",
-   :business_zip             "business zip",
-   :business_city            "business city",
-   :business_street_address  "business street address",
-   :business_country         "business country",
-   :business_state           "business state",
-   :default_phone            "phone",
-   :home_phone               "home phone number"
-   :home2_phone              "other home phone number"
-   :home_fax                 "home fax number"
-   :business_phone           "business phone number"
-   :business2_phone          "other business phone number"
-   :business_fax             "business fax number"
-   :pager                    "pager number"
-   :mobile                   "mobile number"
-    })
+   :email_type               "type"
+    } phone-set address-set))
 
 
 (defn outlook-mapset-core
   [term-kw]
   (get outlook-identities term-kw (name term-kw)))
-
 
 (def ^:private outlook-home-address
   {
@@ -109,40 +116,53 @@
                                   (ast/value-of token-fn %2 sourcemap :cleanval))))
           [] mapvars))
 
+(defn set-extend-record
+  [targ skey sval]
+  (ast/set-statement
+   nil
+   (ast/term nil targ)
+   (ast/eor-cmd
+    nil
+    targ nil
+    (ast/record-definition
+     nil
+     (ast/key-value nil
+                    (ast/key-term skey)
+                    (ast/term nil sval))))))
+
 (defn build-address
   [tkey args]
   (if (empty? args)
     nil
-    (ast/block nil
+    (ast/block
+     nil
      (ast/define-locals nil :aloop :hadd :badd)
      (ast/set-statement nil (ast/term nil :aloop) (ast/empty-list))
      (ast/define-record nil :hadd args)
      (ast/define-record nil :badd args)
 
      ;; Home address
-     (ast/blockf
-      nil
-      (conj
-       (setaddressvalues
-        outlook-mapset-home
-        args
-        :hadd tkey "\"home\"")
-       (ast/set-statement nil
-                          (ast/eol-cmd nil :aloop nil)
-                          (ast/term nil :hadd))))
+     (apply (partial ast/block nil)
+            (conj
+             (setaddressvalues
+              outlook-mapset-home
+              args
+              :hadd tkey "\"home\"")
+             (ast/set-statement nil
+                                (ast/eol-cmd nil :aloop nil)
+                                (ast/term nil :hadd))))
 
      ;; Business address
-     (ast/blockf
-      nil
-      (conj
-       (setaddressvalues
-        outlook-mapset-business
-        args
-        :badd tkey "\"work\"")
-       (ast/set-statement nil
-                          (ast/eol-cmd nil :aloop nil)
-                          (ast/term nil :badd))))
-     (ast/extend-record nil :ident :address_list :aloop))))
+     (apply (partial ast/block nil)
+            (conj
+             (setaddressvalues
+              outlook-mapset-business
+              args
+              :badd tkey "\"work\"")
+             (ast/set-statement nil
+                                (ast/eol-cmd nil :aloop nil)
+                                (ast/term nil :badd))))
+     (set-extend-record :ident :address_list :aloop))))
 
 (defn- setemailvalues
   "Given a list of vars, generate constructs to set a map value
@@ -158,37 +178,28 @@
 
 (defn build-emails
   [tkey args]
+  (println "build-emails tkey = " tkey)
   (if (empty? args)
     nil
-    (ast/block nil
+    (ast/block
+     nil
      (ast/define-locals nil :elist :eadd)
      (ast/set-statement nil (ast/term nil :elist) (ast/empty-list))
-     (ast/repeat-loopf
-      nil ;outlook-mapset-core
-      :eml :emails tkey
-      (conj (seq (conj
-       (setemailvalues
-        nil
-        args
-        :eadd :eml)
-       (ast/set-statement nil
-                          (ast/eol-cmd nil :elist nil)
-                          (ast/term nil :eadd))))
+     (apply (partial ast/for-in-expression
+      nil
+        (ast/term nil :eml)
+        (ast/xofy-expression nil (ast/term nil :emails) (ast/term nil tkey)))
+        (conj (seq (conj
+                  (setemailvalues
+                   nil
+                   args
+                   :eadd :eml)
+                  (ast/set-statement nil
+                                     (ast/eol-cmd nil :elist nil)
+                                     (ast/term nil :eadd))))
             (ast/define-record nil :eadd args)))
-     (ast/extend-record nil :ident :email_list :elist))))
+     (set-extend-record :ident :email_list :elist))))
 
-(def ^:private outlook-phones
-  {
-   :default_phone    "phone",
-   :home_phone       "home phone number"
-   :home2_phone      "other home phone number"
-   :home_fax         "home fax number"
-   :business_phone   "business phone number"
-   :business2_phone  "other business phone number"
-   :business_fax     "business fax number"
-   :pager            "pager number"
-   :mobile           "mobile number"
-   })
 
 (def ^:private outlook-phones-types
   {
@@ -204,22 +215,18 @@
    })
 
 
-(defn- outloook-mapset-phones
-  [term-kw]
-  (term-kw outlook-phones :bad_error))
-
 (defn- setphonevalues
   [fromval reslist]
-  (ast/blockf
-   outloook-mapset-phones
+  (apply (partial ast/block nil)
    (reduce
     #(conj
       %1
+      (let [g2 (gensym)]
       (ast/block
        nil
-       (ast/define-locals nil %2)
+       (ast/define-locals nil g2)
        (ast/set-statement
-        nil (ast/term nil %2)
+        nil (ast/term nil g2)
         (ast/record-definition nil
                                (ast/key-value nil
                                               (ast/key-term :number_value)
@@ -227,16 +234,16 @@
                                (ast/key-value nil
                                               (ast/key-term :number_type)
                                               (ast/null))))
-       (ast/record-value nil %2 :number_value
+       (ast/record-value nil g2 :number_value
                          (ast/value-of nil %2 fromval :cleanval))
-       (ast/record-value nil %2 :number_type
+       (ast/record-value nil g2 :number_type
                          (ast/scalar-value nil (str (%2 outlook-phones-types))))
        (ast/set-statement
         nil
         (ast/eol-cmd nil reslist nil)
-        (ast/term nil %2))
-       ))
-    [] (keys outlook-phones-types))))
+        (ast/term nil g2))
+       )))
+    [] (keys phone-set))))
 
 
 (defn build-phones
@@ -248,7 +255,8 @@
      (ast/define-locals nil :plist)
      (ast/set-statement nil (ast/term nil :plist) (ast/empty-list))
      (setphonevalues tkey :plist)
-     (ast/extend-record nil :ident :phone_list :plist))))
+     (set-extend-record :ident :phone_list :plist)
+     #_(ast/extend-record nil :ident :phone_list :plist))))
 
 (defn build-individual
   [args lkw addr emls phns filt]
@@ -257,17 +265,20 @@
                              (conj (ident/setrecordvalues nil args :ident :cloop)
                                    addr emls  phns
                                    (ast/set-statement
-                                    nil
-                                    (ast/eol-cmd nil :results nil)
+                                    outlook-mapset-core
+                                    (ast/eol-cmd outlook-mapset-core :results nil)
                                     (ast/term nil :ident)))))]
     (build-tell
      (if (not-empty filt)
        (ast/filtered-repeat-loop outlook-mapset-core lkw filt :contacts nil
                                (ast/define-record nil :ident args)
                                gets)
-       (ast/repeat-loop outlook-mapset-core lkw :contacts nil
-                      (ast/define-record nil :ident args)
-                      gets)))))
+       (ast/for-in-expression
+        outlook-mapset-core
+        (ast/term nil lkw)
+        (ast/term nil :contacts)
+        (ast/define-record nil :ident args)
+        gets)))))
 
 
 (defn- get-contacts
@@ -305,7 +316,7 @@
   [strw]
   (keyword (clojure.string/replace strw #" " "_")))
 
-(defn- phone-reduce
+(defn phone-reduce
   [a m]
   (if (nil? (:number_value m))
     a
@@ -364,8 +375,7 @@
     (ast/define-locals nil :results :alist :dlist :rstring)
     (ast/set-statement nil (ast/term nil :alist) (ast/empty-list))
     (ast/set-statement nil (ast/term nil :results) (ast/empty-list))
-    (ast/blockf
-     outlook-mapset-core
+    (apply (partial ast/block outlook-mapset-core)
      (seq (reduce
            #(conj %1
                   (ast/set-statement
@@ -408,10 +418,10 @@
 
 (defn- gen-subsets
   "Generate the additions for contained subsets, ie:
-  set end of email address to make new email address with properties xx yy"
+  set end of esets to {'record'}
+  set email addresses of cloop to email addresses of cloop & esets"
   [tkw elistkw [subkey {:keys [filters sets adds]}]]
-  (ast/blockf
-   nil
+  (apply (partial ast/block nil)
    (conj (reduce #(conj %1
                         (ast/set-statement
                          nil
@@ -431,6 +441,101 @@
            (ast/append-object-expression
             nil
             elistkw))))))
+
+(defn- filter-exception
+  "Applies to filters not supportable by Office"
+  [typekw {:keys [joins args]} sets]
+  (if (or (not-empty joins) (> (count args) 2) (> (count (partition 2 sets)) 1)
+          (and (= (count args) 2) (not (apply distinct? (map first args)))))
+    (throw (Exception. (str "Filter expression for "
+                            (name typekw)
+                            " not supported in Outlook")))
+    nil)
+  )
+
+
+(defn- phsetx
+  [x k s]
+  "Simplified set generation used for phone numbers"
+  (ast/set-statement
+      nil
+      (ast/xofy-expression
+       nil
+       (ast/term nil x) (ast/term nil k))
+      (ast/string-literal s)))
+
+(defn phifs
+  "Generate an if-expression with filter and expressions"
+  [filt setast]
+  (ast/if-expression nil filt setast))
+
+(defn phelifs
+  "Generate an else-if-expression with filter and expressions"
+  [filt setast]
+  (ast/else-if-expression nil (phifs filt setast)))
+
+(defn- phone-type1
+  "When the filter has both type and number, it will perform
+  a test on explicit type and set if match"
+  [ckw args [n s]]
+  (let [[_ fval _]  (first (filter #(= (first %) :number_value) args))
+        [[x y]] (seq
+                 (phone-reduce
+                  {}
+                  (reduce #(assoc %1 (first %2) (last %2)) {} args)))]
+    (phifs
+     {:joins '() :args (list (list x fval y ckw))}
+     (phsetx x ckw s))))
+
+(defn- phone-type2
+  "When the filter only contained a 'type' it will be a direct set
+  to the value for each phone type"
+  [ckw [[t p v]] [n s]]
+  (let [x (ffirst (phone-reduce {} {t v :number_value ""} ))]
+    (phsetx x ckw s)))
+
+(defn- phone-type3
+  "When the filter only contains a 'number' it will test each phone
+  type and set on match
+  For each key in the phone-set generate a filter (xf) for key and
+  number from the set (xs)"
+  [ckw [[t p v]] [n s]]
+  (let [xs (map #(phsetx %1 ckw s) (keys phone-set))
+        xf (map #(assoc {} :joins '()
+                   :args (list (list %1 ident/EQ v ckw)))
+                (keys phone-set))]
+    (ast/if-statement
+     nil
+     (phifs (first xf) (first xs))
+     (map phelifs (rest xf) (rest xs)))))
+
+(defn- eval-phone-type
+  [{:keys [args]}]
+  (cond
+   (= (count args) 2) phone-type1
+   (= (ffirst args) :number_type) phone-type2
+   (= (ffirst args) :number_value) phone-type3))
+
+(defn- phone-filter
+  "Generates appropriate setters or if-then setters for
+  phone updates"
+  [ckw {:keys [joins args] :as filt} sets]
+  (filter-exception :phones filt sets)
+  ((eval-phone-type filt) ckw args sets))
+
+(defn gen-ifs
+  "Creates instructions for subset filtering. For phone
+  and addresses it is inline to contact record. If emails
+  a for-loop will be required"
+  [ckw ifsets]
+  (let [tb (reduce #(conj
+                     %1
+                     (condp = (first %2)
+                       :phones (phone-filter ckw (:filters (second %2))
+                                             (:sets (second %2)))))
+                   [] ifsets)]
+    (apply (partial ast/block nil) tb))
+  )
 
 (defn- redfilter
   [sset]
@@ -471,7 +576,7 @@
 
 (defn- update-contacts
   "Updates individuals or child values"
-  [{:keys [filters sets subsets]}]
+  [{:keys [filters sets subsets ifsets]}]
   (let [ssets nil
         ttl
    (ast/tell
@@ -479,14 +584,17 @@
     (ast/define-locals nil :results :cloop :esets)
     (ast/set-statement nil (ast/term nil :results) (ast/empty-list))
     (ast/for-in-expression
-     nil (ast/term nil :cloop)
+     nil
+     (ast/term nil :cloop)
      (if filters
        (ast/filter-expression
         nil :contacts nil filters)
        (ast/term nil :contacts))
      (ast/set-statement nil (ast/term nil :esets) (ast/empty-list))
-     (ast/blockf nil (gen-sets :cloop sets))
-     (gen-subsets :cloop :esets subsets))(ast/return nil :results))]
+     (apply (partial ast/block nil) (gen-sets :cloop sets))
+     (gen-subsets :cloop :esets subsets)
+     (gen-ifs :cloop ifsets))
+    (ast/return nil :results))]
     (genas/ast-consume ttl)))
 
 (defn script

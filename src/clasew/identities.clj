@@ -55,51 +55,6 @@
 ;; Special handlers
 ;;
 
-(def ^:private generic-predicate "If predicate expression"
-  {
-   :E   " equal "
-   :NE  " not equal "
-   :GT  " greater than "
-   :LT  " less than "
-   :missing "missing value"
-   })
-
-(defn mapset-expressions
-  "Lookup to expression predicate"
-  [term-kw]
-  (get generic-predicate term-kw term-kw))
-
-(defn mapset-generic
-  [term-kw]
-  (name term-kw))
-
-(def cleanval "Takes an argument and test for 'missing value'.
-  Returns value or null"
-  (ast/routine
-   nil :cleanval :val
-   (ast/define-locals nil :oval)
-   (ast/set-statement nil (ast/term nil :oval) (ast/null))
-   (ast/if-then mapset-expressions :val :NE :missing
-               (ast/set-statement nil (ast/term nil :oval)
-                                  (ast/term nil :val)))
-   (ast/return nil :oval)))
-
-(defn quit
-  "Script to quit an application
-  appkw - keyword (:outlook or :contacts) identies the application
-  to shut down"
-  [appkw]
-  (genas/ast-consume
-   (ast/tell mapset-generic appkw
-             (ast/define-locals nil :results)
-             (ast/set-statement nil (ast/term nil :results) (ast/empty-list))
-             (ast/set-statement
-              nil
-              (ast/eol-cmd nil :results nil)
-              (ast/string-literal "quit successful"))
-             (ast/quit)
-             (ast/return nil :results))))
-
 
 (defn setrecordvalues
   "Given a list of vars, generate constructs to set a Applescript record value
@@ -118,6 +73,10 @@
 (defn- filter-v
   [args]
   (cfilter #(vector? %) args))
+
+(defn- filter-!forv
+  [kw args]
+  (cfilter #(cand (vector? %) (not= (first %) kw)) args))
 
 (defn filter-forv
   [kw args]
@@ -176,38 +135,36 @@
 
 (defn- assert-condition
   [{:keys [sets filters] :as mmap}]
-  (if (not-empty sets)
-    (if (= nil filters)
+  (if (cand (not-empty sets) (= nil filters))
       (throw (Exception. "Can not set a value without a corresponding filter"))
-      mmap)
     mmap))
 
 (defn update-individual
   "Updates one or more bits of information of an individual"
-  [filt & newvalmaps]
+  [& newvalmaps]
   (assert-condition {:action :update-individual
-   :filters (first (rest filt))
+   :filters (first (rest (filter-forv :filter newvalmaps)))
    :sets    (into [] (filter-!v newvalmaps))
-   :subsets (filter-v newvalmaps)}))
+   :subsets (filter-!forv :filter newvalmaps)}))
 
 
 (defn- update-child
-  [kw filt args]
-  [kw (assert-condition {:filters (first (rest filt))
+  [kw args]
+  [kw (assert-condition {:filters (first (rest (filter-forv :filter args)))
        :sets (filter-!v args)
        :adds (rest (filter-forv :adds args))})])
 
 (defn update-addresses
-  [filt & newvalmaps]
-  (update-child :addresses filt newvalmaps))
+  [& newvalmaps]
+  (update-child :addresses newvalmaps))
 
 (defn update-phones
-  [filt & newvalmaps]
-  (update-child :phones filt newvalmaps))
+  [& newvalmaps]
+  (update-child :phones newvalmaps))
 
 (defn update-email-addresses
-  [filt & newvalmaps]
-  (update-child :emails filt newvalmaps))
+  [& newvalmaps]
+  (update-child :emails newvalmaps))
 
 (defn adds
   [& newvalmaps]
@@ -253,3 +210,36 @@
   in this namespeace"
   [& args]
   [:or (filter-parse args)])
+
+;; Predefined utility types
+
+(def cleanval "Takes an argument and test for 'missing value'.
+  Returns value or null"
+  (ast/routine
+   nil :cleanval :val
+   (ast/define-locals nil :oval)
+   (ast/set-statement nil (ast/term nil :oval) (ast/null))
+   (ast/if-statement
+    nil
+    (ast/if-expression
+     nil
+     (second (filter :val !EQ :missing))
+     (ast/set-statement nil (ast/term nil :oval)
+                                  (ast/term nil :val))) nil)
+   (ast/return nil :oval)))
+
+(defn quit
+  "Script to quit an application
+  appkw - keyword (:outlook or :contacts) identies the application
+  to shut down"
+  [appkw]
+  (genas/ast-consume
+   (ast/tell nil appkw
+             (ast/define-locals nil :results)
+             (ast/set-statement nil (ast/term nil :results) (ast/empty-list))
+             (ast/set-statement
+              nil
+              (ast/eol-cmd nil :results nil)
+              (ast/string-literal "quit successful"))
+             (ast/quit)
+             (ast/return nil :results))))

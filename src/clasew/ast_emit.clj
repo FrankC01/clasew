@@ -56,6 +56,15 @@
    :target-list target-list
    :list-owner  list-owner})
 
+(defn eor-cmd
+  "Emit target-rec & {source key source}"
+  [token-fn target-rec rec-owner source-expression]
+  {:type :eor-cmd
+   :token-fn token-fn
+   :target-rec target-rec
+   :rec-owner  rec-owner
+   :source      source-expression})
+
 (defn list-items-cmd
   ""
   [token-fn target-list]
@@ -82,14 +91,6 @@
    :set-lhs-expression set-lhs
    :set-rhs-expression set-rhs})
 
-(defn set-expression
-  [token-fn target from-expression]
-  {:type :set-expression
-   :token-fn token-fn
-   :set-target target
-   :from-expression from-expression})
-
-
 ; Quick terms
 
 (defn empty-list [] (term nil "{}"))
@@ -113,6 +114,32 @@
    :token-fn token-fn
    :x-expression x
    :y-expression y})
+
+;;
+;; if/then, else if/then
+;;
+
+(defn if-expression
+  [token-fn pred-filter & expressions]
+  {:type        :if-expression
+   :token-fn    token-fn
+   :predicate   pred-filter
+   :expressions expressions})
+
+(defn else-if-expression
+  [token-fn if-expression]
+  {:type :else-if-expression
+   :token-fn token-fn
+   :ifexp if-expression
+   })
+
+(defn if-statement
+  [token-fn ifexpression elseexpressions]
+  {:type        :if-statement
+   :token-fn    token-fn
+   :i-expression  ifexpression
+   :e-expressions elseexpressions})
+
 
 (defn for-in-expression
   [token-fn control-expression in-expression & expressions]
@@ -139,15 +166,12 @@
    :token-fn token-fn
    :key-term key-term-value
    :value-expression value-expression})
-;  (expression token-fn (key-term key-term-value) value-expression))
-
 
 (defn record-definition
   [token-fn & key-value-pairs]
   {:type :record-definition
    :token-fn token-fn
    :expressions key-value-pairs})
-
 
 (defn tell
   "Sets up the enclosing tell application construct"
@@ -167,22 +191,6 @@
    :parameters parameters
    :expressions expressions})
 
-(defn if-then
-  "Setup if statement"
-  [token-fn value pred operand & then-expressions]
-  {:type :ifthen
-   :token-fn token-fn
-   :test-value value
-   :predicate pred
-   :operand operand
-   :expressions then-expressions})
-
-(defn if-else
-  "Set else statements"
-  [token-fn & else-expressions]
-  {:type :ifelse
-   :token-fn token-fn
-   :expressions else-expressions})
 
 (defn return
   [token-fn retval]
@@ -198,12 +206,6 @@
    :token-fn token-fn
    :expressions expressions})
 
-(defn blockf
-  "Primary container of expressions - does not emit"
-  [token-fn expressions]
-  {:type :block
-   :token-fn token-fn
-   :expressions expressions})
 
 (defn define-locals
   "Sets any locals described - emits 'local x,y,z'"
@@ -365,15 +367,6 @@
    :source-of sourceof
    :expressions repeat-expressions})
 
-(defn repeat-loopf
-  "Creates a repeat block - emits 'repeat with itervar in source'"
-  [token-fn itervar source sourceof repeat-expressions]
-  {:type :repeat-loop
-   :token-fn token-fn
-   :source source
-   :iteration-var itervar
-   :source-of sourceof
-   :expressions repeat-expressions})
 
 (defn filtered-repeat-loop
   "Creates a filtering construct for repeating over"
