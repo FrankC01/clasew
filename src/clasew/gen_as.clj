@@ -151,16 +151,6 @@
   [{:keys [set-target string-0 ref-1]}]
   (str "set "(name set-target)" to \"" string-0"\" & " (name ref-1)"\n"))
 
-(defn extendlist-expression-handler
-  [{:keys [target to-expression]}]
-  (str "set end of "(name target) " to "(ast-consume to-expression)"\n"))
-
-(defn record-handler
-  [expression]
-  (str "set " (name (:set expression)) " to {"
-       (apply str
-              (interpose ","
-                         (map #(str (name %)":null")(:set-to expression)))) "}\n"))
 
 (defn valueof-handler
   "The value requires a name resolution lookup"
@@ -225,7 +215,7 @@
   (conj acc
         (str " " (name kw) " " "(" (new-filter-reduce joinmap) ")")))
 
-(defn new-filter-reduce
+(defn filter-reduce
   [{:keys [args joins]}]
   (let [base (apply str (interpose " and " (reduce reduce-filter-args [] args)))]
     (if (empty? joins)
@@ -234,21 +224,8 @@
 
 (defn if-handler
   [{:keys [predicate expressions]}]
-  (str "if (" (new-filter-reduce predicate) ") then\n"
+  (str "if (" (filter-reduce predicate) ") then\n"
        (apply str (map ast-consume expressions))))
-
-(defn filter-reduce
-  "Converts filter map to individual search criteria. Multiple are
-  conjoined (e.g. and'ed)"
-  [filter-map]
-  (if (contains? filter-map :joins)
-    (new-filter-reduce filter-map)
-  (apply str
-         (interpose " and "
-                    (reduce-kv
-                     #(conj %1 (str (*lookup-fn* %2) " contains " \" %3 \"))
-                     []
-                     filter-map)))))
 
 (defn filter-handler
   [{:keys [source value soure-of user-filter]}]
@@ -259,6 +236,11 @@
   [{:keys [source source-of user-filter]}]
   (str "("(*lookup-fn* source) " whose " (filter-reduce user-filter) ")"))
 
+(defn where-filter-handler
+  [{:keys [target predicate]}]
+  (str
+   (ast-consume target)
+   " whose (" (filter-reduce predicate) ")"))
 
 (defn filtered-delete-handler
   [{:keys [user-filter record-set]}]
@@ -273,24 +255,6 @@
                               (str " of " (name source-of) ")\n") ")\n")
        body
        "end repeat\n")))
-
-(defn filtered-repeat-handler
-  "Expands to setting local values to filter results, setting up a loop and
-  including a 'get properties of' the iteration-var"
-  [{:keys [token-fn
-           source soure-of
-           user-filter
-           filter-result expressions
-           iteration-var property-var] :as expression}]
-  (let [lcls (ast/define-locals nil filter-result)
-        flt  (ast/from-filter token-fn filter-result source soure-of user-filter)
-        rep  (ast/repeat-loopf token-fn iteration-var filter-result nil
-                        (conj expressions
-                        (ast/properties-of nil property-var iteration-var)))
-        expres (conj (conj (conj '() rep) flt) lcls)
-        body (apply str (map ast-consume expres))]
-  (str body)))
-
 
 (defn- symboltype
   [k v]
@@ -350,12 +314,13 @@
 
    :routine          routine-handler
 
-   :from-filter      filter-handler
+   :from-filter      filter-handler             ; deprecate
+   :for-in-expression for-in-handler
+   :where-filter     where-filter-handler
 
    :tell             tell-handler
    :block            block-handler
    :return           return-handler
-   :for-in-expression for-in-handler
    :xofy-expression  xofy-handler
 
    :if-expression      if-handler
@@ -363,7 +328,6 @@
    :if-statement     ifs-handler
 
    :define-locals    local-handler
-   :define-record    record-handler
 
    ;; TODO: Evaluate below for deprecation
 
@@ -373,12 +337,10 @@
    :value-of         valueof-handler
    :value-of-as-string valueof-asstring-handler
    :properties-of    propertiesof-handler
-   :extend-list-with-expression extendlist-expression-handler
    :make-new-record  make-new-record-handler
    :make-new-inlist-record make-new-inlist-record-hander
 
    :repeat-loop      repeat-handler                 ; deprecate
-   :filtered-repeat-loop  filtered-repeat-handler   ; deprecate
    :filtered-delete    filtered-delete-handler      ; deprecate
    :filter-expression  filter-expression-handler    ; deprecate
    :string-p1-reference sp1r-handler                ; deprecate

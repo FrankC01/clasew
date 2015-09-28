@@ -118,8 +118,9 @@
 
 ; ******* CONTINUE WITH DEPRECATE REPLACEMENTS*******
 
-#_(println (outlook/script
-     (ident/individuals-all)))
+(println (outlook/script
+     (ident/individuals
+      (ident/filter :first_name ident/EQ "Frank"))))
 
 ;; Using a complex filter
 

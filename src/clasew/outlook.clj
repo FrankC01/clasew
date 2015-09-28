@@ -116,19 +116,6 @@
                                   (ast/value-of token-fn %2 sourcemap :cleanval))))
           [] mapvars))
 
-(defn set-extend-record
-  [targ skey sval]
-  (ast/set-statement
-   nil
-   (ast/term nil targ)
-   (ast/eor-cmd
-    nil
-    targ nil
-    (ast/record-definition
-     nil
-     (ast/key-value nil
-                    (ast/key-term skey)
-                    (ast/term nil sval))))))
 
 (defn build-address
   [tkey args]
@@ -138,8 +125,8 @@
      nil
      (ast/define-locals nil :aloop :hadd :badd)
      (ast/set-statement nil (ast/term nil :aloop) (ast/empty-list))
-     (ast/define-record nil :hadd args)
-     (ast/define-record nil :badd args)
+     (ast/set-empty-record nil :hadd args)
+     (ast/set-empty-record nil :badd args)
 
      ;; Home address
      (apply (partial ast/block nil)
@@ -162,7 +149,7 @@
              (ast/set-statement nil
                                 (ast/eol-cmd nil :aloop nil)
                                 (ast/term nil :badd))))
-     (set-extend-record :ident :address_list :aloop))))
+     (ast/set-extend-record :ident :address_list :aloop))))
 
 (defn- setemailvalues
   "Given a list of vars, generate constructs to set a map value
@@ -178,7 +165,6 @@
 
 (defn build-emails
   [tkey args]
-  (println "build-emails tkey = " tkey)
   (if (empty? args)
     nil
     (ast/block
@@ -197,8 +183,8 @@
                   (ast/set-statement nil
                                      (ast/eol-cmd nil :elist nil)
                                      (ast/term nil :eadd))))
-            (ast/define-record nil :eadd args)))
-     (set-extend-record :ident :email_list :elist))))
+            (ast/set-empty-record nil :eadd args)))
+     (ast/set-extend-record :ident :email_list :elist))))
 
 
 (def ^:private outlook-phones-types
@@ -255,8 +241,7 @@
      (ast/define-locals nil :plist)
      (ast/set-statement nil (ast/term nil :plist) (ast/empty-list))
      (setphonevalues tkey :plist)
-     (set-extend-record :ident :phone_list :plist)
-     #_(ast/extend-record nil :ident :phone_list :plist))))
+     (ast/set-extend-record :ident :phone_list :plist))))
 
 (defn build-individual
   [args lkw addr emls phns filt]
@@ -269,16 +254,16 @@
                                     (ast/eol-cmd outlook-mapset-core :results nil)
                                     (ast/term nil :ident)))))]
     (build-tell
-     (if (not-empty filt)
-       (ast/filtered-repeat-loop outlook-mapset-core lkw filt :contacts nil
-                               (ast/define-record nil :ident args)
-                               gets)
        (ast/for-in-expression
         outlook-mapset-core
         (ast/term nil lkw)
-        (ast/term nil :contacts)
-        (ast/define-record nil :ident args)
-        gets)))))
+        (if (empty? filt)
+          (ast/term nil :contacts)
+          (ast/where-filter nil
+                            (ast/term nil :contacts)
+                            filt))
+        (ast/set-empty-record nil :ident args)
+        gets))))
 
 
 (defn- get-contacts

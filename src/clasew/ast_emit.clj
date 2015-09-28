@@ -115,6 +115,13 @@
    :x-expression x
    :y-expression y})
 
+(defn where-filter
+  [token-fn target userfilt]
+  {:type :where-filter
+   :token-fn token-fn
+   :target    target
+   :predicate userfilt})
+
 ;;
 ;; if/then, else if/then
 ;;
@@ -140,6 +147,9 @@
    :i-expression  ifexpression
    :e-expressions elseexpressions})
 
+;;
+;; Loop construct
+;;
 
 (defn for-in-expression
   [token-fn control-expression in-expression & expressions]
@@ -213,14 +223,6 @@
   {:type :define-locals
    :token-fn token-fn
    :local-terms terms})
-
-(defn define-record
-  "Sets a record to mapvars - emits 'set target to {mv1: null, mvN:null}'"
-  [token-fn target mapvars]
-  {:type :define-record
-   :token-fn token-fn
-   :set target
-   :set-to mapvars})
 
 (defn make-new-record
   "Create a new record type with associated properties
@@ -340,23 +342,6 @@
    :value value         ; what var are we setting result to
    :user-filter user-filter})
 
-
-(defn extend-list
-  "Sets the end of target list to source - emits 'set end of target to source'"
-  [token-fn target source]
-  {:type :extend-list
-   :token-fn token-fn
-   :set target
-   :to source})
-
-(defn extend-list-with-expression
-  "Sets the end of target list to source - emits 'set end of target to source'"
-  [token-fn target to-expression]
-  {:type :extend-list-with-expression
-   :token-fn token-fn
-   :target target
-   :to-expression to-expression})
-
 (defn repeat-loop
   "Creates a repeat block - emits 'repeat with itervar in source'"
   [token-fn itervar source sourceof & repeat-expressions]
@@ -367,19 +352,27 @@
    :source-of sourceof
    :expressions repeat-expressions})
 
+;;
+;; Ease of use routines
+;;
 
-(defn filtered-repeat-loop
-  "Creates a filtering construct for repeating over"
-  [token-fn property-var user-filter source sourceof & repeat-expressions]
-  (reduce-gen {:type :filtered-repeat-loop
-   :token-fn token-fn
-   :user-filter user-filter   ; user filter map
-   :filter-result :gen        ; put result of filter 'whose' set
-   :source source             ; target source object
-   :source-of sourceof        ; target source object owner (optional)
-   :iteration-var :fitr       ; internal loop over filter-result
-   :property-var property-var ; target of get properties of iteration-var
-   :expressions repeat-expressions}))
+(defn set-extend-record
+  [targ skey sval]
+  (set-statement
+   nil
+   (term nil targ)
+   (eor-cmd
+    nil
+    targ nil
+    (record-definition
+     nil
+     (key-value nil (key-term skey) (term nil sval))))))
 
-
+(defn set-empty-record
+  [token-fn rectarget argtargets]
+  (set-statement
+   nil
+   (term nil rectarget)
+   (apply (partial record-definition nil)
+    (map #(key-value nil (key-term %) (null)) argtargets))))
 
