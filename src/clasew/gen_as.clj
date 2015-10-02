@@ -15,7 +15,6 @@
 (defn nil-handler
   [expression]
   (throw (Exception. (str expression " not handled"))))
-;  (str expression " not handled.\n"))
 
 (defn endline
   [s]
@@ -34,6 +33,10 @@
 (defn key-term-handler
   [{:keys [key-term]}]
   (str (*lookup-fn* key-term) ":"))
+
+(defn key-term-nl-handler
+  [{:keys [key-term]}]
+  (str (name key-term) ":"))
 
 (defn string-literal-handler
   [{:keys [svalue]}]
@@ -98,6 +101,14 @@
        body
        "end "(name routine-name)"\n")))
 
+(defn routine-callhandler
+  [{:keys [routine-name routine-arguments]}]
+  (str "my "
+       (ast-consume routine-name)
+       "("
+       (ast-consume routine-arguments)
+       ")"))
+
 (defn elseif-handler
   [{:keys [ifexp]}]
   (str "else " (ast-consume ifexp)))
@@ -139,18 +150,9 @@
   [expression]
   (apply str (map ast-consume (:expressions expression))))
 
-(defn scalar-handler
-  [{:keys [to-value]}]
-  (str " to " to-value))
-
 (defn count-of-handler
   [{:keys [set-target expressions]}]
   (str "set "(name set-target)" to count of " (ast-consume expressions) "\n"))
-
-(defn sp1r-handler
-  [{:keys [set-target string-0 ref-1]}]
-  (str "set "(name set-target)" to \"" string-0"\" & " (name ref-1)"\n"))
-
 
 (defn valueof-handler
   "The value requires a name resolution lookup"
@@ -163,17 +165,12 @@
   [vo-map]
   (str (valueof-handler vo-map) " as string"))
 
-(defn recordvalue-handler
-  "Results in 'set x of y to z'"
-  [{:keys [mapvalue ofmap to]}]
-  (str "set " (name mapvalue) " of " (name ofmap) (ast-consume to)"\n"))
-
 (defn propertiesof-handler
   "Results in 'set x to properties of y'"
   [{:keys [value properties-of]}]
   (str "set " (name value) " to properties of " (name properties-of) "\n"))
 
-(declare new-filter-reduce)
+(declare filter-reduce)
 
 (def filterp
   {:equal-to "equals"
@@ -213,7 +210,7 @@
 (defn reduce-filter-joins
   [acc [kw joinmap]]
   (conj acc
-        (str " " (name kw) " " "(" (new-filter-reduce joinmap) ")")))
+        (str " " (name kw) " " "(" (filter-reduce joinmap) ")")))
 
 (defn filter-reduce
   [{:keys [args joins]}]
@@ -227,81 +224,32 @@
   (str "if (" (filter-reduce predicate) ") then\n"
        (apply str (map ast-consume expressions))))
 
-(defn filter-handler
-  [{:keys [source value soure-of user-filter]}]
-  (let [d (filter-reduce user-filter)]
-  (str "set " (name value) " to " (name source) " whose (" d ")\n")))
-
-(defn filter-expression-handler
-  [{:keys [source source-of user-filter]}]
-  (str "("(*lookup-fn* source) " whose " (filter-reduce user-filter) ")"))
-
 (defn where-filter-handler
+  "Emits expressions whose (filter-expression)"
   [{:keys [target predicate]}]
-  (str
-   (ast-consume target)
-   " whose (" (filter-reduce predicate) ")"))
+  (str (ast-consume target) " whose (" (filter-reduce predicate) ")"))
 
-(defn filtered-delete-handler
-  [{:keys [user-filter record-set]}]
-  (str "delete ("(*lookup-fn* record-set) " whose " (filter-reduce user-filter) ")\n")
-  )
-
-(defn repeat-handler
-  [{:keys [source source-of expressions iteration-var] :as block}]
-  (let [body (apply str (map ast-consume expressions))]
-  (str "repeat with " (name iteration-var)
-       " in (get " (*lookup-fn* source) (if source-of
-                              (str " of " (name source-of) ")\n") ")\n")
-       body
-       "end repeat\n")))
-
-(defn- symboltype
-  [k v]
-  (if (or (= k :email_type) (= k :number_type) (= k :address_type))
-    (symbol v)
-    v))
-
-(defn- inner-records
-  [rmap]
-  (let [i (interpose "," rmap)]
-  (loop [x (first i)
-         z (rest i)
-        y []]
-    (if (nil? x)
-      (symbol (str "{" (apply str y) "}"))
-      (recur (first z) (rest z) (conj y x))))))
-
-(defn- reduce-record
-  [property-map symbolflag]
-  (reduce-kv #(assoc %1 (symbol (str (*lookup-fn* %2) ":"))
-                (if (map? %3)
-                  (reduce-record %3 symbolflag)
-                  (if (seq? %3)
-                    (inner-records (map (fn [x] (reduce-record x symbolflag)) %3))
-                    (if symbolflag %3 (symboltype %2 %3)))))
-             {} property-map))
-
-(defn make-new-record-handler
-  [{:keys [property-map record-type symbol-flag]}]
-  (str "make new " (*lookup-fn* record-type)
-       " with properties " (reduce-record property-map symbol-flag)
+(defn make-new-handler
+  "Emits 'make new expressions'"
+  [{:keys [target-expr expressions]}]
+  (str "make new "
+       (ast-consume target-expr)
+       (apply str (map ast-consume expressions))
        "\n"))
 
-(defn make-new-inlist-record-hander
-  [{:keys [property-map record-type record-list container symbol-flag] }]
-  (str "make new " (*lookup-fn* record-type)
-       " at end of " (*lookup-fn* record-list)
-       " of " (name container)
-       " with properties " (reduce-record property-map symbol-flag)
-       "\n"))
+(defn list-of-handler
+  [{:keys [expressions] }]
+  (str "{" (map-and-interpose expressions ",") "}"))
+
 
 (def ast-jump "Jump Table for AST Expression"
   {
    :term             term-handler
    :key-term         key-term-handler
+   :key-term-nl      key-term-nl-handler
    :string-literal   string-literal-handler
    :symbol-literal   symbol-literal-handler
+   :xofy-expression  xofy-handler
    :eol-cmd          end-of-list-cmd-handler
    :eor-cmd          end-of-rec-cmd-handler
    :li-cmd           list-items-cmd-handler
@@ -310,18 +258,19 @@
    :set-statement    set-statement-handler
    :string-builder   string-builder-handler
    :record-definition record-definition-handler
+   :list-of          list-of-handler
    :key-value        key-value-handler
 
    :routine          routine-handler
+   :routine-call     routine-callhandler
 
-   :from-filter      filter-handler             ; deprecate
    :for-in-expression for-in-handler
    :where-filter     where-filter-handler
+   :make-new         make-new-handler
 
    :tell             tell-handler
    :block            block-handler
    :return           return-handler
-   :xofy-expression  xofy-handler
 
    :if-expression      if-handler
    :else-if-expression elseif-handler
@@ -331,19 +280,10 @@
 
    ;; TODO: Evaluate below for deprecation
 
-   :scalar-value     scalar-handler
    :count-of         count-of-handler
-   :record-value     recordvalue-handler
    :value-of         valueof-handler
    :value-of-as-string valueof-asstring-handler
    :properties-of    propertiesof-handler
-   :make-new-record  make-new-record-handler
-   :make-new-inlist-record make-new-inlist-record-hander
-
-   :repeat-loop      repeat-handler                 ; deprecate
-   :filtered-delete    filtered-delete-handler      ; deprecate
-   :filter-expression  filter-expression-handler    ; deprecate
-   :string-p1-reference sp1r-handler                ; deprecate
    })
 
 (def instrument (atom {}))

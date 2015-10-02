@@ -36,6 +36,12 @@
    :token-fn nil
    :key-term key-value})
 
+(defn key-term-nl
+  [key-value]
+  {:type :key-term-nl
+   :token-fn nil
+   :key-term key-value})
+
 (defn string-literal
   [value]
   {:type :string-literal
@@ -96,13 +102,13 @@
 (defn empty-list [] (term nil "{}"))
 (defn quit [] (term nil "quit\n"))
 (defn null [] (term nil "null"))
+(defn delete [] (term nil "delete "))
+
+(def   with-properties  (term nil " with properties "))
+(def   as-string        (term nil " as string"))
+(def   noop             (term nil ""))
 
 ; Quick expressions
-
-(defn delete-expression
-  [token-fn target-expression]
-  (expression token-fn (term nil :delete)
-              target-expression))
 
 (defn count-expression
   [token-fn of-expression]
@@ -121,6 +127,19 @@
    :token-fn token-fn
    :target    target
    :predicate userfilt})
+
+(defn list-of
+  [token-fn coll]
+  {:type :list-of
+   :token-fn token-fn
+   :expressions coll})
+
+(defn make-new
+  [token-fn target-expr & exprs]
+  {:type :make-new
+   :token-fn token-fn
+   :target-expr target-expr
+   :expressions exprs})
 
 ;;
 ;; if/then, else if/then
@@ -191,6 +210,9 @@
    :target (get-application target)
    :expressions expressions})
 
+;;
+;; Routines (handlers, subroutines, etc.)
+;;
 
 (defn routine
   "Setup the routine (in AS this is a handler)"
@@ -201,6 +223,12 @@
    :parameters parameters
    :expressions expressions})
 
+(defn routine-call
+  [token-fn routine-expression arg-expression]
+  {:type :routine-call
+   :token-fn token-fn
+   :routine-name routine-expression
+   :routine-arguments arg-expression})
 
 (defn return
   [token-fn retval]
@@ -216,60 +244,12 @@
    :token-fn token-fn
    :expressions expressions})
 
-
 (defn define-locals
   "Sets any locals described - emits 'local x,y,z'"
   [token-fn & terms]
   {:type :define-locals
    :token-fn token-fn
    :local-terms terms})
-
-(defn make-new-record
-  "Create a new record type with associated properties
-  emits 'make new rectype with properties {...}'"
-  [token-fn rectype prop-map & [symbolflag]]
-  {:type :make-new-record
-   :token-fn token-fn
-   :record-type rectype
-   :symbol-flag (or symbolflag false)
-   :property-map prop-map})
-
-(defn make-new-inlist-record
-  "Create a new record type with associated properties
-  emits 'make new rectype with properties {...}'"
-  [token-fn rectype reclist in-container prop-map & [symbolflag]]
-  {:type :make-new-inlist-record
-   :token-fn token-fn
-   :record-type rectype
-   :record-list reclist
-   :symbol-flag (or symbolflag false)
-   :container in-container
-   :property-map prop-map})
-
-
-(defn filtered-delete
-  [token-fn user-filter rectype]
-  {:type         :filtered-delete
-   :token-fn     token-fn
-   :record-set   rectype
-   :user-filter  user-filter})
-
-
-(defn string-p1-reference
-  [token-fn target sp0 sp1]
-  {:type :string-p1-reference
-   :token-fn token-fn
-   :set-target target
-   :string-0 sp0
-   :ref-1 sp1})
-
-
-(defn scalar-value
-  [token-fn to-value]
-  {:type :scalar-value
-   :token-fn token-fn
-   :to-value to-value})
-
 
 (defn count-of
   "Sets a value to the count of expression results"
@@ -315,48 +295,13 @@
    :value value
    :keywrd keyw})
 
-(defn record-value
-  "Sets a value of key in map"
-  [token-fn ofmap mapval to-expression]
-  {:type :record-value
-   :token-fn token-fn
-   :mapvalue mapval
-   :ofmap ofmap
-   :to to-expression})
-
-(defn filter-expression
-  [token-fn source source-of user-filter]
-  {:type :filter-expression
-   :token-fn token-fn
-   :source source
-   :source-of source-of
-   :user-filter user-filter})
-
-(defn from-filter
-  "Set a variable to the result of a filter 'whose' statement"
-  [token-fn value source source-of user-filter]
-  {:type :from-filter
-   :token-fn token-fn
-   :source source       ; e.g. contacts/people
-   :source-of source-of ;
-   :value value         ; what var are we setting result to
-   :user-filter user-filter})
-
-(defn repeat-loop
-  "Creates a repeat block - emits 'repeat with itervar in source'"
-  [token-fn itervar source sourceof & repeat-expressions]
-  {:type :repeat-loop
-   :token-fn token-fn
-   :source source
-   :iteration-var itervar
-   :source-of sourceof
-   :expressions repeat-expressions})
-
 ;;
-;; Ease of use routines
+;; Ease of use forms
 ;;
 
 (defn set-extend-record
+  "Similar to clojure assoc call, set-extend-record emits:
+  set x to x & y where x is record and y is {key:data}"
   [targ skey sval]
   (set-statement
    nil
@@ -369,10 +314,11 @@
      (key-value nil (key-term skey) (term nil sval))))))
 
 (defn set-empty-record
-  [token-fn rectarget argtargets]
+  "Creates a record with keys whose values are null"
+  [token-fn rectarget argtargets & [{:keys [ktfn] :or {ktfn key-term}}]]
   (set-statement
    nil
    (term nil rectarget)
    (apply (partial record-definition nil)
-    (map #(key-value nil (key-term %) (null)) argtargets))))
+    (map #(key-value nil (ktfn %) (null)) argtargets))))
 

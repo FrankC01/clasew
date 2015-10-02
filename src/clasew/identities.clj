@@ -62,8 +62,19 @@
   [token-fn mapvars targetmap sourcemap]
   (reduce #(conj
             %1
-            (ast/record-value token-fn targetmap %2
-                              (ast/value-of token-fn %2 sourcemap :cleanval)))
+            (ast/set-statement
+             token-fn
+             (ast/xofy-expression
+              (fn [term-kw] (name term-kw))
+              (ast/term nil %2)
+              (ast/term nil targetmap))
+             (ast/routine-call
+              token-fn
+              (ast/term nil :cleanval)
+              (ast/xofy-expression
+               nil
+               (ast/term nil %2)
+               (ast/term nil sourcemap)))))
           [] mapvars))
 
 (defn- filter-!v

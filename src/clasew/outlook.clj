@@ -84,11 +84,11 @@
 
 (defn outlook-mapset-home
   [term-kw]
-  (term-kw outlook-home-address :bad_error))
+  (term-kw outlook-home-address (name term-kw)))
 
 (defn outlook-mapset-business
   [term-kw]
-  (term-kw outlook-business-address :bad_error))
+  (term-kw outlook-business-address (name term-kw)))
 
 (defn builder
   [fn & args]
@@ -104,16 +104,27 @@
             (ast/return nil :results)))
 
 
+
 (defn- setaddressvalues
   "Given a list of vars, generate constructs to set a map value
   to a source value from another map"
   [token-fn mapvars targetmap sourcemap atypestring]
   (reduce #(conj
             %1
-              (ast/record-value token-fn targetmap %2
-                                (if (= %2 :address_type)
-                                  (ast/scalar-value token-fn atypestring)
-                                  (ast/value-of token-fn %2 sourcemap :cleanval))))
+            (ast/set-statement token-fn
+                               (ast/xofy-expression
+                                (fn [term-kw] (name term-kw))
+                                (ast/term nil %2)
+                                (ast/term nil targetmap))
+                               (if (not= %2 :address_type)
+                                (ast/routine-call
+                                 token-fn
+                                 (ast/term nil :cleanval)
+                                 (ast/xofy-expression
+                                  nil
+                                  (ast/term nil %2)
+                                  (ast/term nil sourcemap)))
+                                 (ast/string-literal atypestring))))
           [] mapvars))
 
 
@@ -125,8 +136,8 @@
      nil
      (ast/define-locals nil :aloop :hadd :badd)
      (ast/set-statement nil (ast/term nil :aloop) (ast/empty-list))
-     (ast/set-empty-record nil :hadd args)
-     (ast/set-empty-record nil :badd args)
+     (ast/set-empty-record nil :hadd args {:ktfn ast/key-term-nl})
+     (ast/set-empty-record nil :badd args {:ktfn ast/key-term-nl})
 
      ;; Home address
      (apply (partial ast/block nil)
@@ -134,7 +145,7 @@
              (setaddressvalues
               outlook-mapset-home
               args
-              :hadd tkey "\"home\"")
+              :hadd tkey "home")
              (ast/set-statement nil
                                 (ast/eol-cmd nil :aloop nil)
                                 (ast/term nil :hadd))))
@@ -145,7 +156,7 @@
              (setaddressvalues
               outlook-mapset-business
               args
-              :badd tkey "\"work\"")
+              :badd tkey "work")
              (ast/set-statement nil
                                 (ast/eol-cmd nil :aloop nil)
                                 (ast/term nil :badd))))
@@ -157,10 +168,23 @@
   [token-fn mapvars targetmap sourcemap]
   (reduce #(conj
             %1
-            (ast/record-value token-fn targetmap %2
-                              (if (= %2 :email_type)
-                                (ast/value-of-as-string token-fn %2 sourcemap :cleanval)
-                                (ast/value-of token-fn %2 sourcemap :cleanval))))
+            (ast/set-statement token-fn
+                               (ast/xofy-expression
+                                nil
+                                (ast/term nil %2)
+                                (ast/term nil targetmap))
+                               (ast/expression
+                                nil
+                                (ast/routine-call
+                                 nil
+                                 (ast/term nil :cleanval)
+                                 (ast/xofy-expression
+                                  nil
+                                  (ast/term nil %2)
+                                  (ast/term nil sourcemap)))
+                                (if (= %2 :email_type)
+                                  ast/as-string
+                                  ast/noop))))
           [] mapvars))
 
 (defn build-emails
@@ -183,7 +207,7 @@
                   (ast/set-statement nil
                                      (ast/eol-cmd nil :elist nil)
                                      (ast/term nil :eadd))))
-            (ast/set-empty-record nil :eadd args)))
+            (ast/set-empty-record nil :eadd args {:ktfn ast/key-term-nl})))
      (ast/set-extend-record :ident :email_list :elist))))
 
 
@@ -202,6 +226,7 @@
 
 
 (defn- setphonevalues
+  "Generates the set statements for retrieving values from application"
   [fromval reslist]
   (apply (partial ast/block nil)
    (reduce
@@ -220,10 +245,24 @@
                                (ast/key-value nil
                                               (ast/key-term :number_type)
                                               (ast/null))))
-       (ast/record-value nil g2 :number_value
-                         (ast/value-of nil %2 fromval :cleanval))
-       (ast/record-value nil g2 :number_type
-                         (ast/scalar-value nil (str (%2 outlook-phones-types))))
+       (ast/set-statement nil
+                          (ast/xofy-expression
+                           nil
+                           (ast/term nil :number_value)
+                           (ast/term nil g2))
+                          (ast/routine-call
+                           nil
+                           (ast/term nil :cleanval)
+                           (ast/xofy-expression
+                            nil
+                            (ast/term nil %2)
+                            (ast/term nil fromval))))
+       (ast/set-statement nil
+                          (ast/xofy-expression
+                           nil
+                           (ast/term nil :number_type)
+                           (ast/term nil g2))
+                          (ast/term nil (str (%2 outlook-phones-types))))
        (ast/set-statement
         nil
         (ast/eol-cmd nil reslist nil)
@@ -262,7 +301,7 @@
           (ast/where-filter nil
                             (ast/term nil :contacts)
                             filt))
-        (ast/set-empty-record nil :ident args)
+        (ast/set-empty-record nil :ident args {:ktfn ast/key-term-nl})
         gets))))
 
 
@@ -281,12 +320,16 @@
   (genas/ast-consume
    (ast/tell
     outlook-mapset-core :outlook
-    (ast/define-locals nil :results :dlist)
+    (ast/define-locals nil :results :dlist :dloop)
     (ast/set-statement nil (ast/term nil :results) (ast/empty-list))
     (ast/set-statement nil (ast/term nil :dlist)
-                       (ast/filter-expression nil :contacts nil filters))
-    (ast/delete-expression nil
-                           (ast/filter-expression nil :contacts nil filters))
+                       (ast/where-filter nil
+                                         (ast/term nil :contacts)
+                                         filters))
+    (ast/for-in-expression
+     nil
+     (ast/term nil :dloop) (ast/term nil :dlist)
+     (ast/expression nil (ast/delete) (ast/term nil :dloop)))
     (ast/set-statement nil
                        (ast/eol-cmd nil :results nil)
                        (ast/string-builder
@@ -350,6 +393,27 @@
          (flatten-phones (get imap :phones nil))
          (flatten-addresses (get imap :addresses nil))))
 
+(defn tnacr
+  [imap]
+  (let [fimap (flatten-map imap)]
+    (apply (partial ast/record-definition nil)
+           (seq
+            (reduce
+             #(conj
+               %1
+               (if (coll? (second %2))
+                 (ast/key-value
+                  nil
+                  (ast/key-term (first %2))
+                  (ast/list-of nil (map tnacr (second %2))))
+                 (ast/key-value
+                  nil
+                  (ast/key-term (first %2))
+                  (if (= (first %2) :email_type)
+                    (ast/symbol-literal (second %2))
+                    (ast/string-literal (second %2))))))
+             [] fimap)))))
+
 (defn- add-contacts
   "Adds new individuals to outlook contacts. Requires flattening
   addresses and phones to main map"
@@ -366,7 +430,11 @@
                   (ast/set-statement
                    nil
                    (ast/eol-cmd nil :alist nil)
-                   (ast/make-new-record nil :contact (flatten-map %2))))
+                   (ast/make-new
+                    nil
+                    (ast/term nil :contact)
+                    ast/with-properties
+                    (tnacr %2))))
            [] adds)))
     (ast/set-statement outlook-mapset-core
                        (ast/eol-cmd nil :results nil)
@@ -572,8 +640,7 @@
      nil
      (ast/term nil :cloop)
      (if filters
-       (ast/filter-expression
-        nil :contacts nil filters)
+       (ast/where-filter nil (ast/term nil :contacts) filters)
        (ast/term nil :contacts))
      (ast/set-statement nil (ast/term nil :esets) (ast/empty-list))
      (apply (partial ast/block nil) (gen-sets :cloop sets))
