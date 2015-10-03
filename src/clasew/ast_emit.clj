@@ -99,14 +99,14 @@
 
 ; Quick terms
 
-(defn empty-list [] (term nil "{}"))
-(defn quit [] (term nil "quit\n"))
-(defn null [] (term nil "null"))
-(defn delete [] (term nil "delete "))
-
+(def   empty-list       (term nil "{}"))
+(def   quit             (term nil "quit\n"))
+(def   null             (term nil "null"))
+(def   delete           (term nil "delete "))
 (def   with-properties  (term nil " with properties "))
 (def   as-string        (term nil " as string"))
 (def   noop             (term nil ""))
+(def   conjoin          (term nil " & "))
 
 ; Quick expressions
 
@@ -250,41 +250,6 @@
   {:type :define-locals
    :token-fn token-fn
    :local-terms terms})
-
-(defn count-of
-  "Sets a value to the count of expression results"
-  [token-fn target expression]
-  {:type :count-of
-   :token-fn token-fn
-   :set-target target
-   :expressions expression})
-
-(defn properties-of
-  "Sets a variable to the properties of a class"
-  [token-fn value properties-of]
-  {:type :properties-of
-   :token-fn token-fn
-   :value value
-   :properties-of properties-of})
-
-(defn value-of
-  "Sets a value from another value"
-  [token-fn value from apply-function]
-  {:type :value-of
-   :token-fn token-fn
-   :value value
-   :from from
-   :apply-function apply-function})
-
-(defn value-of-as-string
-  "Sets a value from another value"
-  [token-fn value from apply-function]
-  {:type :value-of-as-string
-   :token-fn token-fn
-   :value value
-   :from from
-   :apply-function apply-function})
-
 
 (defn extend-record
   "Sets a value from another value"

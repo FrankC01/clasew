@@ -229,7 +229,7 @@
   (ast/routine
    nil :cleanval :val
    (ast/define-locals nil :oval)
-   (ast/set-statement nil (ast/term nil :oval) (ast/null))
+   (ast/set-statement nil (ast/term nil :oval) ast/null)
    (ast/if-statement
     nil
     (ast/if-expression
@@ -247,10 +247,10 @@
   (genas/ast-consume
    (ast/tell nil appkw
              (ast/define-locals nil :results)
-             (ast/set-statement nil (ast/term nil :results) (ast/empty-list))
+             (ast/set-statement nil (ast/term nil :results) ast/empty-list)
              (ast/set-statement
               nil
               (ast/eol-cmd nil :results nil)
               (ast/string-literal "quit successful"))
-             (ast/quit)
+             ast/quit
              (ast/return nil :results))))

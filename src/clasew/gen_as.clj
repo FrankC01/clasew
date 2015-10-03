@@ -12,19 +12,81 @@
 
 (def ^:dynamic *lookup-fn* (fn [term-kw] (name term-kw)))
 
+;;
+;; Generic ease of use functions
+;;
+
 (defn nil-handler
   [expression]
   (throw (Exception. (str expression " not handled"))))
 
-(defn endline
+(defn- endline
   [s]
   (if (= (get s (dec (count s))) \newline)
     s
     (str s "\n")))
 
-(defn map-and-interpose
-  [coll s]
+(defn- map-and-interpose
+  [s coll ]
   (apply str (interpose s (map ast-consume coll))))
+
+;;
+;; Filter management functions
+;;
+
+(declare filter-reduce)
+
+(def filterp
+  {:equal-to "equals"
+   :not-equal-to "is not equal to"
+   :less-than "<"
+   :not-less-than "not less than"
+   :greater-than ">"
+   :not-greater-than "not greater than"
+   :contains "contains"
+   :not-contains "does not contain"
+   :starts-with "starts with"
+   :ends-with "ends with"
+   :is-in "is in"
+   :is-not-in "is not in"
+   :and "and"
+   :or "or"
+   :missing "missing value"
+   })
+
+
+(defn- reduce-filter-args
+  [acc exp]
+  (let [[term predicate value & [larg]] exp]
+    (conj
+     acc
+     (apply str(interpose
+      " "
+      (conj []
+            (*lookup-fn* term)
+            (if larg (str " of " (*lookup-fn* larg)) "")
+            (get filterp predicate)
+            (if (string? value)
+              (str "\"" value "\"")
+              (or (get filterp value nil)
+                  (*lookup-fn* value)))))))))
+
+(defn- reduce-filter-joins
+  [acc [kw joinmap]]
+  (conj acc
+        (str " " (name kw) " " "(" (filter-reduce joinmap) ")")))
+
+(defn- filter-reduce
+  "Supports general filter emits applicable to if/then and where statements"
+  [{:keys [args joins]}]
+  (let [base (apply str(interpose " and " (reduce reduce-filter-args [] args)))]
+    (if (empty? joins)
+      base
+      (str base (apply str (reduce reduce-filter-joins [] joins))))))
+
+;;
+;;   AST handlers - Emits AppleScript equivalent strings
+;;
 
 (defn term-handler
   [{:keys [to-value]}]
@@ -82,12 +144,11 @@
 
 (defn string-builder-handler
   [{:keys [expressions]}]
-  (str (apply str
-              (interpose " & "(map ast-consume expressions)))))
+  (str (map-and-interpose " & " expressions)))
 
 (defn record-definition-handler
   [{:keys [expressions]}]
-  (str "{" (map-and-interpose expressions ",") "}"))
+  (str "{" (map-and-interpose "," expressions) "}"))
 
 (defn tell-handler
   [expression]
@@ -142,82 +203,12 @@
 (defn local-handler
   [expression]
   (str "local "
-       (apply str
-              (interpose ","
-                         (map name (:local-terms expression)))) "\n"))
+       (apply str (interpose "," (map name (:local-terms expression))))
+       "\n"))
 
 (defn block-handler
   [expression]
   (apply str (map ast-consume (:expressions expression))))
-
-(defn count-of-handler
-  [{:keys [set-target expressions]}]
-  (str "set "(name set-target)" to count of " (ast-consume expressions) "\n"))
-
-(defn valueof-handler
-  "The value requires a name resolution lookup"
-  [{:keys [type value from apply-function] :as to-map}]
-  (if apply-function
-    (str " to my " (name apply-function) "(" (*lookup-fn* value) " of " (name from) ")")
-  (str " to " (*lookup-fn* value) " of " (name from) )))
-
-(defn valueof-asstring-handler
-  [vo-map]
-  (str (valueof-handler vo-map) " as string"))
-
-(defn propertiesof-handler
-  "Results in 'set x to properties of y'"
-  [{:keys [value properties-of]}]
-  (str "set " (name value) " to properties of " (name properties-of) "\n"))
-
-(declare filter-reduce)
-
-(def filterp
-  {:equal-to "equals"
-   :not-equal-to "is not equal to"
-   :less-than "<"
-   :not-less-than "not less than"
-   :greater-than ">"
-   :not-greater-than "not greater than"
-   :contains "contains"
-   :not-contains "does not contain"
-   :starts-with "starts with"
-   :ends-with "ends with"
-   :is-in "is in"
-   :is-not-in "is not in"
-   :and "and"
-   :or "or"
-   :missing "missing value"
-   })
-
-
-(defn reduce-filter-args
-  [acc exp]
-  (let [[term predicate value & [larg]] exp]
-  (conj acc
-        (apply str
-               (interpose " "
-                          (conj []
-                                (*lookup-fn* term)
-                                (if larg (str " of " (*lookup-fn* larg)) "")
-                                (get filterp predicate)
-                                (if (string? value)
-                                  (str "\"" value "\"")
-                                  (or (get filterp value nil)
-                                      (*lookup-fn* value))
-                                  )))))))
-
-(defn reduce-filter-joins
-  [acc [kw joinmap]]
-  (conj acc
-        (str " " (name kw) " " "(" (filter-reduce joinmap) ")")))
-
-(defn filter-reduce
-  [{:keys [args joins]}]
-  (let [base (apply str (interpose " and " (reduce reduce-filter-args [] args)))]
-    (if (empty? joins)
-      base
-      (str base (apply str (reduce reduce-filter-joins [] joins))))))
 
 (defn if-handler
   [{:keys [predicate expressions]}]
@@ -239,7 +230,7 @@
 
 (defn list-of-handler
   [{:keys [expressions] }]
-  (str "{" (map-and-interpose expressions ",") "}"))
+  (str "{" (map-and-interpose "," expressions ) "}"))
 
 
 (def ast-jump "Jump Table for AST Expression"
@@ -249,41 +240,40 @@
    :key-term-nl      key-term-nl-handler
    :string-literal   string-literal-handler
    :symbol-literal   symbol-literal-handler
-   :xofy-expression  xofy-handler
-   :eol-cmd          end-of-list-cmd-handler
-   :eor-cmd          end-of-rec-cmd-handler
-   :li-cmd           list-items-cmd-handler
+
    :expression       expression-handler
-   :append-object    append-object-handler
-   :set-statement    set-statement-handler
+   :xofy-expression  xofy-handler
    :string-builder   string-builder-handler
-   :record-definition record-definition-handler
-   :list-of          list-of-handler
-   :key-value        key-value-handler
 
-   :routine          routine-handler
-   :routine-call     routine-callhandler
+   :define-locals    local-handler
 
-   :for-in-expression for-in-handler
-   :where-filter     where-filter-handler
    :make-new         make-new-handler
+   :where-filter     where-filter-handler
+
+   :if-expression      if-handler
+   :else-if-expression elseif-handler
+   :for-in-expression for-in-handler
 
    :tell             tell-handler
    :block            block-handler
    :return           return-handler
+   :routine          routine-handler
+   :routine-call     routine-callhandler
 
-   :if-expression      if-handler
-   :else-if-expression elseif-handler
+   :set-statement    set-statement-handler
    :if-statement     ifs-handler
 
-   :define-locals    local-handler
+   :li-cmd           list-items-cmd-handler
+   :list-of          list-of-handler
+   :eol-cmd          end-of-list-cmd-handler
+
+   :record-definition record-definition-handler
+   :key-value        key-value-handler
+   :eor-cmd          end-of-rec-cmd-handler
+
+   :append-object    append-object-handler
 
    ;; TODO: Evaluate below for deprecation
-
-   :count-of         count-of-handler
-   :value-of         valueof-handler
-   :value-of-as-string valueof-asstring-handler
-   :properties-of    propertiesof-handler
    })
 
 (def instrument (atom {}))

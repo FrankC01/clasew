@@ -99,7 +99,7 @@
   (ast/tell nil
             :outlook
             (ast/define-locals nil :results :cloop :ident)
-            (ast/set-statement nil (ast/term nil :results) (ast/empty-list))
+            (ast/set-statement nil (ast/term nil :results) ast/empty-list)
             body
             (ast/return nil :results)))
 
@@ -135,7 +135,7 @@
     (ast/block
      nil
      (ast/define-locals nil :aloop :hadd :badd)
-     (ast/set-statement nil (ast/term nil :aloop) (ast/empty-list))
+     (ast/set-statement nil (ast/term nil :aloop) ast/empty-list)
      (ast/set-empty-record nil :hadd args {:ktfn ast/key-term-nl})
      (ast/set-empty-record nil :badd args {:ktfn ast/key-term-nl})
 
@@ -194,7 +194,7 @@
     (ast/block
      nil
      (ast/define-locals nil :elist :eadd)
-     (ast/set-statement nil (ast/term nil :elist) (ast/empty-list))
+     (ast/set-statement nil (ast/term nil :elist) ast/empty-list)
      (apply (partial ast/for-in-expression
       nil
         (ast/term nil :eml)
@@ -241,10 +241,10 @@
         (ast/record-definition nil
                                (ast/key-value nil
                                               (ast/key-term :number_value)
-                                              (ast/null))
+                                              ast/null)
                                (ast/key-value nil
                                               (ast/key-term :number_type)
-                                              (ast/null))))
+                                              ast/null)))
        (ast/set-statement nil
                           (ast/xofy-expression
                            nil
@@ -278,7 +278,7 @@
     (ast/block
      nil
      (ast/define-locals nil :plist)
-     (ast/set-statement nil (ast/term nil :plist) (ast/empty-list))
+     (ast/set-statement nil (ast/term nil :plist) ast/empty-list)
      (setphonevalues tkey :plist)
      (ast/set-extend-record :ident :phone_list :plist))))
 
@@ -321,7 +321,7 @@
    (ast/tell
     outlook-mapset-core :outlook
     (ast/define-locals nil :results :dlist :dloop)
-    (ast/set-statement nil (ast/term nil :results) (ast/empty-list))
+    (ast/set-statement nil (ast/term nil :results) ast/empty-list)
     (ast/set-statement nil (ast/term nil :dlist)
                        (ast/where-filter nil
                                          (ast/term nil :contacts)
@@ -329,7 +329,7 @@
     (ast/for-in-expression
      nil
      (ast/term nil :dloop) (ast/term nil :dlist)
-     (ast/expression nil (ast/delete) (ast/term nil :dloop)))
+     (ast/expression nil ast/delete (ast/term nil :dloop)))
     (ast/set-statement nil
                        (ast/eol-cmd nil :results nil)
                        (ast/string-builder
@@ -393,7 +393,10 @@
          (flatten-phones (get imap :phones nil))
          (flatten-addresses (get imap :addresses nil))))
 
-(defn tnacr
+(defn- add-record-definitions
+  "Creates the record definition that creates the types and
+  subtypes and puts result in a list collection for returning
+  success information and count of record creations to user"
   [imap]
   (let [fimap (flatten-map imap)]
     (apply (partial ast/record-definition nil)
@@ -405,7 +408,7 @@
                  (ast/key-value
                   nil
                   (ast/key-term (first %2))
-                  (ast/list-of nil (map tnacr (second %2))))
+                  (ast/list-of nil (map add-record-definitions (second %2))))
                  (ast/key-value
                   nil
                   (ast/key-term (first %2))
@@ -422,8 +425,8 @@
    (ast/tell
     outlook-mapset-core :outlook
     (ast/define-locals nil :results :alist :dlist :rstring)
-    (ast/set-statement nil (ast/term nil :alist) (ast/empty-list))
-    (ast/set-statement nil (ast/term nil :results) (ast/empty-list))
+    (ast/set-statement nil (ast/term nil :alist) ast/empty-list)
+    (ast/set-statement nil (ast/term nil :results) ast/empty-list)
     (apply (partial ast/block outlook-mapset-core)
      (seq (reduce
            #(conj %1
@@ -434,7 +437,7 @@
                     nil
                     (ast/term nil :contact)
                     ast/with-properties
-                    (tnacr %2))))
+                    (add-record-definitions %2))))
            [] adds)))
     (ast/set-statement outlook-mapset-core
                        (ast/eol-cmd nil :results nil)
@@ -495,21 +498,35 @@
             nil
             elistkw))))))
 
-(defn- filter-exception
-  "Applies to filters not supportable by Office"
+(defn- phone-filter-exception
+  "Applies to phone filters not supportable by Office"
   [typekw {:keys [joins args]} sets]
   (if (or (not-empty joins) (> (count args) 2) (> (count (partition 2 sets)) 1)
           (and (= (count args) 2) (not (apply distinct? (map first args)))))
     (throw (Exception. (str "Filter expression for "
                             (name typekw)
                             " not supported in Outlook")))
-    nil)
-  )
+    nil))
 
+(defn- address-filter-exception
+  "Applies to address filters not supportable by Office"
+  [typekw {:keys [joins args]} sets]
+  (if (or (not-empty joins) (> (count args) 2) (> (count (partition 2 sets)) 1)
+          (and (= (count args) 1) (= (ffirst args) :address_type))
+          (and (= (count args) 2) (not (apply distinct? (map first args)))))
+    (throw (Exception. (str "Filter expression for "
+                            (name typekw)
+                            " not supported in Outlook")))
+    nil))
+
+;;
+;; Simplified expansion functions
+;;
 
 (defn- phsetx
   [x k s]
-  "Simplified set generation used for phone numbers"
+  "Simplified set generation used for phone numbers and
+  addersses"
   (ast/set-statement
       nil
       (ast/xofy-expression
@@ -527,56 +544,74 @@
   [filt setast]
   (ast/else-if-expression nil (phifs filt setast)))
 
-(defn- phone-type1
-  "When the filter has both type and number, it will perform
-  a test on explicit type and set if match"
-  [ckw args [n s]]
-  (let [[_ fval _]  (first (filter #(= (first %) :number_value) args))
+;;
+;; Common update handlers for phones and addresses
+;;
+
+(defn- update-type1
+  "Generator for having a type and a value in the filter
+  f is filter predicate
+  tr-fn is type reduce function"
+  [ckw args [n s] f tr-fn]
+  (let [[_ fval _]  (first (filter f args))
         [[x y]] (seq
-                 (phone-reduce
+                 (tr-fn
                   {}
                   (reduce #(assoc %1 (first %2) (last %2)) {} args)))]
-    (phifs
-     {:joins '() :args (list (list x fval y ckw))}
-     (phsetx x ckw s))))
+    (ast/if-statement
+     nil
+     (phifs
+      {:joins '() :args (list (list x fval y ckw))}
+      (phsetx x ckw s))
+     nil)))
 
-(defn- phone-type2
-  "When the filter only contained a 'type' it will be a direct set
-  to the value for each phone type"
-  [ckw [[t p v]] [n s]]
-  (let [x (ffirst (phone-reduce {} {t v :number_value ""} ))]
-    (phsetx x ckw s)))
-
-(defn- phone-type3
-  "When the filter only contains a 'number' it will test each phone
-  type and set on match
-  For each key in the phone-set generate a filter (xf) for key and
-  number from the set (xs)"
-  [ckw [[t p v]] [n s]]
-  (let [xs (map #(phsetx %1 ckw s) (keys phone-set))
+(defn- update-type2
+  "Generator if/then having a test on each value of a set"
+  [ckw v s lu pred]
+  (let [xs (map #(phsetx %1 ckw s) lu)
         xf (map #(assoc {} :joins '()
-                   :args (list (list %1 ident/EQ v ckw)))
-                (keys phone-set))]
+                   :args (list (list %1 pred v ckw)))
+                lu)]
     (ast/if-statement
      nil
      (phifs (first xf) (first xs))
      (map phelifs (rest xf) (rest xs)))))
 
-(defn- eval-phone-type
-  [{:keys [args]}]
-  (cond
-   (= (count args) 2) phone-type1
-   (= (ffirst args) :number_type) phone-type2
-   (= (ffirst args) :number_value) phone-type3))
-
 (defn- phone-filter
   "Generates appropriate setters or if-then setters for
   phone updates"
   [ckw {:keys [joins args] :as filt} sets]
-  (filter-exception :phones filt sets)
-  ((eval-phone-type filt) ckw args sets))
+  (phone-filter-exception :phones filt sets)
+  (let [[[t p v]] args
+        [n s] sets]
+    (cond
+     (= (count args) 2)
+       (update-type1 ckw args sets #(= (first %) :number_value) phone-reduce)
+     (= (ffirst args) :number_type)
+       (let [x (ffirst (phone-reduce {} {t v :number_value ""} ))]
+         (phsetx x ckw s))
+     (= (ffirst args) :number_value)
+       (update-type2 ckw v s (keys phone-set) p))))
 
-(defn gen-ifs
+(def ^:private address-stubs
+  {:zip_code         "zip",
+   :city_name        "city",
+   :street_name      "street address",
+   :country_name     "country",
+   :state_name       "state"})
+
+(defn- address-filter
+  [ckw {:keys [joins args] :as filt} sets]
+  (address-filter-exception :addresses filt sets)
+  (if (= (count args) 2)
+    (update-type1 ckw args sets #(not= (first %) :address_type) address-reduce)
+    (let [[[t p v]] args
+          [n s] sets
+          k (t address-stubs)
+          xs (list (keyword (str "home_" k)) (keyword (str "business_" k)))]
+      (update-type2 ckw v s xs p))))
+
+(defn- gen-ifs
   "Creates instructions for subset filtering. For phone
   and addresses it is inline to contact record. If emails
   a for-loop will be required"
@@ -585,10 +620,11 @@
                      %1
                      (condp = (first %2)
                        :phones (phone-filter ckw (:filters (second %2))
-                                             (:sets (second %2)))))
+                                             (:sets (second %2)))
+                       :addresses (address-filter ckw (:filters (second %2))
+                                             (:sets (second %2))) ))
                    [] ifsets)]
-    (apply (partial ast/block nil) tb))
-  )
+    (apply (partial ast/block nil) tb)))
 
 (defn- redfilter
   [sset]
@@ -628,21 +664,22 @@
     (f nmap)))
 
 (defn- update-contacts
-  "Updates individuals or child values"
+  "Updates individuals or child values allowing for the addition of
+  subtype (phone, email, address) creations as part of the update"
   [{:keys [filters sets subsets ifsets]}]
   (let [ssets nil
         ttl
    (ast/tell
     outlook-mapset-core :outlook
     (ast/define-locals nil :results :cloop :esets)
-    (ast/set-statement nil (ast/term nil :results) (ast/empty-list))
+    (ast/set-statement nil (ast/term nil :results) ast/empty-list)
     (ast/for-in-expression
      nil
      (ast/term nil :cloop)
      (if filters
        (ast/where-filter nil (ast/term nil :contacts) filters)
        (ast/term nil :contacts))
-     (ast/set-statement nil (ast/term nil :esets) (ast/empty-list))
+     (ast/set-statement nil (ast/term nil :esets) ast/empty-list)
      (apply (partial ast/block nil) (gen-sets :cloop sets))
      (gen-subsets :cloop :esets subsets)
      (gen-ifs :cloop ifsets))

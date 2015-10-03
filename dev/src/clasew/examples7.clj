@@ -118,9 +118,6 @@
 
 ; ******* CONTINUE WITH DEPRECATE REPLACEMENTS*******
 
-#_(println (outlook/script
-     (ident/add-individuals oxnard sally)))
-
 
 ;; Using a complex filter
 
@@ -130,8 +127,9 @@
                       :last_name ident/EQ "Abercrombe")
             ))
 
-;; Fetch individuals based on complex filter
 
+;; Updates with filters
+;; TBD NEED ADDRESS SUPPORT
 
 #_(p   (ident/update-individual
     (ident/filter :first_name ident/CT "Oxnard")
@@ -149,19 +147,24 @@
       {:number_value "999 999 9999" :number_type "home"}))))
 
 #_(println (outlook/script
-  (ident/update-individual
-    (ident/filter :first_name ident/CT "Oxnard")
-    :last_name "Skippy"
-   (ident/update-email-addresses
-    (ident/adds
-     {:email_type "work" :email_address "oxnard1@mybusiness.com"}
-     {:email_type "home" :email_address "oxnard2@myhome.com"}))
-    (ident/update-phones
-     (ident/filter  :number_value ident/EQ "000 000 0000")
-     :number_value "991 991 9991"
-     (ident/adds
-      {:number_value "999 999 9999" :number_type "work"}
-      {:number_value "999 999 9999" :number_type "home"})))))
+          (ident/update-individual
+           (ident/filter :first_name ident/CT "Oxnard")
+           :last_name "Skippy"
+           (ident/update-addresses
+            (ident/filter
+             :address_type ident/EQ  "work"
+             :city_name ident/EQ "West Somewhere")
+            :city_name "gooberville")
+           (ident/update-email-addresses
+            (ident/adds
+             {:email_type "work" :email_address "oxnard1@mybusiness.com"}
+             {:email_type "home" :email_address "oxnard2@myhome.com"}))
+           (ident/update-phones
+            (ident/filter
+             :number_type ident/EQ "work"
+             ;:number_value ident/EQ "000 000 0000"
+             )
+            :number_value "991 991 9991"))))
 
 
 #_(p (ident/run-script!    (outlook/script
@@ -178,6 +181,9 @@
       {:number_value "999 999 9999" :number_type "home"}))))))
 
 ;(p (clasew.gen-as/ginstrument nil))
+
+;; Fetch individuals based on complex filter
+
 #_(p (ident/run-script!
     (outlook/script
      (ident/individuals filter-sample))
