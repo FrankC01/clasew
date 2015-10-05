@@ -30,6 +30,12 @@
    :token-fn token-fn
    :to-value to-value})
 
+(defn term-nl
+  [to-value]
+  {:type :term-nl
+   :token-fn nil
+   :to-value to-value})
+
 (defn key-term
   [key-value]
   {:type :key-term
@@ -99,6 +105,7 @@
 
 ; Quick terms
 
+(def   new-line         (term nil "\n"))
 (def   empty-list       (term nil "{}"))
 (def   quit             (term nil "quit\n"))
 (def   null             (term nil "null"))
@@ -107,6 +114,27 @@
 (def   as-string        (term nil " as string"))
 (def   noop             (term nil ""))
 (def   conjoin          (term nil " & "))
+(def   getin            (term nil "get "))
+(def   lparen           (term nil "("))
+(def   rparen           (term nil ")"))
+
+
+(defn get-statement
+  [token-fn expressions]
+  (expression
+   token-fn
+   lparen
+   getin
+   expressions
+   rparen))
+
+(defn precedence
+  [token-fn expressions]
+  (expression
+   token-fn
+   lparen
+   expressions
+   rparen))
 
 ; Quick expressions
 
@@ -178,10 +206,17 @@
    :in      in-expression
    :expressions expressions})
 
-(defn save-expression
-  ([] (expression nil (term nil :save)))
+(defn save-statement
+  ([] (expression
+       nil
+       (term nil :save)
+       new-line))
   ([object]
-   (expression nil (term nil :save) (term nil object))))
+   (expression
+    nil
+    (term nil :save)
+    (term nil object)
+    new-line)))
 
 (defn string-builder
   [token-fn & expressions]
@@ -264,6 +299,36 @@
 ;; Ease of use forms
 ;;
 
+(defn set-empty-record
+  "Creates a record with keys whose values are null"
+  [token-fn rectarget argtargets & [{:keys [ktfn] :or {ktfn key-term}}]]
+  (set-statement
+   nil
+   (term nil rectarget)
+   (apply (partial record-definition nil)
+    (map #(key-value nil (ktfn %) null) argtargets))))
+
+(defn setrecordvalues
+  "Given a list of vars, generate constructs to set a Applescript record value
+  from a source value found in another record"
+  [token-fn mapvars targetmap sourcemap]
+  (reduce #(conj
+            %1
+            (set-statement
+             token-fn
+             (xofy-expression
+              (fn [term-kw] (name term-kw))
+              (term nil %2)
+              (term nil targetmap))
+             (routine-call
+              token-fn
+              (term nil :cleanval)
+              (xofy-expression
+               nil
+               (term nil %2)
+               (term nil sourcemap)))))
+          [] mapvars))
+
 (defn set-extend-record
   "Similar to clojure assoc call, set-extend-record emits:
   set x to x & y where x is record and y is {key:data}"
@@ -278,12 +343,4 @@
      nil
      (key-value nil (key-term skey) (term nil sval))))))
 
-(defn set-empty-record
-  "Creates a record with keys whose values are null"
-  [token-fn rectarget argtargets & [{:keys [ktfn] :or {ktfn key-term}}]]
-  (set-statement
-   nil
-   (term nil rectarget)
-   (apply (partial record-definition nil)
-    (map #(key-value nil (ktfn %) (null)) argtargets))))
 

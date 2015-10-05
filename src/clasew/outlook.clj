@@ -90,6 +90,10 @@
   [term-kw]
   (term-kw outlook-business-address (name term-kw)))
 
+;;
+;; Get functions
+;;
+
 (defn builder
   [fn & args]
   (apply fn args))
@@ -171,7 +175,7 @@
             (ast/set-statement token-fn
                                (ast/xofy-expression
                                 nil
-                                (ast/term nil %2)
+                                (ast/term-nl %2)
                                 (ast/term nil targetmap))
                                (ast/expression
                                 nil
@@ -198,7 +202,12 @@
      (apply (partial ast/for-in-expression
       nil
         (ast/term nil :eml)
-        (ast/xofy-expression nil (ast/term nil :emails) (ast/term nil tkey)))
+                     (ast/get-statement
+                      nil
+        (ast/xofy-expression
+         nil
+         (ast/term nil :emails)
+         (ast/term nil tkey))))
         (conj (seq (conj
                   (setemailvalues
                    nil
@@ -286,7 +295,7 @@
   [args lkw addr emls phns filt]
   (let [gets  (apply (partial ast/block nil)
                      (filter #(not (nil? %))
-                             (conj (ident/setrecordvalues nil args :ident :cloop)
+                             (conj (ast/setrecordvalues nil args :ident :cloop)
                                    addr emls  phns
                                    (ast/set-statement
                                     outlook-mapset-core
@@ -314,6 +323,9 @@
                                (build-emails :cloop (rest emails))
                                (build-phones :cloop (rest phones))
                                filters))))
+;;
+;; Delete function
+;;
 
 (defn- delete-contact
   [{:keys [filters]}]
@@ -337,8 +349,12 @@
                         (ast/string-literal "Records deleted : ")
                         (ast/count-expression nil
                                               (ast/term nil :dlist))))
-    (ast/save-expression)
+    (ast/save-statement)
     (ast/return nil :results))))
+
+;;
+;; Add functions
+;;
 
 (defn kwmaker
   [strw]
@@ -448,6 +464,10 @@
                                               (ast/term nil :alist))))
     (ast/return nil :results))))
 
+;;
+;; Update functions
+;;
+
 (defn- gen-sets
   "Generate the value set to's in process"
   [ckw setters]
@@ -490,10 +510,14 @@
            (ast/term nil subkey) (ast/term nil tkw))
           (ast/block
            nil
-           (ast/xofy-expression
+           (ast/precedence
             nil
-            (ast/term nil subkey)
-            (ast/term nil tkw))
+            (ast/expression
+             nil
+             (ast/xofy-expression
+              nil
+              (ast/term nil subkey)
+              (ast/term nil tkw))))
            (ast/append-object-expression
             nil
             elistkw))))))
@@ -519,9 +543,9 @@
                             " not supported in Outlook")))
     nil))
 
-;;
-;; Simplified expansion functions
-;;
+;
+; Simplified expansion functions
+;
 
 (defn- phsetx
   [x k s]
@@ -544,9 +568,9 @@
   [filt setast]
   (ast/else-if-expression nil (phifs filt setast)))
 
-;;
-;; Common update handlers for phones and addresses
-;;
+;
+; Common update handlers for phones and addresses
+;
 
 (defn- update-type1
   "Generator for having a type and a value in the filter
@@ -616,14 +640,17 @@
   and addresses it is inline to contact record. If emails
   a for-loop will be required"
   [ckw ifsets]
-  (let [tb (reduce #(conj
-                     %1
-                     (condp = (first %2)
-                       :phones (phone-filter ckw (:filters (second %2))
-                                             (:sets (second %2)))
-                       :addresses (address-filter ckw (:filters (second %2))
+  (let [tb (reduce
+            #(if (not (nil? (second %2)))
+               (conj
+                %1
+                (condp = (first %2)
+                  :phones (phone-filter ckw (:filters (second %2))
+                                        (:sets (second %2)))
+                  :addresses (address-filter ckw (:filters (second %2))
                                              (:sets (second %2))) ))
-                   [] ifsets)]
+               %1)
+            [] ifsets)]
     (apply (partial ast/block nil) tb)))
 
 (defn- redfilter
@@ -635,31 +662,34 @@
 (defn- redistribute
   "Redistribute the subsets group
   1. if there are adds, redistributes to core sets
-  2. if there are filters and sets then conj in remaining subsets"
-  [mmap mkw smap]
-  (let [red (seq (flatten-map {mkw (:adds smap)}))
-        sset (redfilter (dissoc smap :adds))
-        rmap (assoc mmap
-               :sets (reduce
-                      #(conj %1 (first %2) (second %2)) (:sets mmap) red))]
-    (if sset
-      (update-in rmap [:ifsets] conj [mkw sset])
-      rmap)))
+  2. if there are filters and sets then conj in :ifsets"
+  [mmap mkw smap-coll]
+  (let [reds  (map #(flatten-map {mkw (:adds %)}) smap-coll)
+        ssets (map #(redfilter (dissoc % :adds)) smap-coll)
+        rmaps (assoc mmap :sets
+                (reduce #(if (not-empty %2)
+                           (conj %1 (first %2) (second %2))
+                           %1) (:sets mmap) reds))]
+    (if ssets
+      (reduce #(update-in %1 [:ifsets] conj [mkw %2]) rmaps ssets)
+      rmaps)))
 
 (defn- reduce-inline-subsets
-  "Reduce through redistribution"
+  "Reduce through redistribution.
+  1. Moves emails to subsets
+  2. Redistribute phone and addresses to inline ifsets"
   [ckw {:keys [filters sets subsets] :as bblock}]
-  (let [nblk (redistribute
-              (redistribute
-               (assoc bblock :subsets (ident/filter-forv :emails subsets))
-               :phones (second (ident/filter-forv :phones subsets)))
-              :addresses (second (ident/filter-forv :addresses subsets)))]
-    (if (not-empty (:subsets nblk))
-      nblk
-      nblk)))
+  (let [tblk (assoc bblock :subsets (ident/filter-forv :emails subsets))
+        ffn #(map second %)]
+    (redistribute
+     (redistribute
+      tblk
+      :phones (ident/apply-filter-forv :phones subsets ffn))
+     :addresses (ident/apply-filter-forv :addresses subsets ffn))))
 
 (defn- refactor-update
   [f block]
+  "Convert the input block to outlook contact constructs"
   (let [nmap (reduce-inline-subsets :cloop block)]
     (f nmap)))
 
@@ -680,9 +710,9 @@
        (ast/where-filter nil (ast/term nil :contacts) filters)
        (ast/term nil :contacts))
      (ast/set-statement nil (ast/term nil :esets) ast/empty-list)
-     (apply (partial ast/block nil) (gen-sets :cloop sets))
      (gen-subsets :cloop :esets subsets)
-     (gen-ifs :cloop ifsets))
+     (gen-ifs :cloop ifsets)
+     (apply (partial ast/block nil) (gen-sets :cloop sets)))
     (ast/return nil :results))]
     (genas/ast-consume ttl)))
 

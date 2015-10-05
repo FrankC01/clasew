@@ -55,43 +55,36 @@
 ;; Special handlers
 ;;
 
-
-(defn setrecordvalues
-  "Given a list of vars, generate constructs to set a Applescript record value
-  from a source value found in another record"
-  [token-fn mapvars targetmap sourcemap]
-  (reduce #(conj
-            %1
-            (ast/set-statement
-             token-fn
-             (ast/xofy-expression
-              (fn [term-kw] (name term-kw))
-              (ast/term nil %2)
-              (ast/term nil targetmap))
-             (ast/routine-call
-              token-fn
-              (ast/term nil :cleanval)
-              (ast/xofy-expression
-               nil
-               (ast/term nil %2)
-               (ast/term nil sourcemap)))))
-          [] mapvars))
-
 (defn- filter-!v
+  "Filter for non-vector data types"
   [args]
   (cfilter #(not (vector? %)) args))
 
 (defn- filter-v
+  "Filter for vector data types"
   [args]
   (cfilter #(vector? %) args))
 
+(defn-  filter-for-vkw
+  "Filter for vector with first position kw match"
+  [kw args]
+  (cfilter #(cand (vector? %) (= (first %) kw)) args))
+
 (defn- filter-!forv
+  "Filter for vector not containing first position key"
   [kw args]
   (cfilter #(cand (vector? %) (not= (first %) kw)) args))
 
 (defn filter-forv
+  "First position return from filter with "
   [kw args]
-  (first (cfilter #(cand (vector? %) (= (first %) kw)) args)))
+  (first (filter-for-vkw kw args)))
+
+(defn apply-filter-forv
+  "Apply a function against  results"
+  [kw args fn]
+  (fn (filter-for-vkw kw args)))
+
 
 ;;
 ;; High level DSL functions ---------------------------------------------------

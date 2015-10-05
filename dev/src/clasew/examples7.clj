@@ -27,7 +27,9 @@
    :phones    (list {:number_type "home phone"
                      :number_value "999 999-0000"}
                     {:number_type "mobile"
-                     :number_value "999 999 0001"})
+                     :number_value "999 999 0001"}
+                    {:number_type "work"
+                     :number_value "000 000 0000"})
    })
 
 (def sally
@@ -50,9 +52,8 @@
 
 #_(p (ident/run-script!
     (outlook/script
-     (ident/add-individuals oxnard ))
+     (ident/add-individuals oxnard sally))
     (ident/quit :outlook)))
-
 
 ;;
 ;; Fetch ALL individuals from outlook contacts
@@ -70,13 +71,13 @@
 #_(p (ident/run-script!
     (outlook/script
      (ident/individuals
-      (ident/filter :first_name ident/EQ "Oxnard")
+      (ident/filter :first_name ident/CT "Oxnard")
       (ident/email-addresses)))
     (ident/quit :outlook)))
 
 ;; Fetch all individuals and phone numbers where
 ;; individual's first name contains "Sally"
-;; This uses the simple filter option
+;; This uses a simple filter option
 
 #_(p (ident/run-script!
     (outlook/script
@@ -87,7 +88,7 @@
 
 ;; Fetch all individuals (full name only) their streeet address,
 ;; phones and emails where individuals first name contains Oxnard
-;; This uses the simple filter option
+;; This uses a simple filter option
 
 #_(p (ident/run-script!
       (outlook/script
@@ -97,7 +98,6 @@
                           (ident/phones)
                           (ident/filter :first_name ident/EQ "Oxnard")))
       (ident/quit :outlook)))
-
 
 ;; Fetch all individuals their email addresses,street addresses and
 ;; phone numbers. This is equivalent to call (individuals-all...) as
@@ -111,50 +111,33 @@
       (ident/phones)))
     (ident/quit :outlook)))
 
+;; Short version to do the same
+
 #_(p (ident/run-script!
     (outlook/script
      (ident/individuals-all))
     (ident/quit :outlook)))
 
-; ******* CONTINUE WITH DEPRECATE REPLACEMENTS*******
-
-
-;; Using a complex filter
-
-(def filter-sample (ident/filter
-            :first_name ident/CT "Oxnard"
-            (ident/or :first_name ident/EQ "Sally"
-                      :last_name ident/EQ "Abercrombe")
-            ))
-
 
 ;; Updates with filters
-;; TBD NEED ADDRESS SUPPORT
 
-#_(p   (ident/update-individual
-    (ident/filter :first_name ident/CT "Oxnard")
-    :last_name "Skippy"
-           :home_phone "0"
-   (ident/update-email-addresses
-    (ident/adds
-     {:email_type "work" :email_address "oxnard1@mybusiness.com"}
-     {:email_type "home" :email_address "oxnard2@myhome.com"}))
-    (ident/update-phones
-     (ident/filter :number_type ident/EQ "mobile" )
-     :number_value "991 991 9991"
-     (ident/adds
-      {:number_value "999 999 9999" :number_type "work"}
-      {:number_value "999 999 9999" :number_type "home"}))))
-
-#_(println (outlook/script
+(p (ident/run-script!
+    (outlook/script
           (ident/update-individual
-           (ident/filter :first_name ident/CT "Oxnard")
-           :last_name "Skippy"
+           (ident/filter
+            :first_name ident/EQ "Oxnard"
+            :last_name ident/EQ "Gimbel")
+           :first_name "Oxnardio"
            (ident/update-addresses
             (ident/filter
              :address_type ident/EQ  "work"
              :city_name ident/EQ "West Somewhere")
-            :city_name "gooberville")
+            :city_name "West Palm Beach")
+           (ident/update-addresses
+            (ident/filter
+             :address_type ident/EQ  "home"
+             :state_name ident/EQ "NY")
+            :state_name "NJ")
            (ident/update-email-addresses
             (ident/adds
              {:email_type "work" :email_address "oxnard1@mybusiness.com"}
@@ -162,25 +145,22 @@
            (ident/update-phones
             (ident/filter
              :number_type ident/EQ "work"
-             ;:number_value ident/EQ "000 000 0000"
-             )
-            :number_value "991 991 9991"))))
+             :number_value ident/EQ "000 000 0000")
+            :number_value "991 991 9991")))
+      (outlook/script
+       (ident/individuals
+        (ident/filter :first_name ident/CT "Oxnard")
+        (ident/email-addresses)))
+      (ident/quit :outlook)))
 
+;;
+;; Construct a complex filter
+;;
 
-#_(p (ident/run-script!    (outlook/script
-  (ident/update-individual
-    (ident/filter :first_name ident/CT "Oxnard")
-    :last_name "Skippy"
-   (ident/update-email-addresses
-    (ident/adds
-     {:email_type "work" :email_address "oxnard1@mybusiness.com"}
-     {:email_type "home" :email_address "oxnard2@myhome.com"}))
-    (ident/update-phones
-     (ident/adds
-      {:number_value "999 999 9999" :number_type "work"}
-      {:number_value "999 999 9999" :number_type "home"}))))))
-
-;(p (clasew.gen-as/ginstrument nil))
+(def filter-sample (ident/filter
+            :first_name ident/CT "Oxnard"
+            (ident/or :first_name ident/EQ "Sally"
+                      :last_name ident/EQ "Abercrombe")))
 
 ;; Fetch individuals based on complex filter
 
@@ -191,7 +171,7 @@
 
 ;; Delete individuals based on complex filter
 
-#_(p (ident/run-script!
+(p (ident/run-script!
       (outlook/script
        (ident/delete-individual filter-sample))
       (ident/quit :outlook)))

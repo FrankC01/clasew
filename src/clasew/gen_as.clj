@@ -37,7 +37,7 @@
 (declare filter-reduce)
 
 (def filterp
-  {:equal-to "equals"
+  {:equal-to "is equal to"
    :not-equal-to "is not equal to"
    :less-than "<"
    :not-less-than "not less than"
@@ -92,6 +92,10 @@
   [{:keys [to-value]}]
   (*lookup-fn* to-value))
 
+(defn term-nl-handler
+  [{:keys [to-value]}]
+  (name to-value))
+
 (defn key-term-handler
   [{:keys [key-term]}]
   (str (*lookup-fn* key-term) ":"))
@@ -126,7 +130,7 @@
 
 (defn expression-handler
   [{:keys [expressions]}]
-  (endline (apply str (map ast-consume expressions))))
+  (apply str (map ast-consume expressions)))
 
 (defn append-object-handler
   [{:keys [svalue]}]
@@ -197,7 +201,7 @@
        " in "
        (ast-consume in)
        "\n"
-       (apply str (map ast-consume expressions))
+       (endline (apply str (map ast-consume expressions)))
        "end repeat\n"))
 
 (defn local-handler
@@ -236,6 +240,7 @@
 (def ast-jump "Jump Table for AST Expression"
   {
    :term             term-handler
+   :term-nl          term-nl-handler
    :key-term         key-term-handler
    :key-term-nl      key-term-nl-handler
    :string-literal   string-literal-handler
