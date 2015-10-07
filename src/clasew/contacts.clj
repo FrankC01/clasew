@@ -31,131 +31,205 @@
    :number_type          "label"
     })
 
+;;
+;; Consistent functional args/terms
+;;
+
+(def ^:private CONTACTS  :contacts)
+(def ^:private RESULTS   :results)
+
+;;
+;;
+;;
+
 (defn- contacts-mapset-core
   "Term lookup function"
   [term-kw]
   (get contacts-identities term-kw (name term-kw)))
 
-(defn builder
+(defn- builder
   [fn & args]
   (apply fn args))
 
-(defn build-tell
+(defn- build-tell
+  "Build the outermost tell application x (...) AST"
   [body]
-  (ast/tell nil :contacts
-               (ast/define-locals nil :results :cloop :ident)
-               (ast/set-statement nil (ast/term nil :results) (ast/empty-list))
-               body
-            (ast/return nil :results)))
+  (ast/tell
+   nil
+   CONTACTS
+   (ast/define-locals nil RESULTS :cloop :ident)
+   (ast/set-statement nil (ast/term nil RESULTS) ast/empty-list)
+   body
+   (ast/return nil RESULTS)))
+
+;;
+;; Subrecord build support
+;;
+
+(def ^:private address-dmap
+  {:clist  :add_list
+   :owner  :hadd
+   :loopc  :addr
+   :target :addresses
+   :resl   :address_list
+   :extnd  :ident
+   })
+
+(def ^:private emails-dmap
+  {:clist  :elist
+   :owner  :eadd
+   :loopc  :eml
+   :target :emails
+   :resl   :email_list
+   :extnd  :ident
+   })
+
+(def ^:private phones-dmap
+  {:clist  :plist
+   :owner  :padd
+   :loopc  :phn
+   :target :phones
+   :resl   :phone_list
+   :extnd  :ident
+   })
 
 
-(defn build-address
-  [tkey args]
+(defn- build-subrecord
+  "Create fetch statements for subrecords.
+  tkey : Source target key
+  args : properties to fetch
+  dmap : control structure where
+        {:clist - identifies the collection list (:add_list)
+        :owner - identifies the result record (:hadd)
+        :loopc - identifies the var used as the loop variable (:addr)
+        :target- identifies the application target (:addresses)
+        :resl  - identifies the key to the result list (:address_list)
+        :extnd - identifies the record to extend with list (:ident)}"
+  [tkey args {:keys [clist owner loopc target resl extnd]}]
   (if (empty? args)
     nil
     (ast/block
-     (ast/define-locals nil :add_list :hadd)
-     (ast/set-statement nil (ast/term nil :add_list) (ast/empty-list))
-     (ast/define-record nil :hadd args)
-     (ast/repeat-loopf
-      contacts-mapset-core :addr :addresses tkey
+     nil
+     (ast/define-locals nil clist owner loopc)
+     (ast/set-statement nil (ast/term nil clist) ast/empty-list)
+     (apply
+      (partial ast/for-in-expression
+               contacts-mapset-core
+               (ast/term nil loopc)
+               (ast/get-statement
+                nil
+                (ast/xofy-expression
+                 nil
+                 (ast/term nil target)
+                 (ast/term nil tkey)))
+                 (ast/set-empty-record nil owner args
+                                       {:ktfn ast/key-term-nl}))
       (conj
-       (ident/setrecordvalues
+       (ast/setrecordvalues
         nil
         args
-        :hadd :addr)
-       (ast/extend-list nil :add_list :hadd)))
-     (ast/extend-record nil :ident :address_list :add_list))))
+        owner loopc)
+       (ast/set-statement nil
+                          (ast/eol-cmd nil clist nil)
+                          (ast/term nil owner))))
+     (ast/set-extend-record extnd resl clist))))
 
-(defn build-emails
-  [tkey args]
-  (if (empty? args)
-    nil
-    (ast/block nil
-     (ast/define-locals nil :elist :eadd)
-    (ast/set-statement nil (ast/term nil :elist) (ast/empty-list))
-     (ast/repeat-loopf
-      contacts-mapset-core :eml :emails tkey
-      (conj (seq (conj
-       (ident/setrecordvalues
-        nil
-        args
-        :eadd :eml)
-       (ast/extend-list nil :elist :eadd))) (ast/define-record nil :eadd args)))
-     (ast/extend-record nil :ident :email_list :elist))))
-
-(defn build-phones
-  [tkey args]
-  (if (empty? args)
-    nil
-    (ast/block nil
-     (ast/define-locals nil :plist :padd)
-    (ast/set-statement nil (ast/term nil :plist) (ast/empty-list))
-     (ast/repeat-loopf
-      contacts-mapset-core :phn :phones tkey
-      (conj (seq (conj
-       (ident/setrecordvalues
-        nil
-        args
-        :padd :phn)
-       (ast/extend-list nil :plist :padd))) (ast/define-record nil :padd args)))
-     (ast/extend-record nil :ident :phone_list :plist))))
-
-
-(defn build-individual
+(defn- build-individual
+  "Construct the overall individual fetch construct allowing for
+  filtering"
   [args lkw addr emls phns filt]
   (let [gets  (apply (partial ast/block nil)
                      (filter #(not (nil? %))
-                             (conj (ident/setrecordvalues nil args :ident :cloop)
+                             (conj (ast/setrecordvalues
+                                    nil args :ident :cloop)
                                    addr emls phns
-                                   (ast/extend-list nil :results :ident))))]
+                                   (ast/set-statement
+                                    nil
+                                    (ast/eol-cmd nil RESULTS nil)
+                                    (ast/term nil :ident)))))]
     (build-tell
-     (if (not-empty filt)
-       (ast/filtered-repeat-loop contacts-mapset-core lkw filt :people nil
-                               (ast/define-record nil :ident args)
-                               gets)
-       (ast/repeat-loop contacts-mapset-core lkw :people nil
-                      (ast/define-record nil :ident args)
-                      gets)))))
+     (ast/for-in-expression
+      contacts-mapset-core
+      (ast/term nil lkw)
+      (if (empty? filt)
+        (ast/term nil :people)
+        (ast/where-filter nil
+                          (ast/term nil :people)
+                          filt))
+      (ast/set-empty-record nil :ident args {:ktfn ast/key-term-nl})
+      gets))))
 
 
 (defn- get-contacts
   [{:keys [individuals filters emails addresses phones]}]
-  (let [lctl (if (not-empty filters) :fitr :cloop)]
-  (genas/ast-consume (builder (partial ast/block nil) ident/cleanval
-                              (build-individual
-                               individuals :cloop
-                               (build-address lctl (rest addresses))
-                               (build-emails lctl (rest emails))
-                               (build-phones lctl (rest phones))
-                               filters)))))
+  (genas/ast-consume
+   (builder (partial ast/block nil) ident/cleanval
+            (build-individual
+             individuals :cloop
+             (build-subrecord
+              :cloop
+              (rest addresses)
+              address-dmap)
+             (build-subrecord
+              :cloop
+              (rest emails)
+              emails-dmap)
+             (build-subrecord
+              :cloop
+              (rest phones)
+              phones-dmap)
+             filters))))
 
 (defn- delete-contact
   [{:keys [filters]}]
   (genas/ast-consume
    (ast/tell
-    contacts-mapset-core :contacts
-    (ast/define-locals nil :results :dlist)
-    (ast/set-statement nil (ast/term nil :results) (ast/empty-list))
+    contacts-mapset-core CONTACTS
+    (ast/define-locals nil RESULTS :dlist :dloop)
+    (ast/set-statement nil (ast/term nil RESULTS) ast/empty-list)
     (ast/set-statement nil (ast/term nil :dlist)
-                       (ast/filter-expression nil :people nil filters))
-    (ast/delete-expression nil (ast/list-items-cmd nil :dlist))
-    (ast/set-statement nil
-                       (ast/eol-cmd nil :results nil)
-                       (ast/string-builder
-                        nil
-                        (ast/string-literal "Records deleted :")
-                        (ast/count-expression nil
-                                              (ast/term nil :dlist))))
-    (ast/save)
-    (ast/return nil :results))))
+                       (ast/where-filter nil
+                                         (ast/term nil :people)
+                                         filters))
+    (ast/for-in-expression
+     nil
+     (ast/term nil :dloop) (ast/term nil :dlist)
+     (ast/expression nil ast/delete (ast/term nil :dloop)))
+    (ast/set-result-msg-with-count "Records deleted :" RESULTS :dlist)
+    (ast/save-statement)
+    (ast/return nil RESULTS))))
 
+(defn add-record-definitions
+  [imap]
+  (apply (partial ast/record-definition nil)
+         (seq
+          (reduce
+           #(conj
+             %1
+             (ast/key-value
+              nil
+              (ast/key-term (first %2))
+              (ast/string-literal (second %2))))
+           [] imap))))
 
 (defn expand
+  "Creates a new sub-record type (pkey) of type (ckey) at end of
+  list (skey) of (ckey) with properties (coll)"
   [coll pkey skey ckey]
-  (reduce #(conj %1 (ast/make-new-inlist-record
-                     nil
-                     pkey skey ckey %2 true)) (list) coll))
+  (apply (partial ast/block nil)
+         (reduce
+          #(conj
+            %1
+            (ast/make-new
+             nil
+             (ast/term nil pkey)
+             (ast/expression
+              nil
+              (ast/term nil " at ")
+              (ast/eol-cmd nil skey ckey)
+              ast/with-properties
+              (add-record-definitions %2)))) [] coll)))
+
 
 (defn expand-map
   "Takes an input map and generates a block statement that:
@@ -164,16 +238,25 @@
   3. Extends the addresses list of person to one or more (if any) new addys
   4. Extends the phones list of person to one or more (if any) new numbers"
   [imap mkey mlist]
+  ;(println imap mkey mlist)
   (let [base (dissoc imap :addresses :emails :phones)
         emls (expand (get imap :emails nil) :email :emails mkey)
         phns (expand (get imap :phones nil) :phone :phones mkey)
         adds (expand (get imap :addresses nil) :address :addresses mkey)
-        lst  (list (ast/extend-list-with-expression nil mlist (ast/term nil mkey)))
-        nnl  (flatten (conj lst emls phns adds))]
-    (ast/blockf nil
+        lst  (ast/set-statement
+              nil
+              (ast/eol-cmd nil mlist nil)
+              (ast/term nil mkey))
+        nnl  (flatten (conj '() lst emls phns adds))]
+    (apply (partial ast/block nil)
              (conj nnl
-                   (ast/set-expression nil mkey
-                                 (ast/make-new-record nil :person base))))))
+                   (ast/set-statement nil (ast/term nil mkey)
+                                 (ast/make-new
+                                  nil
+                                  (ast/term nil :person)
+                                  ast/with-properties
+                                  (add-record-definitions base)
+                                  ))))))
 
 (defn- add-contacts
   "Adds new individuals to contacts people. Requires breaking out
@@ -182,21 +265,16 @@
   [{:keys [adds]}]
   (genas/ast-consume
    (ast/tell
-    contacts-mapset-core :contacts
-    (ast/define-locals nil :results :alist :dlist :rstring :thePerson)
-    (ast/set-statement nil (ast/term nil :alist) (ast/empty-list))
-    (ast/set-statement nil (ast/term nil :results) (ast/empty-list))
-    (ast/blockf
-     nil
+    contacts-mapset-core CONTACTS
+    (ast/define-locals nil RESULTS :alist :dlist :thePerson)
+    (ast/set-statement nil (ast/term nil :alist) ast/empty-list)
+    (ast/set-statement nil (ast/term nil RESULTS) ast/empty-list)
+    (apply (partial ast/block nil)
      (seq
       (reduce #(conj %1 (expand-map %2 :thePerson :alist)) [] adds)))
-    (ast/count-of nil :dlist
-                  (ast/term nil :alist))
-    (ast/string-p1-reference nil :rstring "Records added = " :dlist)
-    (ast/extend-list nil :results :rstring)
-    (ast/save)
-    (ast/return nil :results))))
-
+    (ast/set-result-msg-with-count "Records added :" RESULTS :alist)
+    (ast/save-statement)
+    (ast/return nil RESULTS))))
 
 (defn script
   [{:keys [action] :as directives}]

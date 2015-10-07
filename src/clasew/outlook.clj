@@ -342,13 +342,7 @@
      nil
      (ast/term nil :dloop) (ast/term nil :dlist)
      (ast/expression nil ast/delete (ast/term nil :dloop)))
-    (ast/set-statement nil
-                       (ast/eol-cmd nil :results nil)
-                       (ast/string-builder
-                        nil
-                        (ast/string-literal "Records deleted : ")
-                        (ast/count-expression nil
-                                              (ast/term nil :dlist))))
+    (ast/set-result-msg-with-count "Records deleted :" :result :dlist)
     (ast/save-statement)
     (ast/return nil :results))))
 
@@ -455,13 +449,7 @@
                     ast/with-properties
                     (add-record-definitions %2))))
            [] adds)))
-    (ast/set-statement outlook-mapset-core
-                       (ast/eol-cmd nil :results nil)
-                       (ast/string-builder
-                        nil
-                        (ast/string-literal "Records added : ")
-                        (ast/count-expression nil
-                                              (ast/term nil :alist))))
+    (ast/set-result-msg-with-count "Records added :" :result :alist)
     (ast/return nil :results))))
 
 ;;

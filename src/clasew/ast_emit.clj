@@ -271,7 +271,6 @@
    :token-fn token-fn
    :return-val retval})
 
-
 (defn block
   "Primary container of expressions - does not emit"
   [token-fn & expressions]
@@ -298,6 +297,18 @@
 ;;
 ;; Ease of use forms
 ;;
+
+(defn set-result-msg-with-count
+  "Creates a result s including a count of ct and
+  placed in rt"
+  [s rt ct]
+  (set-statement
+   nil
+   (eol-cmd nil rt nil)
+   (string-builder
+    nil
+    (string-literal s)
+    (count-expression nil (term nil ct)))))
 
 (defn set-empty-record
   "Creates a record with keys whose values are null"
