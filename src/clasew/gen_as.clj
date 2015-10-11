@@ -277,8 +277,6 @@
    :eor-cmd          end-of-rec-cmd-handler
 
    :append-object    append-object-handler
-
-   ;; TODO: Evaluate below for deprecation
    })
 
 (def instrument (atom {}))

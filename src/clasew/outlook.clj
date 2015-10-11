@@ -4,7 +4,8 @@
   clasew.outlook
   (:require [clasew.gen-as :as genas]
             [clasew.ast-emit :as ast]
-            [clasew.identities :as ident]))
+            [clasew.identities :as ident]
+            [clasew.ident-utils :as utils]))
 
 
 (def ^:private phone-set
@@ -342,7 +343,7 @@
      nil
      (ast/term nil :dloop) (ast/term nil :dlist)
      (ast/expression nil ast/delete (ast/term nil :dloop)))
-    (ast/set-result-msg-with-count "Records deleted :" :result :dlist)
+    (ast/set-result-msg-with-count "Records deleted :" :results :dlist)
     (ast/save-statement)
     (ast/return nil :results))))
 
@@ -449,12 +450,14 @@
                     ast/with-properties
                     (add-record-definitions %2))))
            [] adds)))
-    (ast/set-result-msg-with-count "Records added :" :result :alist)
+    (ast/set-result-msg-with-count "Records added :" :results :alist)
     (ast/return nil :results))))
 
 ;;
 ;; Update functions
 ;;
+
+
 
 (defn- gen-sets
   "Generate the value set to's in process"
@@ -480,35 +483,6 @@
                   (ast/string-literal %3))))
    (ast/record-definition nil) emap))
 
-(defn- gen-subsets
-  "Generate the additions for contained subsets, ie:
-  set end of esets to {'record'}
-  set email addresses of cloop to email addresses of cloop & esets"
-  [tkw elistkw [subkey {:keys [filters sets adds]}]]
-  (apply (partial ast/block nil)
-   (conj (reduce #(conj %1
-                        (ast/set-statement
-                         nil
-                         (ast/eol-cmd nil elistkw nil)
-                         (gen-records %2))) [] adds)
-         (ast/set-statement
-          nil
-          (ast/xofy-expression
-           nil
-           (ast/term nil subkey) (ast/term nil tkw))
-          (ast/block
-           nil
-           (ast/precedence
-            nil
-            (ast/expression
-             nil
-             (ast/xofy-expression
-              nil
-              (ast/term nil subkey)
-              (ast/term nil tkw))))
-           (ast/append-object-expression
-            nil
-            elistkw))))))
 
 (defn- phone-filter-exception
   "Applies to phone filters not supportable by Office"
@@ -625,8 +599,7 @@
 
 (defn- gen-ifs
   "Creates instructions for subset filtering. For phone
-  and addresses it is inline to contact record. If emails
-  a for-loop will be required"
+  and addresses it is inline to contact record."
   [ckw ifsets]
   (let [tb (reduce
             #(if (not (nil? (second %2)))
@@ -640,6 +613,42 @@
                %1)
             [] ifsets)]
     (apply (partial ast/block nil) tb)))
+
+(defn- gen-subset-adds
+  "Generate the additions for contained subsets, ie:
+  set email addresses of cloop to email addresses of cloop & esets"
+  [tkw elistkw [subkey {:keys [adds]}]]
+  (if (empty? adds)
+    (ast/block nil)
+  (ast/block
+   nil
+   (ast/define-locals nil elistkw)
+   (ast/set-statement nil (ast/term nil elistkw) ast/empty-list)
+  (apply (partial ast/block nil)
+   (conj (reduce #(conj %1
+                        (ast/set-statement
+                         nil
+                         (ast/eol-cmd nil elistkw nil)
+                         (gen-records %2))) [] adds)
+
+         (ast/set-statement
+          nil
+          (ast/xofy-expression
+           nil
+           (ast/term nil subkey) (ast/term nil tkw))
+          (ast/block
+           nil
+           (ast/precedence
+            nil
+            (ast/expression
+             nil
+             (ast/xofy-expression
+              nil
+              (ast/term nil subkey)
+              (ast/term nil tkw))))
+           (ast/append-object-expression
+            nil
+            elistkw))))))))
 
 (defn- redfilter
   [sset]
@@ -675,11 +684,34 @@
       :phones (ident/apply-filter-forv :phones subsets ffn))
      :addresses (ident/apply-filter-forv :addresses subsets ffn))))
 
+(defn- clean-email-type
+  [loopkw {:keys [filters sets adds] :as iblock}]
+  (assoc {}
+    :filters {:joins (:joins filters)
+              :args (map #(if (= (first %) :email_type)
+                            (list (first %) (second %) (symbol (last %)) loopkw)
+                            (list (first %) (second %) (last %) loopkw))
+                         (:args filters))}
+    :sets sets))
+
+(defn- gen-subsets
+  "Creates the email adds and filtered sets if applicable"
+  [subsets]
+  (if subsets
+       (let [[k imap] subsets
+             cmap (clean-email-type :sloop imap)]
+         (ast/block
+          nil
+          (if (and (:filters cmap) (not-empty (:sets cmap)))
+            (utils/update-if-filter-block :etmp :sloop :cloop k cmap nil)
+            (ast/block nil ast/noop))
+          (gen-subset-adds :cloop :esets subsets)))
+       (ast/block nil ast/noop)))
+
 (defn- refactor-update
   [f block]
   "Convert the input block to outlook contact constructs"
-  (let [nmap (reduce-inline-subsets :cloop block)]
-    (f nmap)))
+  (f (reduce-inline-subsets :cloop block)))
 
 (defn- update-contacts
   "Updates individuals or child values allowing for the addition of
@@ -689,7 +721,7 @@
         ttl
    (ast/tell
     outlook-mapset-core :outlook
-    (ast/define-locals nil :results :cloop :esets)
+    (ast/define-locals nil :results :cloop)
     (ast/set-statement nil (ast/term nil :results) ast/empty-list)
     (ast/for-in-expression
      nil
@@ -697,10 +729,13 @@
      (if filters
        (ast/where-filter nil (ast/term nil :contacts) filters)
        (ast/term nil :contacts))
-     (ast/set-statement nil (ast/term nil :esets) ast/empty-list)
-     (gen-subsets :cloop :esets subsets)
+     (gen-subsets subsets)
      (gen-ifs :cloop ifsets)
      (apply (partial ast/block nil) (gen-sets :cloop sets)))
+    (ast/set-statement
+     nil
+     (ast/eol-cmd nil :results nil)
+     (ast/string-literal "Update successful"))
     (ast/return nil :results))]
     (genas/ast-consume ttl)))
 

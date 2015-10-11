@@ -118,10 +118,9 @@
      (ident/individuals-all))
     (ident/quit :outlook)))
 
-
 ;; Updates with filters
 
-(p (ident/run-script!
+#_(p (ident/run-script!
     (outlook/script
           (ident/update-individual
            (ident/filter
@@ -136,12 +135,15 @@
            (ident/update-addresses
             (ident/filter
              :address_type ident/EQ  "home"
-             :state_name ident/EQ "NY")
-            :state_name "NJ")
+             :city_name ident/EQ "New York")
+            :city_name "NJ")
            (ident/update-email-addresses
+            (ident/filter
+             :email_type ident/EQ "work"
+             :email_address ident/EQ "oxnard@mybusiness.com")
+            :email_address "oxnard@my_old_business.com"
             (ident/adds
-             {:email_type "work" :email_address "oxnard1@mybusiness.com"}
-             {:email_type "home" :email_address "oxnard2@myhome.com"}))
+             {:email_type "work" :email_address "oxnard1@mybusiness.com"}))
            (ident/update-phones
             (ident/filter
              :number_type ident/EQ "work"
@@ -150,7 +152,9 @@
       (outlook/script
        (ident/individuals
         (ident/filter :first_name ident/CT "Oxnard")
-        (ident/email-addresses)))
+        (ident/email-addresses)
+        (ident/phones)
+        (ident/addresses)))
       (ident/quit :outlook)))
 
 ;;
@@ -171,7 +175,7 @@
 
 ;; Delete individuals based on complex filter
 
-(p (ident/run-script!
+#_(p (ident/run-script!
       (outlook/script
        (ident/delete-individual filter-sample))
       (ident/quit :outlook)))

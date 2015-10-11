@@ -4,7 +4,8 @@
   clasew.contacts
   (:require [clasew.gen-as :as genas]
             [clasew.ast-emit :as ast]
-            [clasew.identities :as ident]))
+            [clasew.identities :as ident]
+            [clasew.ident-utils :as utils]))
 
 (def ^:private contacts-identities
   {:name_suffix          "suffix",
@@ -62,9 +63,12 @@
    body
    (ast/return nil RESULTS)))
 
+
 ;;
-;; Subrecord build support
+;; Fetch people
 ;;
+
+;; Subrecord fetch support
 
 (def ^:private address-dmap
   {:clist  :add_list
@@ -134,7 +138,7 @@
                           (ast/term nil owner))))
      (ast/set-extend-record extnd resl clist))))
 
-(defn- build-individual
+(defn- build-people
   "Construct the overall individual fetch construct allowing for
   filtering"
   [args lkw addr emls phns filt]
@@ -160,11 +164,11 @@
       gets))))
 
 
-(defn- get-contacts
+(defn- get-people
   [{:keys [individuals filters emails addresses phones]}]
   (genas/ast-consume
    (builder (partial ast/block nil) ident/cleanval
-            (build-individual
+            (build-people
              individuals :cloop
              (build-subrecord
               :cloop
@@ -179,8 +183,11 @@
               (rest phones)
               phones-dmap)
              filters))))
+;;
+;; Delete people
+;;
 
-(defn- delete-contact
+(defn- delete-people
   [{:keys [filters]}]
   (genas/ast-consume
    (ast/tell
@@ -199,37 +206,9 @@
     (ast/save-statement)
     (ast/return nil RESULTS))))
 
-(defn add-record-definitions
-  [imap]
-  (apply (partial ast/record-definition nil)
-         (seq
-          (reduce
-           #(conj
-             %1
-             (ast/key-value
-              nil
-              (ast/key-term (first %2))
-              (ast/string-literal (second %2))))
-           [] imap))))
-
-(defn expand
-  "Creates a new sub-record type (pkey) of type (ckey) at end of
-  list (skey) of (ckey) with properties (coll)"
-  [coll pkey skey ckey]
-  (apply (partial ast/block nil)
-         (reduce
-          #(conj
-            %1
-            (ast/make-new
-             nil
-             (ast/term nil pkey)
-             (ast/expression
-              nil
-              (ast/term nil " at ")
-              (ast/eol-cmd nil skey ckey)
-              ast/with-properties
-              (add-record-definitions %2)))) [] coll)))
-
+;;
+;; Add new people
+;;
 
 (defn expand-map
   "Takes an input map and generates a block statement that:
@@ -240,9 +219,9 @@
   [imap mkey mlist]
   ;(println imap mkey mlist)
   (let [base (dissoc imap :addresses :emails :phones)
-        emls (expand (get imap :emails nil) :email :emails mkey)
-        phns (expand (get imap :phones nil) :phone :phones mkey)
-        adds (expand (get imap :addresses nil) :address :addresses mkey)
+        emls (utils/expand (get imap :emails nil) :email :emails mkey)
+        phns (utils/expand (get imap :phones nil) :phone :phones mkey)
+        adds (utils/expand (get imap :addresses nil) :address :addresses mkey)
         lst  (ast/set-statement
               nil
               (ast/eol-cmd nil mlist nil)
@@ -255,10 +234,9 @@
                                   nil
                                   (ast/term nil :person)
                                   ast/with-properties
-                                  (add-record-definitions base)
-                                  ))))))
+                                  (utils/add-record-definitions base)))))))
 
-(defn- add-contacts
+(defn- add-people
   "Adds new individuals to contacts people. Requires breaking out
   emails, phones and addresses to seperate make sets and adding them
   to the appropriate list of the new person"
@@ -276,10 +254,35 @@
     (ast/save-statement)
     (ast/return nil RESULTS))))
 
+;;
+;; Update people
+;;
+
+(defn- update-people
+  "Updates individuals or child values allowing for the addition of
+  subtype (phone, email, address) creations as part of the update"
+  [{:keys [filters sets subsets] :as iblock}]
+  (genas/ast-consume
+   (ast/tell
+    contacts-mapset-core CONTACTS
+    (ast/define-locals nil RESULTS :cloop)
+    (ast/set-statement nil (ast/term nil :results) ast/empty-list)
+    (utils/update-filter-block
+     :cloop :people nil iblock
+     (apply (partial ast/block nil)
+            (reduce utils/update-subsets-reduce [] subsets)))
+    (ast/set-statement
+     nil
+     (ast/eol-cmd nil :results nil)
+     (ast/string-literal "Update successful"))
+    (ast/save-statement)
+    (ast/return nil RESULTS))))
+
 (defn script
   [{:keys [action] :as directives}]
   (condp = action
-    :get-individuals     (get-contacts directives)
-    :delete-individual   (delete-contact directives)
-    :add-individuals     (add-contacts directives)
+    :get-individuals     (get-people directives)
+    :delete-individual   (delete-people directives)
+    :add-individuals     (add-people directives)
+    :update-individual   (update-people directives)
     (str "Don't know how to complete " action)))
