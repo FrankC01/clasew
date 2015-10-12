@@ -115,43 +115,49 @@
 
 #_(p (ident/run-script!
     (contacts/script
-          (ident/update-individual
-           (ident/filter
-            :first_name ident/EQ "Oxnard"
-            :last_name ident/EQ "Gimbel")
-           :first_name "Oxnardio"
-           (ident/update-addresses
-            (ident/filter
-             :address_type ident/EQ  "work"
-             :city_name ident/EQ "West Somewhere")
-            :city_name "West Palm Beach")
-           (ident/update-addresses
-            (ident/filter
-             :address_type ident/EQ  "home"
-             :city_name ident/EQ "New York")
-            :city_name "New Jersey")
-           (ident/update-email-addresses
-            (ident/filter
-             :email_type ident/EQ "work"
-             :email_address ident/EQ "oxnard@mybusiness.com")
-            :email_address "oxnard@my_old_business.com"
-            (ident/adds
-             {:email_type "work" :email_address "oxnard1@mybusiness.com"}))
-           (ident/update-phones
-            (ident/filter
-             :number_type ident/EQ "work"
-             :number_value ident/EQ "000 000 0000")
-            :number_value "991 991 9991")))
-      (contacts/script
-       (ident/individuals
-        (ident/filter :first_name ident/CT "Oxnard")
-        (ident/email-addresses)
-        (ident/phones)
-        (ident/addresses)))
-      (ident/quit :contacts)))
+     (ident/update-individual
+      (ident/filter
+       :first_name ident/EQ "Oxnard"
+       :last_name ident/EQ "Gimbel")
+      :first_name "Oxnardio"
+      (ident/update-addresses
+       (ident/filter
+        :address_type ident/EQ  "work"
+        :city_name ident/EQ "West Somewhere")
+       :city_name "West Palm Beach")
+      (ident/update-addresses
+       (ident/filter
+        :address_type ident/EQ  "home"
+        :city_name ident/EQ "New York")
+       :city_name "NJ")
+      (ident/update-email-addresses
+       (ident/filter
+        :email_type ident/EQ "home"
+        :email_address ident/EQ "oxnard@myhome.com")
+       :email_address "oxnard@my_new_home.com")
+      (ident/update-email-addresses
+       (ident/filter
+        :email_type ident/EQ "work"
+        :email_address ident/EQ "oxnard@mybusiness.com")
+       :email_address "oxnard@my_old_business.com"
+       (ident/adds
+        {:email_type "work" :email_address "oxnard1@mybusiness.com"}))
+      (ident/update-phones
+       (ident/filter
+        :number_type ident/EQ "work"
+        :number_value ident/EQ "000 000 0000")
+       :number_value "991 991 9991")))
+    (contacts/script
+     (ident/individuals
+      (ident/filter :first_name ident/CT "Oxnard")
+      (ident/email-addresses)
+      (ident/phones)
+      (ident/addresses)))
+    (ident/quit :contacts)))
+
 
 ;;
-;;
+;; A static filter
 ;;
 
 (def filter-sample (ident/filter

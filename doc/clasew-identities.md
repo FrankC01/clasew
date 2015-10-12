@@ -33,12 +33,96 @@ This form is the core function that invokes AppleScript to execute one or more s
 
 ```
 
+#####clasew.identities/filter
+Filtering is supported on the following functions: ```identities/individuals```, ```identities/add-indivudals```, ```identities/delete-individuals``` and ```identities/update-individuals```. There are a number of variants for filtering as described below and some restrictions based on target application. Restrictions are discussed after the filtering examples.
+
+The following is a simple BNF describing the filtering
+```
+; Low level
+block             ::= ({filter-expresssion} | {extension})
+extension         ::= (and-block | or-block)
+filter-expression ::= keyword predicate value
+predicate         ::= EQ     ; equal to
+                    | !EQ    ; not equal to
+                    | LT     ; less than
+                    | !LT    ; not-less-than
+                    | GT     ; greater-than
+                    | !GT    ; not-greater-than
+                    | CT     ; contains
+                    | !CT    ; not-contains
+                    | SW     ; starts-with
+                    | EW     ; ends-with
+                    | II     ; is-in
+                    | !II    ; is-not-in
+
+; Functions
+and-block         ::= clasew.identities/and block
+or-block          ::= clasew.identities/or block
+filter-block      ::= clasew.identities/filter block
+```
+
+A few simple examples. More detailed examples can be found in:
+
+```clojure
+; Restrict individuals being worked with those those whose first name is equal to Oxnard
+
+(ident/filter :first_name ident/EQ "Oxnard"}
+
+; Restricts individuals to those whose first name is Oxnard AND last name is Gimbel
+
+(ident/filter
+  :first_name ident/CT "Oxnard"
+  :last_name ident/EQ "Gimbel"}
+
+; More complex filter
+
+(def filter-sample
+      (ident/filter :first_name ident/CT "Oxnard"
+                    (ident/or :first_name ident/EQ "Sally"
+                              :last_name ident/EQ "Abercrombe")))
+```
+
+#####Filter restrictions
+There are some restrictions on using filters at the function usage level as well as the application level (specifically Outlook).
+
+######Filter function restrictions
+The following table identifies where filters may be provided to modify a functions operation:
+
+<table>
+<tr><th>Function</th><th>Sub Function</th><th>Filter Supported</th></tr>
+<tr><td>clasew.identities/individuals</td><td>na</td><td>Y</td></tr>
+<tr><td></td><td>clasew.identities/phones</td><td>N</td></tr>
+<tr><td></td><td>clasew.identities/addresses</td><td>N</td></tr>
+<tr><td></td><td>clasew.identities/email-addresses</td><td>N</td></tr>
+<tr><td>clasew.identities/delete-individual</td><td>na</td><td>Y</td></tr>
+<tr><td>clasew.identities/update-individual</td><td>na</td><td>Y</td></tr>
+<tr><td></td><td>clasew.identities/update-phones</td><td>Y</td></tr>
+<tr><td></td><td>clasew.identities/update-addresses</td><td>Y</td></tr>
+<tr><td></td><td>clasew.identities/update-email-addresses</td><td>Y</td></tr>
+<tr><td>clasew.identities/add-individual</td><td>na</td><td>N</td></tr>
+<tr><td>clasew.identities/all-individuals</td><td>na</td><td>N</td></tr>
+</table>
+
+######Filter application restrictions
+The following table identifies restrictions based on the application limitations:
+
+<table>
+<tr><th>Application</th><th>Context</th><th>Restriction</th></tr>
+<tr><td>All</td><td>```clasew.identities/individuals```</td><td>filter-expressions can only apply to individual properties and not addresses, email-addresses or phones</td></tr>
+<tr><td>All</td><td>```clasew.identities/delete-individuals```</td><td>filter-expressions can only apply to individual properties and not addresses, email-addresses or phones</td></tr>
+<tr><td>All</td><td>```clasew.identities/update-individuals```</td><td>filter-expressions can only apply to individual properties and not addresses, email-addresses or phones</td></tr>
+<tr><td>All</td><td>```clasew.identities/update-addresses```</td><td>filter-expressions can only apply to address properties and not individuals, email-addresses or phones</td></tr>
+<tr><td>All</td><td>```clasew.identities/update-email-addresses```</td><td>filter-expressions can only apply to email-address properties and not addresses, individuals or phones</td></tr>
+<tr><td>All</td><td>```clasew.identities/update-phones```</td><td>filter-expressions can only apply to phone properties and not addresses, email-addresses or individuals</td></tr>
+<tr><td>Outlook</td><td>```clasew.identities/update-phones``` ```clasew.identities/update-addresses```</td><td>Must include a filter-expressions for respective property type</td></tr>
+</table>
+
 #####clasew.identities/individuals
-This form is used as ***input*** to the respective ```script``` functions invoked for the target application.
+This form is used as ***input*** to the respective ```clasew.APPLICATION/script``` functions invoked for the target application to fetch all or partial information for individuals.
 ```clojure
 (defn individuals
   "Prepares the script for retrieving attributes of individuals from the identity source
-  along with any additional sub-attributes. Also supports minor filtering."
+  along with any additional sub-attributes. Also supports individual filtering."
   [& args]
   (...)
 ```
@@ -47,7 +131,7 @@ The following is a breakdown of the arguments and variations
 <tr><th>Argument</th><th>Description</th></tr>
 <tr><td>keywords</td><td>(optional) Keywords identifying attributes of the individual you want to return with the results. If omitted, attributes returned are defined by ```clasew.identities/identity-standard```.</tr>
 <tr><td>vectors</td><td>(optional) Vectors as produced from ```clasew.identities/addresses, clasew.identities/email-addresses and clasew.identities/phones```</td></tr>
-<tr><td>map</td><td>(optional) Contains filter designation to limit information returned from the AppleScript call. Right now the filter request logically ***ands*** together the filter criteria. See the Filter Notes below.</td></tr>
+<tr><td>filters</td><td>(optional) Contains filter designation to limit scope of individuals whose information is being fetched. See ```identities/filter``` description and limitations above.</td></tr>
 </table>
 
 Here is a REPL ready examples. **Note that the output from the following are not runnable scripts but purely for demonstrating form results**:
@@ -76,19 +160,25 @@ Here is a REPL ready examples. **Note that the output from the following are not
  :phones nil}
 
 ;;;
-;;; Variates
+;;; Variants
+
+; All individuals with their addresses
 
 (p (ident/individuals
-    (ident/addresses)))      ; All individuals with their addresses
+    (ident/addresses)))
+
+; All individuals full name only along with phones
 
 (p (ident/individuals
     :full_name
-    (ident/phones)))         ; All individuals full name only along with phones
+    (ident/phones)))
+
+; Full name only and email addresses for individuals with first name of "Oxnard"
 
 (p (ident/individuals
+    (ident/filter :first_name ident/EQ "Oxnard)
     :full_name
-    (ident/email-addresses)
-    {:first_name "Frank"}))  ; All individuals full name only along with email info
+    (ident/email-addresses)))
 
 ;;;
 ;;; Alternatley, a variation of individuals is to collect all
@@ -112,16 +202,58 @@ Here is a REPL ready examples. **Note that the output from the following are not
   :state_name],
  :phones [:phones :number_type :number_value]}
 ```
-
-######Filter Notes
-Filtering the individuals returned from the script requires setting up a map where the ***key*** is an attribute of individuals and the value is the string that satisfies the criteria. For example:
+#####clasew.identities/add-individuals
+This form is used as ***input*** to the respective ```clasew.APPLICATION/script``` functions invoked for the target application to add individuals to the target application.
 
 ```clojure
-{:first_name "Frank"} ; Restricts fetched values to those whose first name is Frank
-
-{:first_name "Frank"
- :last_name "Castellucci"} ; Restricts to those whose first name is Frank AND last name is Castellucci
+(defn add-individuals
+  "Returns script directives for adding  one or more individuals"
+  [add1 & adds]
+  (...)
 ```
+
+#####clasew.identities/update-individuals
+This form is used as ***input*** to the respective ```clasew.APPLICATION/script``` functions invoked for the target application to update individuals and/or subproperties in the target application.
+```clojure
+(defn update-individual
+  "Returns script directives for updates to one or more bits of information of an individual"
+  [& update-blocks]
+  (...)
+```
+
+The following is a simple BNF describing ```update-blocks``` in the update-individuals arguments
+```
+; Low level
+adds              ::= adds {clojure map}
+setter            ::= keyword value
+filter-set        ::= filter-block setter {setter}
+update-block      ::= filter-set {(update-addr | update-phn | update-emls)}
+
+; Functions
+update-indy       ::= clasew.identities/update-individuals update-block
+update-addr       ::= clasew.identities/update-addresses filter-set adds
+update-phn        ::= clasew.identities/update-phones filter-set adds
+update-emls       ::= clasew.identities/update-email-addresses filter-set adds
+
+```
+
+
+#####clasew.identities/delete-individual
+This form is used as ***input*** to the respective ```clasew.APPLICATION/script``` functions invoked for the target application to delete individuals in the target application.
+
+```clojure
+(defn delete-individual
+  "Returns script directives for deleting individuals matching feature"
+  [filt]
+  (...)
+```
+
+The following is a breakdown of the arguments and variations
+<table>
+<tr><th>Argument</th><th>Description</th></tr>
+<tr><td>filter</td><td>(required) Contains filter designation to limit individuals being deleted. See ```identities/filter``` description and limitations above.</td></tr>
+</table>
+
 
 #####clasew.identities/quit
 Support script that is used to close the target application after functional scripts are completed.
@@ -144,6 +276,9 @@ Support script that is used to close the target application after functional scr
 ;;; Produce script output ready for input into clasew.identities/run-script!
 
 (p (clasew.outlook/script
+    (ident/individuals)))
+
+(p (clasew.contacts/script
     (ident/individuals)))
 
 ;;; Take the output from the script generation and run it

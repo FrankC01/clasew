@@ -620,35 +620,35 @@
   [tkw elistkw [subkey {:keys [adds]}]]
   (if (empty? adds)
     (ast/block nil)
-  (ast/block
-   nil
-   (ast/define-locals nil elistkw)
-   (ast/set-statement nil (ast/term nil elistkw) ast/empty-list)
-  (apply (partial ast/block nil)
-   (conj (reduce #(conj %1
-                        (ast/set-statement
-                         nil
-                         (ast/eol-cmd nil elistkw nil)
-                         (gen-records %2))) [] adds)
+    (ast/block
+     nil
+     (ast/define-locals nil elistkw)
+     (ast/set-statement nil (ast/term nil elistkw) ast/empty-list)
+     (apply (partial ast/block nil)
+            (conj (reduce #(conj %1
+                                 (ast/set-statement
+                                  nil
+                                  (ast/eol-cmd nil elistkw nil)
+                                  (gen-records %2))) [] adds)
 
-         (ast/set-statement
-          nil
-          (ast/xofy-expression
-           nil
-           (ast/term nil subkey) (ast/term nil tkw))
-          (ast/block
-           nil
-           (ast/precedence
-            nil
-            (ast/expression
-             nil
-             (ast/xofy-expression
-              nil
-              (ast/term nil subkey)
-              (ast/term nil tkw))))
-           (ast/append-object-expression
-            nil
-            elistkw))))))))
+                  (ast/set-statement
+                   nil
+                   (ast/xofy-expression
+                    nil
+                    (ast/term nil subkey) (ast/term nil tkw))
+                   (ast/block
+                    nil
+                    (ast/precedence
+                     nil
+                     (ast/expression
+                      nil
+                      (ast/xofy-expression
+                       nil
+                       (ast/term nil subkey)
+                       (ast/term nil tkw))))
+                    (ast/append-object-expression
+                     nil
+                     elistkw))))))))
 
 (defn- redfilter
   [sset]
@@ -676,16 +676,16 @@
   1. Moves emails to subsets
   2. Redistribute phone and addresses to inline ifsets"
   [ckw {:keys [filters sets subsets] :as bblock}]
-  (let [tblk (assoc bblock :subsets (ident/filter-forv :emails subsets))
-        ffn #(map second %)]
+  (let [ffn #(map second %)
+        tblk (assoc bblock :subsets (ident/filter-forv :emails subsets ffn))]
     (redistribute
      (redistribute
       tblk
-      :phones (ident/apply-filter-forv :phones subsets ffn))
-     :addresses (ident/apply-filter-forv :addresses subsets ffn))))
+      :phones (ident/filter-forv :phones subsets ffn))
+     :addresses (ident/filter-forv :addresses subsets ffn))))
 
 (defn- clean-email-type
-  [loopkw {:keys [filters sets adds] :as iblock}]
+  [loopkw {:keys [filters sets]}]
   (assoc {}
     :filters {:joins (:joins filters)
               :args (map #(if (= (first %) :email_type)
@@ -694,50 +694,58 @@
                          (:args filters))}
     :sets sets))
 
-(defn- gen-subsets
+(defn- email-subset-reduce
+  "Reducer for email subsets"
+  [acc block]
+  (let [cb (clean-email-type :sloop block)]
+    (conj
+     acc
+     (ast/block
+      nil
+      (if (and (:filters cb) (not-empty (:sets cb)))
+        (utils/update-if-filter-block :etmp :sloop :cloop :emails cb nil)
+        ast/noop)
+      (if (not-empty (:adds cb))
+        (gen-subset-adds :cloop :esets [:emails block])
+        ast/noop)))))
+
+(defn- gen-email-subsets
   "Creates the email adds and filtered sets if applicable"
   [subsets]
-  (if subsets
-       (let [[k imap] subsets
-             cmap (clean-email-type :sloop imap)]
-         (ast/block
-          nil
-          (if (and (:filters cmap) (not-empty (:sets cmap)))
-            (utils/update-if-filter-block :etmp :sloop :cloop k cmap nil)
-            (ast/block nil ast/noop))
-          (gen-subset-adds :cloop :esets subsets)))
-       (ast/block nil ast/noop)))
-
-(defn- refactor-update
-  [f block]
-  "Convert the input block to outlook contact constructs"
-  (f (reduce-inline-subsets :cloop block)))
+  (if (not-empty subsets)
+    (apply (partial ast/block nil)
+           (reduce email-subset-reduce [] subsets))
+    (ast/block nil ast/noop)))
 
 (defn- update-contacts
   "Updates individuals or child values allowing for the addition of
   subtype (phone, email, address) creations as part of the update"
   [{:keys [filters sets subsets ifsets]}]
-  (let [ssets nil
-        ttl
-   (ast/tell
-    outlook-mapset-core :outlook
-    (ast/define-locals nil :results :cloop)
-    (ast/set-statement nil (ast/term nil :results) ast/empty-list)
-    (ast/for-in-expression
-     nil
-     (ast/term nil :cloop)
-     (if filters
-       (ast/where-filter nil (ast/term nil :contacts) filters)
-       (ast/term nil :contacts))
-     (gen-subsets subsets)
-     (gen-ifs :cloop ifsets)
-     (apply (partial ast/block nil) (gen-sets :cloop sets)))
-    (ast/set-statement
-     nil
-     (ast/eol-cmd nil :results nil)
-     (ast/string-literal "Update successful"))
-    (ast/return nil :results))]
-    (genas/ast-consume ttl)))
+  (genas/ast-consume
+        (ast/tell
+         outlook-mapset-core :outlook
+         (ast/define-locals nil :results :cloop)
+         (ast/set-statement nil (ast/term nil :results) ast/empty-list)
+         (ast/for-in-expression
+          nil
+          (ast/term nil :cloop)
+          (if filters
+            (ast/where-filter nil (ast/term nil :contacts) filters)
+            (ast/term nil :contacts))
+          (gen-email-subsets subsets)
+          (gen-ifs :cloop ifsets)
+          (apply (partial ast/block nil) (gen-sets :cloop sets)))
+         (ast/set-statement
+          nil
+          (ast/eol-cmd nil :results nil)
+          (ast/string-literal "Update successful"))
+         (ast/return nil :results))))
+
+(defn- refactor-update
+  "Conditionally convert the input block first to outlook contact constructs"
+  [f {:keys [action filters sets subsets] :as block}]
+  (f (if (empty? subsets) block (reduce-inline-subsets :cloop block))))
+
 
 (defn script
   [{:keys [action] :as directives}]

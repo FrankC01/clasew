@@ -33,20 +33,19 @@
     })
 
 ;;
-;; Consistent functional args/terms
-;;
-
-(def ^:private CONTACTS  :contacts)
-(def ^:private RESULTS   :results)
-
-;;
-;;
-;;
 
 (defn- contacts-mapset-core
   "Term lookup function"
   [term-kw]
   (get contacts-identities term-kw (name term-kw)))
+
+;;
+;; Consistent functional args/terms
+;;
+
+(def ^:private CONTACTS  :contacts)
+(def ^:private RESULTS   :results)
+(def ^:private CLOOP     :cloop)
 
 (defn- builder
   [fn & args]
@@ -58,7 +57,7 @@
   (ast/tell
    nil
    CONTACTS
-   (ast/define-locals nil RESULTS :cloop :ident)
+   (ast/define-locals nil RESULTS CLOOP :ident)
    (ast/set-statement nil (ast/term nil RESULTS) ast/empty-list)
    body
    (ast/return nil RESULTS)))
@@ -145,7 +144,7 @@
   (let [gets  (apply (partial ast/block nil)
                      (filter #(not (nil? %))
                              (conj (ast/setrecordvalues
-                                    nil args :ident :cloop)
+                                    nil args :ident CLOOP)
                                    addr emls phns
                                    (ast/set-statement
                                     nil
@@ -165,29 +164,22 @@
 
 
 (defn- get-people
+  "Fetch individuals from Contacts"
   [{:keys [individuals filters emails addresses phones]}]
   (genas/ast-consume
    (builder (partial ast/block nil) ident/cleanval
             (build-people
-             individuals :cloop
-             (build-subrecord
-              :cloop
-              (rest addresses)
-              address-dmap)
-             (build-subrecord
-              :cloop
-              (rest emails)
-              emails-dmap)
-             (build-subrecord
-              :cloop
-              (rest phones)
-              phones-dmap)
+             individuals CLOOP
+             (build-subrecord CLOOP (rest addresses) address-dmap)
+             (build-subrecord CLOOP (rest emails) emails-dmap)
+             (build-subrecord CLOOP (rest phones) phones-dmap)
              filters))))
 ;;
 ;; Delete people
 ;;
 
 (defn- delete-people
+  "Delete individuals with filters"
   [{:keys [filters]}]
   (genas/ast-consume
    (ast/tell
@@ -210,7 +202,7 @@
 ;; Add new people
 ;;
 
-(defn expand-map
+(defn- expand-map
   "Takes an input map and generates a block statement that:
   1. Make a new person record
   2. Extends the emails list of person to one or more (if any) new email-addys
@@ -265,15 +257,15 @@
   (genas/ast-consume
    (ast/tell
     contacts-mapset-core CONTACTS
-    (ast/define-locals nil RESULTS :cloop)
-    (ast/set-statement nil (ast/term nil :results) ast/empty-list)
+    (ast/define-locals nil RESULTS CLOOP)
+    (ast/set-statement nil (ast/term nil RESULTS) ast/empty-list)
     (utils/update-filter-block
-     :cloop :people nil iblock
+     CLOOP :people nil iblock
      (apply (partial ast/block nil)
             (reduce utils/update-subsets-reduce [] subsets)))
     (ast/set-statement
      nil
-     (ast/eol-cmd nil :results nil)
+     (ast/eol-cmd nil RESULTS nil)
      (ast/string-literal "Update successful"))
     (ast/save-statement)
     (ast/return nil RESULTS))))

@@ -66,7 +66,7 @@
   (cfilter #(vector? %) args))
 
 (defn-  filter-for-vkw
-  "Filter for vector with first position kw match"
+  "Filter for vector with first position keyword match"
   [kw args]
   (cfilter #(cand (vector? %) (= (first %) kw)) args))
 
@@ -76,15 +76,9 @@
   (cfilter #(cand (vector? %) (not= (first %) kw)) args))
 
 (defn filter-forv
-  "First position return from filter with "
-  [kw args]
-  (first (filter-for-vkw kw args)))
-
-(defn apply-filter-forv
-  "Apply a function against  results"
-  [kw args fn]
-  (fn (filter-for-vkw kw args)))
-
+  "[kw args] First position return from filter-for-vkw "
+  ([kw args] (filter-forv kw args first))
+  ([kw args f] (f (filter-for-vkw kw args))))
 
 ;;
 ;; High level DSL functions ---------------------------------------------------
@@ -136,7 +130,6 @@
   {:action   :delete-individual
    :filters  (first (rest filt))})
 
-
 (defn- assert-condition
   [{:keys [sets filters] :as mmap}]
   (if (cand (not-empty sets) (= nil filters))
@@ -144,7 +137,7 @@
     mmap))
 
 (defn update-individual
-  "Updates one or more bits of information of an individual"
+  "Returns script directives for updates to one or more bits of information of an individual"
   [& newvalmaps]
   (assert-condition {:action :update-individual
    :filters (first (rest (filter-forv :filter newvalmaps)))

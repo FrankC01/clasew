@@ -9,17 +9,17 @@
 ;;
 
 (defn add-record-definitions
-  [imap]
+  "Generate a AS record from imap arguments"
+  [args]
   (apply (partial ast/record-definition nil)
-         (seq
-          (reduce
-           #(conj
-             %1
-             (ast/key-value
-              nil
-              (ast/key-term (first %2))
-              (ast/string-literal (second %2))))
-           [] imap))))
+         (reduce
+          #(conj
+            %1
+            (ast/key-value
+             nil
+             (ast/key-term (first %2))
+             (ast/string-literal (second %2))))
+          [] args)))
 
 (defn expand
   "Creates a new sub-record type (pkey) of type (ckey) at end of
@@ -45,7 +45,8 @@
    :addresses :address})
 
 (defn update-sets
-  "Generate the value set to's in process"
+  "Generate the value set to's in process
+  eg 'set x of y to '"
   [ckw setters]
     (let [smap (reduce #(assoc %1 (first %2) (second %2)) {} (partition 2 setters))]
       (reduce-kv #(conj %1
