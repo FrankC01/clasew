@@ -1,12 +1,15 @@
 (ns
   ^{:author "Frank V. Castellucci"
-      :doc "Clojure AppleScriptEngine Wrapper - common contacts DSL"}
+    :doc "Clojure AppleScriptEngine Wrapper - common contacts DSL"}
   clasew.identities
   (:require   [clasew.core :as as]
               [clasew.utility :as util]
               [clasew.gen-as :as genas]
               [clasew.ast-emit :as ast]
-              [clojure.java.io :as io]))
+              [clojure.java.io :as io])
+  (:refer-clojure :rename {filter cfilter
+                           or     cor
+                           and    cand}))
 
 (defonce ^:private local-eng as/new-eng)   ; Use engine for this namespace
 (def ^:private scrpteval (io/resource "clasew-identities.applescript"))
@@ -52,57 +55,30 @@
 ;; Special handlers
 ;;
 
-(def ^:private generic-predicate "If predicate expression"
-  {
-   :E   " equal "
-   :NE  " not equal "
-   :GT  " greater than "
-   :LT  " less than "
-   :missing "missing value"
-   })
+(defn- filter-!v
+  "Filter for non-vector data types"
+  [args]
+  (cfilter #(not (vector? %)) args))
 
-(defn mapset-expressions
-  "Lookup to expression predicate"
-  [term-kw]
-  (get generic-predicate term-kw term-kw))
+(defn- filter-v
+  "Filter for vector data types"
+  [args]
+  (cfilter #(vector? %) args))
 
-(def cleanval "Takes an argument and test for 'missing value'.
-  Returns value or null"
-  (ast/routine
-   nil :cleanval :val
-   (ast/define-locals nil :oval)
-   (ast/assign nil :oval :null)
-   (ast/if-then mapset-expressions :val :NE :missing
-               (ast/assign nil :oval :val))
-   (ast/return nil :oval)))
-
-(defn quit
-  "Script to quit an application
-  appkw - keyword (:outlook or :contacts) identies the application
-  to shut down"
-  [appkw]
-  (genas/ast-consume (ast/tell nil appkw :results
-                               (ast/define-locals nil :results)
-                               (ast/define-list nil :results)
-                               (ast/extend-list nil :results
-                                                "\"quit successful\"")
-                               (ast/quit))))
-
-
-(defn setrecordvalues
-  "Given a list of vars, generate constructs to set a Applescript record value
-  from a source value found in another record"
-  [token-fn mapvars targetmap sourcemap]
-  (reduce #(conj
-            %1
-            (ast/record-value token-fn targetmap %2
-                              (ast/value-of token-fn %2 sourcemap :cleanval)))
-          [] mapvars))
-
-
-(defn- filter-forv
+(defn-  filter-for-vkw
+  "Filter for vector with first position keyword match"
   [kw args]
-  (first (filter #(and (vector? %) (= (first %) kw)) args)))
+  (cfilter #(cand (vector? %) (= (first %) kw)) args))
+
+(defn- filter-!forv
+  "Filter for vector not containing first position key"
+  [kw args]
+  (cfilter #(cand (vector? %) (not= (first %) kw)) args))
+
+(defn filter-forv
+  "[kw args] First position return from filter-for-vkw "
+  ([kw args] (filter-forv kw args first))
+  ([kw args f] (f (filter-for-vkw kw args))))
 
 ;;
 ;; High level DSL functions ---------------------------------------------------
@@ -124,16 +100,17 @@
   (into [:phones] phone-standard))
 
 (defn individuals
-  "Returns script for retrieving attributes of individuals from the identity
+  "Returns script directives for retrieving attributes of individuals from the identity
   source (e.g. Outlook vs. Contacts)
   along with any additional sub-attributes. Also supports minor filtering."
   [& args]
-  (let [ia (filter keyword? args)]
+  (let [ia (cfilter keyword? args)]
     {:individuals (if (empty? ia) identity-standard ia)
-     :filters     (first (filter map? args))
+     :filters     (first (rest (filter-forv :filter args)))
      :emails      (filter-forv :emails args)
      :addresses   (filter-forv :addresses args)
      :phones      (filter-forv :phones args)
+     :action      :get-individuals
      }))
 
 (defn individuals-all
@@ -141,3 +118,125 @@
   []
   (individuals (addresses) (email-addresses) (phones)))
 
+(defn add-individuals
+  "Returns script directives for adding  one or more individuals"
+  [add1 & adds]
+  {:action     :add-individuals
+   :adds       (conj adds add1)})
+
+(defn delete-individual
+  "Returns script directives for deleting individuals matching feature"
+  [filt]
+  {:action   :delete-individual
+   :filters  (first (rest filt))})
+
+(defn- assert-condition
+  [{:keys [sets filters] :as mmap}]
+  (if (cand (not-empty sets) (= nil filters))
+      (throw (Exception. "Can not set a value without a corresponding filter"))
+    mmap))
+
+(defn update-individual
+  "Returns script directives for updates to one or more bits of information of an individual"
+  [& newvalmaps]
+  (assert-condition {:action :update-individual
+   :filters (first (rest (filter-forv :filter newvalmaps)))
+   :sets    (into [] (filter-!v newvalmaps))
+   :subsets (filter-!forv :filter newvalmaps)}))
+
+
+(defn- update-child
+  [kw args]
+  [kw (assert-condition {:filters (first (rest (filter-forv :filter args)))
+       :sets (filter-!v args)
+       :adds (rest (filter-forv :adds args))})])
+
+(defn update-addresses
+  [& newvalmaps]
+  (update-child :addresses newvalmaps))
+
+(defn update-phones
+  [& newvalmaps]
+  (update-child :phones newvalmaps))
+
+(defn update-email-addresses
+  [& newvalmaps]
+  (update-child :emails newvalmaps))
+
+(defn adds
+  [& newvalmaps]
+  (into [:adds]  newvalmaps))
+
+;;
+;; Filtering
+;;
+
+(def EQ :equal-to)
+(def !EQ :not-equal-to)
+(def LT :less-than)
+(def !LT :not-less-than)
+(def GT :greater-than)
+(def !GT :not-greater-than)
+(def CT :contains)
+(def !CT :not-contains)
+(def SW :starts-with)
+(def EW :ends-with)
+(def II :is-in)
+(def !II :is-not-in)
+
+(defn- filter-parse
+  "Prepares filter constructs for emitting"
+  [coll]
+  (assoc {}
+  :args (partition 3 (cfilter #(not (vector? %)) coll))
+   :joins (cfilter vector? coll)))
+
+(defn filter
+  "Used to construct complex filter for individuals"
+  [& args]
+  [:filter (filter-parse args)])
+
+(defn and
+  "Used in complex filter construction. Use 'cand' for core function
+  in this namespeace"
+  [& args]
+  [:and (filter-parse args)])
+
+(defn or
+  "Used in complex filter construction. Use 'cor' for core function
+  in this namespeace"
+  [& args]
+  [:or (filter-parse args)])
+
+;; Predefined utility types
+
+(def cleanval "Takes an argument and test for 'missing value'.
+  Returns value or null"
+  (ast/routine
+   nil :cleanval :val
+   (ast/define-locals nil :oval)
+   (ast/set-statement nil (ast/term nil :oval) ast/null)
+   (ast/if-statement
+    nil
+    (ast/if-expression
+     nil
+     (second (filter :val !EQ :missing))
+     (ast/set-statement nil (ast/term nil :oval)
+                                  (ast/term nil :val))) nil)
+   (ast/return nil :oval)))
+
+(defn quit
+  "Script to quit an application
+  appkw - keyword (:outlook or :contacts) identies the application
+  to shut down"
+  [appkw]
+  (genas/ast-consume
+   (ast/tell nil appkw
+             (ast/define-locals nil :results)
+             (ast/set-statement nil (ast/term nil :results) ast/empty-list)
+             (ast/set-statement
+              nil
+              (ast/eol-cmd nil :results nil)
+              (ast/string-literal "quit successful"))
+             ast/quit
+             (ast/return nil :results))))

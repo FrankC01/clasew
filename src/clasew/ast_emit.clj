@@ -24,15 +24,230 @@
   [akey]
   (get applications akey "Unknown Application"))
 
+(defn term
+  [token-fn to-value]
+  {:type :term
+   :token-fn token-fn
+   :to-value to-value})
+
+(defn term-nl
+  [to-value]
+  {:type :term-nl
+   :token-fn nil
+   :to-value to-value})
+
+(defn key-term
+  [key-value]
+  {:type :key-term
+   :token-fn nil
+   :key-term key-value})
+
+(defn key-term-nl
+  [key-value]
+  {:type :key-term-nl
+   :token-fn nil
+   :key-term key-value})
+
+(defn string-literal
+  [value]
+  {:type :string-literal
+   :token-fn nil
+   :svalue value})
+
+(defn symbol-literal
+  [value]
+  {:type :symbol-literal
+   :token-fn nil
+   :svalue value})
+
+(defn eol-cmd
+  "End of list command"
+  [token-fn target-list list-owner]
+  {:type :eol-cmd
+   :token-fn token-fn
+   :target-list target-list
+   :list-owner  list-owner})
+
+(defn eor-cmd
+  "Emit target-rec & {source key source}"
+  [token-fn target-rec rec-owner source-expression]
+  {:type :eor-cmd
+   :token-fn token-fn
+   :target-rec target-rec
+   :rec-owner  rec-owner
+   :source      source-expression})
+
+(defn list-items-cmd
+  ""
+  [token-fn target-list]
+  {:type :li-cmd
+   :token-fn token-fn
+   :target-owner target-list})
+
+(defn expression
+  [token-fn exp & exps]
+  {:type :expression
+   :token-fn token-fn
+   :expressions (conj exps exp)})
+
+(defn append-object-expression
+  [token-fn value]
+  {:type :append-object
+   :token-fn token-fn
+   :svalue value})
+
+(defn set-statement
+  [token-fn set-lhs set-rhs]
+  {:type :set-statement
+   :token-fn token-fn
+   :set-lhs-expression set-lhs
+   :set-rhs-expression set-rhs})
+
+; Quick terms
+
+(def   new-line         (term nil "\n"))
+(def   empty-list       (term nil "{}"))
+(def   quit             (term nil "quit\n"))
+(def   null             (term nil "null"))
+(def   delete           (term nil "delete "))
+(def   with-properties  (term nil " with properties "))
+(def   as-string        (term nil " as string"))
+(def   noop             (term nil ""))
+(def   conjoin          (term nil " & "))
+(def   getin            (term nil "get "))
+(def   lparen           (term nil "("))
+(def   rparen           (term nil ")"))
+
+
+(defn get-statement
+  [token-fn expressions]
+  (expression
+   token-fn
+   lparen
+   getin
+   expressions
+   rparen))
+
+(defn precedence
+  [token-fn expressions]
+  (expression
+   token-fn
+   lparen
+   expressions
+   rparen))
+
+; Quick expressions
+
+(defn count-expression
+  [token-fn of-expression]
+  (expression token-fn (term nil "count of ") of-expression))
+
+(defn xofy-expression
+  [token-fn x y]
+  {:type :xofy-expression
+   :token-fn token-fn
+   :x-expression x
+   :y-expression y})
+
+(defn where-filter
+  [token-fn target userfilt]
+  {:type :where-filter
+   :token-fn token-fn
+   :target    target
+   :predicate userfilt})
+
+(defn list-of
+  [token-fn coll]
+  {:type :list-of
+   :token-fn token-fn
+   :expressions coll})
+
+(defn make-new
+  [token-fn target-expr & exprs]
+  {:type :make-new
+   :token-fn token-fn
+   :target-expr target-expr
+   :expressions exprs})
+
+;;
+;; if/then, else if/then
+;;
+
+(defn if-expression
+  [token-fn pred-filter & expressions]
+  {:type        :if-expression
+   :token-fn    token-fn
+   :predicate   pred-filter
+   :expressions expressions})
+
+(defn else-if-expression
+  [token-fn if-expression]
+  {:type :else-if-expression
+   :token-fn token-fn
+   :ifexp if-expression
+   })
+
+(defn if-statement
+  [token-fn ifexpression elseexpressions]
+  {:type        :if-statement
+   :token-fn    token-fn
+   :i-expression  ifexpression
+   :e-expressions elseexpressions})
+
+;;
+;; Loop construct
+;;
+
+(defn for-in-expression
+  [token-fn control-expression in-expression & expressions]
+  {:type :for-in-expression
+   :token-fn token-fn
+   :control control-expression
+   :in      in-expression
+   :expressions expressions})
+
+(defn save-statement
+  ([] (expression
+       nil
+       (term nil :save)
+       new-line))
+  ([object]
+   (expression
+    nil
+    (term nil :save)
+    (term nil object)
+    new-line)))
+
+(defn string-builder
+  [token-fn & expressions]
+  {:type :string-builder
+   :token-fn token-fn
+   :expressions expressions})
+
+(defn key-value
+  [token-fn key-term-value value-expression]
+  {:type     :key-value
+   :token-fn token-fn
+   :key-term key-term-value
+   :value-expression value-expression})
+
+(defn record-definition
+  [token-fn & key-value-pairs]
+  {:type :record-definition
+   :token-fn token-fn
+   :expressions key-value-pairs})
+
 (defn tell
   "Sets up the enclosing tell application construct"
-  [token-fn target returns & expressions]
+  [token-fn target & expressions]
   {:type :tell
    :token-fn token-fn
    :target (get-application target)
-   :return returns
    :expressions expressions})
 
+;;
+;; Routines (handlers, subroutines, etc.)
+;;
 
 (defn routine
   "Setup the routine (in AS this is a handler)"
@@ -43,22 +258,12 @@
    :parameters parameters
    :expressions expressions})
 
-(defn if-then
-  "Setup if statement"
-  [token-fn value pred operand & then-expressions]
-  {:type :ifthen
+(defn routine-call
+  [token-fn routine-expression arg-expression]
+  {:type :routine-call
    :token-fn token-fn
-   :test-value value
-   :predicate pred
-   :operand operand
-   :expressions then-expressions})
-
-(defn if-else
-  "Set else statements"
-  [token-fn & else-expressions]
-  {:type :ifelse
-   :token-fn token-fn
-   :expressions else-expressions})
+   :routine-name routine-expression
+   :routine-arguments arg-expression})
 
 (defn return
   [token-fn retval]
@@ -66,17 +271,9 @@
    :token-fn token-fn
    :return-val retval})
 
-
 (defn block
   "Primary container of expressions - does not emit"
   [token-fn & expressions]
-  {:type :block
-   :token-fn token-fn
-   :expressions expressions})
-
-(defn blockf
-  "Primary container of expressions - does not emit"
-  [token-fn expressions]
   {:type :block
    :token-fn token-fn
    :expressions expressions})
@@ -88,65 +285,6 @@
    :token-fn token-fn
    :local-terms terms})
 
-
-(defn define-record
-  "Sets a record to mapvars - emits 'set target to {mv1: null, mvN:null}'"
-  [token-fn target mapvars]
-  {:type :define-record
-   :token-fn token-fn
-   :set target
-   :set-to mapvars})
-
-(defn define-list
-  "Sets target to a list type - emits 'set target to {}'"
-  [token-fn target]
-  {:type :define-list
-   :token-fn token-fn
-   :set target})
-
-
-(defn assign
-  [token-fn target source]
-  {:type :assign
-   :token-fn token-fn
-   :setvalue target
-   :setvalue-of source})
-
-
-(defn scalar-value
-  [token-fn to-value]
-  {:type :scalar-value
-   :token-fn token-fn
-   :to-value to-value})
-
-
-(defn properties-of
-  "Sets a variable to the properties of a class"
-  [token-fn value properties-of]
-  {:type :properties-of
-   :token-fn token-fn
-   :value value
-   :properties-of properties-of})
-
-(defn value-of
-  "Sets a value from another value"
-  [token-fn value from apply-function]
-  {:type :value-of
-   :token-fn token-fn
-   :value value
-   :from from
-   :apply-function apply-function})
-
-(defn value-of-as-string
-  "Sets a value from another value"
-  [token-fn value from apply-function]
-  {:type :value-of-as-string
-   :token-fn token-fn
-   :value value
-   :from from
-   :apply-function apply-function})
-
-
 (defn extend-record
   "Sets a value from another value"
   [token-fn targetmap keyw value]
@@ -156,69 +294,64 @@
    :value value
    :keywrd keyw})
 
-(defn record-value
-  "Sets a value of key in map"
-  [token-fn ofmap mapval to-expression]
-  {:type :record-value
-   :token-fn token-fn
-   :mapvalue mapval
-   :ofmap ofmap
-   :to to-expression})
+;;
+;; Ease of use forms
+;;
 
-(defn from-filter
-  "Set a variable to the result of a filter 'whose' statement"
-  [token-fn value source source-of user-filter]
-  {:type :from-filter
-   :token-fn token-fn
-   :source source       ; e.g. contacts/people
-   :source-of source-of ;
-   :value value         ; what var are we setting result to
-   :user-filter user-filter})
+(defn set-result-msg-with-count
+  "Creates a result s including a count of ct and
+  placed in rt"
+  [s rt ct]
+  (set-statement
+   nil
+   (eol-cmd nil rt nil)
+   (string-builder
+    nil
+    (string-literal s)
+    (count-expression nil (term nil ct)))))
 
+(defn set-empty-record
+  "Creates a record with keys whose values are null"
+  [token-fn rectarget argtargets & [{:keys [ktfn] :or {ktfn key-term}}]]
+  (set-statement
+   nil
+   (term nil rectarget)
+   (apply (partial record-definition nil)
+    (map #(key-value nil (ktfn %) null) argtargets))))
 
-(defn extend-list
-  "Sets the end of target list to source - emits 'set end of target to source'"
-  [token-fn target source]
-  {:type :extend-list
-   :token-fn token-fn
-   :set target
-   :to source})
+(defn setrecordvalues
+  "Given a list of vars, generate constructs to set a Applescript record value
+  from a source value found in another record"
+  [token-fn mapvars targetmap sourcemap]
+  (reduce #(conj
+            %1
+            (set-statement
+             token-fn
+             (xofy-expression
+              (fn [term-kw] (name term-kw))
+              (term nil %2)
+              (term nil targetmap))
+             (routine-call
+              token-fn
+              (term nil :cleanval)
+              (xofy-expression
+               nil
+               (term nil %2)
+               (term nil sourcemap)))))
+          [] mapvars))
 
-(defn repeat-loop
-  "Creates a repeat block - emits 'repeat with itervar in source'"
-  [token-fn itervar source sourceof & repeat-expressions]
-  {:type :repeat-loop
-   :token-fn token-fn
-   :source source
-   :iteration-var itervar
-   :source-of sourceof
-   :expressions repeat-expressions})
-
-(defn repeat-loopf
-  "Creates a repeat block - emits 'repeat with itervar in source'"
-  [token-fn itervar source sourceof repeat-expressions]
-  {:type :repeat-loop
-   :token-fn token-fn
-   :source source
-   :iteration-var itervar
-   :source-of sourceof
-   :expressions repeat-expressions})
-
-(defn filtered-repeat-loop
-  "Creates a filtering construct for repeating over"
-  [token-fn property-var user-filter source sourceof & repeat-expressions]
-  (reduce-gen {:type :filtered-repeat-loop
-   :token-fn token-fn
-   :user-filter user-filter   ; user filter map
-   :filter-result :gen        ; put result of filter 'whose' set
-   :source source             ; target source object
-   :source-of sourceof        ; target source object owner (optional)
-   :iteration-var :fitr       ; internal loop over filter-result
-   :property-var property-var ; target of get properties of iteration-var
-   :expressions repeat-expressions}))
-
-(defn quit
-  []
-  {:type :quit :token-fn nil})
+(defn set-extend-record
+  "Similar to clojure assoc call, set-extend-record emits:
+  set x to x & y where x is record and y is {key:data}"
+  [targ skey sval]
+  (set-statement
+   nil
+   (term nil targ)
+   (eor-cmd
+    nil
+    targ nil
+    (record-definition
+     nil
+     (key-value nil (key-term skey) (term nil sval))))))
 
 
