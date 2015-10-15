@@ -15,7 +15,7 @@
 ;; Special handlers
 ;;
 
-(defn- filter-!v
+(defn filter-!v
   "Filter for non-vector data types"
   [args]
   (cfilter #(not (vector? %)) args))
@@ -30,7 +30,7 @@
   [kw args]
   (cfilter #(cand (vector? %) (= (first %) kw)) args))
 
-(defn- filter-!forv
+(defn filter-!forv
   "Filter for vector not containing first position key"
   [kw args]
   (cfilter #(cand (vector? %) (not= (first %) kw)) args))

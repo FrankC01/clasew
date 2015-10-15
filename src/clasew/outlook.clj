@@ -4,6 +4,8 @@
   clasew.outlook
   (:require [clasew.gen-as :as genas]
             [clasew.ast-emit :as ast]
+            [clasew.ast-utils :as astu]
+            [clojure.core.reducers :as r]
             [clasew.identities :as ident]
             [clasew.ident-utils :as utils]))
 
@@ -317,7 +319,7 @@
 
 (defn- get-contacts
   [{:keys [individuals filters emails addresses phones]}]
-  (genas/ast-consume (builder (partial ast/block nil) ident/cleanval
+  (genas/ast-consume (builder (partial ast/block nil) astu/cleanval
                               (build-individual
                                individuals :cloop
                                (build-address :cloop (rest addresses))
@@ -457,6 +459,70 @@
 ;; Update functions
 ;;
 
+;; Reducible support
+
+(def nepred "Not Equal Predicate: used for filtering emptry record in collection"
+  #(or (not-empty (:sets (second %))) (not (nil? (:filters (second %))))))
+
+(def neflt  "Filter empty records based on nepred predicate"
+  (r/filter nepred))
+
+(def neflt1 "Filter empty record based on empty collection"
+  (r/filter #(not-empty (second %))))
+
+(def eflt   "Filter return of email updates only"
+  (r/filter #(and (vector? %) (= (first %) :emails))))
+
+(def pflt   "Filter return of phone updates only"
+  (r/filter #(and (vector? %) (= (first %) :phones))))
+
+(def aflt   "Filter return of address updates only"
+  (r/filter #(and (vector? %) (= (first %) :addresses))))
+
+(def !eflt  "Filter return of non-email updates"
+  (r/filter #(not (and (vector? %) (= (first %) :emails)))))
+
+
+(def mscnd "Retrieve only 'second' item in record"
+  (r/map second))
+
+(def stripadd "Set 'adds' in update record to empty list"
+  (r/map #(vector (first %) (assoc (second %) :adds '()))))
+
+(def getadd   "Retrieve adds and append to qualified vector"
+  (r/map #(vector (first %) (:adds (second %)))))
+
+(defn convert-phone
+  "Lookup phone type and conjoin with value"
+  [pm]
+  (flatten (seq (reduce phone-reduce {} pm))))
+
+(def resolve-add "Send record to get refitted for targets specific to outlook"
+  (r/map #(if (= (first %) :phones)
+            (convert-phone (second %))
+            (second %))))
+
+(def pipe-emails "Pipe to retrieve email update directives only"
+  (comp mscnd eflt))
+
+(def pipe-strip-adds "Pipe to strip adds and empty records (phone,address)"
+  (comp neflt stripadd !eflt))
+
+(def pipe-adds-to-sets
+  (comp resolve-add neflt1 getadd !eflt))
+
+(defn refactor-update
+  "Take base map
+  Assign email updates to subsets
+  Assign striped phone and address adds to ifsets
+  Convert adds to sets in main block"
+  [{:keys [subsets] :as m}]
+  (r/reduce
+   #(update-in %1 [:sets] into %2)
+   (merge m
+          {:subsets (into [] (pipe-emails subsets))
+           :ifsets  (into [] (pipe-strip-adds subsets))})
+   (pipe-adds-to-sets subsets)))
 
 
 (defn- gen-sets
@@ -650,39 +716,6 @@
                      nil
                      elistkw))))))))
 
-(defn- redfilter
-  [sset]
-  (if (or (nil? sset) (and (nil? (:filters sset)) (empty? (:sets sset))))
-    nil
-    sset))
-
-(defn- redistribute
-  "Redistribute the subsets group
-  1. if there are adds, redistributes to core sets
-  2. if there are filters and sets then conj in :ifsets"
-  [mmap mkw smap-coll]
-  (let [reds  (map #(flatten-map {mkw (:adds %)}) smap-coll)
-        ssets (map #(redfilter (dissoc % :adds)) smap-coll)
-        rmaps (assoc mmap :sets
-                (reduce #(if (not-empty %2)
-                           (conj %1 (first %2) (second %2))
-                           %1) (:sets mmap) reds))]
-    (if ssets
-      (reduce #(update-in %1 [:ifsets] conj [mkw %2]) rmaps ssets)
-      rmaps)))
-
-(defn- reduce-inline-subsets
-  "Reduce through redistribution.
-  1. Moves emails to subsets
-  2. Redistribute phone and addresses to inline ifsets"
-  [ckw {:keys [filters sets subsets] :as bblock}]
-  (let [ffn #(map second %)
-        tblk (assoc bblock :subsets (ident/filter-forv :emails subsets ffn))]
-    (redistribute
-     (redistribute
-      tblk
-      :phones (ident/filter-forv :phones subsets ffn))
-     :addresses (ident/filter-forv :addresses subsets ffn))))
 
 (defn- clean-email-type
   [loopkw {:keys [filters sets]}]
@@ -700,7 +733,7 @@
   (let [cb (clean-email-type :sloop block)]
     (conj
      acc
-     (ast/block
+     (ast/block`
       nil
       (if (and (:filters cb) (not-empty (:sets cb)))
         (utils/update-if-filter-block :etmp :sloop :cloop :emails cb nil)
@@ -717,7 +750,7 @@
            (reduce email-subset-reduce [] subsets))
     (ast/block nil ast/noop)))
 
-(defn- update-contacts
+(defn update-contacts
   "Updates individuals or child values allowing for the addition of
   subtype (phone, email, address) creations as part of the update"
   [{:keys [filters sets subsets ifsets]}]
@@ -741,19 +774,13 @@
           (ast/string-literal "Update successful"))
          (ast/return nil :results))))
 
-(defn- refactor-update
-  "Conditionally convert the input block first to outlook contact constructs"
-  [f {:keys [action filters sets subsets] :as block}]
-  (f (if (empty? subsets) block (reduce-inline-subsets :cloop block))))
-
-
 (defn script
   [{:keys [action] :as directives}]
   (condp = action
     :get-individuals     (get-contacts directives)
     :delete-individual   (delete-contact directives)
     :add-individuals     (add-contacts directives)
-    :update-individual   (refactor-update update-contacts directives)
+    :update-individual   (update-contacts (refactor-update  directives))
     (str "Don't know how to complete " action)))
 
 

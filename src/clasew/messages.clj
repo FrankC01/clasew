@@ -4,25 +4,20 @@
   clasew.messages
   (:require   [clasew.core :as as]
               [clasew.utility :as util]
-              [clasew.gen-as :as genas]
-              [clasew.ast-emit :as ast]
-              [clasew.ast-utils :as astu]
-              [clojure.java.io :as io])
-  (:refer-clojure :rename {filter cfilter
-                           or     cor
-                           and    cand}))
+              [clojure.java.io :as io]))
 
 (defonce ^:private local-eng as/new-eng)   ; Use engine for this namespace
 (def ^:private scrpteval (io/resource "clasew-messages.applescript"))
 
 (def ^:private message-attrs
-  #{:subject, :sender, :recipient, :date_recieved, :date_sent, :replied?})
+  #{:msg_subject, :msg_sender, :msg_text, :msg_recipient, :msg_date_recieved,
+    :msg_date_sent, :msg_replied?})
 
 (def message-standard message-attrs)
 
 (def ^:private mailbox-attrs
-  #{:mailbox_name, :mailbox_count, :mailbox_unread_count, :mailbox_parent,
-    :mailbox_account_name})
+  #{:mb_name, :mb_message_count, :mb_unread_message_count, :mb_owner,
+    :mb_account_name})
 
 (def mailbox-standard mailbox-attrs)
 
@@ -47,10 +42,13 @@
 ;; High level DSL functions ---------------------------------------------------
 ;;
 
-(def message
-  {:from    nil
-   :subject nil
-   :text    nil})
+(def message (reduce #(assoc %1 %2 nil) {} message-standard))
+
+(def mailbox (reduce #(assoc %1 %2 nil) {} mailbox-standard))
+
+(defn mailboxes
+  [filt & attrs]
+  )
 
 (defn messages
   "Fetch messages from application"

@@ -4,12 +4,8 @@
   clasew.identities
   (:require   [clasew.core :as as]
               [clasew.utility :as util]
-              [clasew.gen-as :as genas]
-              [clasew.ast-emit :as ast]
-              [clojure.java.io :as io])
-  (:refer-clojure :rename {filter cfilter
-                           or     cor
-                           and    cand}))
+              [clasew.ast-utils :as astu]
+              [clojure.java.io :as io]))
 
 (defonce ^:private local-eng as/new-eng)   ; Use engine for this namespace
 (def ^:private scrpteval (io/resource "clasew-identities.applescript"))
@@ -51,34 +47,6 @@
                       :bind-function "clasew_eval"
                       :arguments argv))))))
 
-;;
-;; Special handlers
-;;
-
-(defn- filter-!v
-  "Filter for non-vector data types"
-  [args]
-  (cfilter #(not (vector? %)) args))
-
-(defn- filter-v
-  "Filter for vector data types"
-  [args]
-  (cfilter #(vector? %) args))
-
-(defn-  filter-for-vkw
-  "Filter for vector with first position keyword match"
-  [kw args]
-  (cfilter #(cand (vector? %) (= (first %) kw)) args))
-
-(defn- filter-!forv
-  "Filter for vector not containing first position key"
-  [kw args]
-  (cfilter #(cand (vector? %) (not= (first %) kw)) args))
-
-(defn filter-forv
-  "[kw args] First position return from filter-for-vkw "
-  ([kw args] (filter-forv kw args first))
-  ([kw args f] (f (filter-for-vkw kw args))))
 
 ;;
 ;; High level DSL functions ---------------------------------------------------
@@ -104,12 +72,12 @@
   source (e.g. Outlook vs. Contacts)
   along with any additional sub-attributes. Also supports minor filtering."
   [& args]
-  (let [ia (cfilter keyword? args)]
+  (let [ia (filter keyword? args)]
     {:individuals (if (empty? ia) identity-standard ia)
-     :filters     (first (rest (filter-forv :filter args)))
-     :emails      (filter-forv :emails args)
-     :addresses   (filter-forv :addresses args)
-     :phones      (filter-forv :phones args)
+     :filters     (first (rest (astu/filter-forv :filter args)))
+     :emails      (astu/filter-forv :emails args)
+     :addresses   (astu/filter-forv :addresses args)
+     :phones      (astu/filter-forv :phones args)
      :action      :get-individuals
      }))
 
@@ -132,7 +100,7 @@
 
 (defn- assert-condition
   [{:keys [sets filters] :as mmap}]
-  (if (cand (not-empty sets) (= nil filters))
+  (if (and (not-empty sets) (= nil filters))
       (throw (Exception. "Can not set a value without a corresponding filter"))
     mmap))
 
@@ -140,16 +108,16 @@
   "Returns script directives for updates to one or more bits of information of an individual"
   [& newvalmaps]
   (assert-condition {:action :update-individual
-   :filters (first (rest (filter-forv :filter newvalmaps)))
-   :sets    (into [] (filter-!v newvalmaps))
-   :subsets (filter-!forv :filter newvalmaps)}))
+   :filters (first (rest (astu/filter-forv :filter newvalmaps)))
+   :sets    (into [] (astu/filter-!v newvalmaps))
+   :subsets (astu/filter-!forv :filter newvalmaps)}))
 
 
 (defn- update-child
   [kw args]
-  [kw (assert-condition {:filters (first (rest (filter-forv :filter args)))
-       :sets (filter-!v args)
-       :adds (rest (filter-forv :adds args))})])
+  [kw (assert-condition {:filters (first (rest (astu/filter-forv :filter args)))
+       :sets (astu/filter-!v args)
+       :adds (rest (astu/filter-forv :adds args))})])
 
 (defn update-addresses
   [& newvalmaps]
@@ -167,76 +135,4 @@
   [& newvalmaps]
   (into [:adds]  newvalmaps))
 
-;;
-;; Filtering
-;;
 
-(def EQ :equal-to)
-(def !EQ :not-equal-to)
-(def LT :less-than)
-(def !LT :not-less-than)
-(def GT :greater-than)
-(def !GT :not-greater-than)
-(def CT :contains)
-(def !CT :not-contains)
-(def SW :starts-with)
-(def EW :ends-with)
-(def II :is-in)
-(def !II :is-not-in)
-
-(defn- filter-parse
-  "Prepares filter constructs for emitting"
-  [coll]
-  (assoc {}
-  :args (partition 3 (cfilter #(not (vector? %)) coll))
-   :joins (cfilter vector? coll)))
-
-(defn filter
-  "Used to construct complex filter for individuals"
-  [& args]
-  [:filter (filter-parse args)])
-
-(defn and
-  "Used in complex filter construction. Use 'cand' for core function
-  in this namespeace"
-  [& args]
-  [:and (filter-parse args)])
-
-(defn or
-  "Used in complex filter construction. Use 'cor' for core function
-  in this namespeace"
-  [& args]
-  [:or (filter-parse args)])
-
-;; Predefined utility types
-
-(def cleanval "Takes an argument and test for 'missing value'.
-  Returns value or null"
-  (ast/routine
-   nil :cleanval :val
-   (ast/define-locals nil :oval)
-   (ast/set-statement nil (ast/term nil :oval) ast/null)
-   (ast/if-statement
-    nil
-    (ast/if-expression
-     nil
-     (second (filter :val !EQ :missing))
-     (ast/set-statement nil (ast/term nil :oval)
-                                  (ast/term nil :val))) nil)
-   (ast/return nil :oval)))
-
-(defn quit
-  "Script to quit an application
-  appkw - keyword (:outlook or :contacts) identies the application
-  to shut down"
-  [appkw]
-  (genas/ast-consume
-   (ast/tell nil appkw
-             (ast/define-locals nil :results)
-             (ast/set-statement nil (ast/term nil :results) ast/empty-list)
-             (ast/set-statement
-              nil
-              (ast/eol-cmd nil :results nil)
-              (ast/string-literal "quit successful"))
-             ast/quit
-             (ast/return nil :results))))
