@@ -5,54 +5,88 @@
   (:require [clojure.pprint :refer :all]
             [clojure.core.reducers :as r]
             [clasew.messages :as mesg]
-            [clasew.identities :as ident]
+            [clasew.mesg-utils :as mesgu]
+            [clasew.gen-as :as genas]
+            [clasew.ast-emit :as ast]
             [clasew.ast-utils :as astu]))
 
 ;; Demonstrate record coercion
 (def p pprint)
 
 
+;(println (genas/ast-consume (mesgu/account_list :outlook)))
 
-(def _t0 (ident/update-individual
-      (astu/filter
-       :first_name astu/EQ "Oxnard"
-       :last_name astu/EQ "Gimbel")
-      :first_name "Oxnardio"
-      :last_name "Pocinos"
-      (ident/update-addresses
-       (astu/filter
-        :address_type astu/EQ  "work"
-        :city_name astu/EQ "West Somewhere")
-       :city_name "West Palm Beach")
-      (ident/update-addresses
-       (astu/filter
-        :address_type astu/EQ  "home"
-        :city_name astu/EQ "New York")
-       :city_name "NJ")
-      (ident/update-email-addresses
-       (astu/filter
-        :email_type astu/EQ "home"
-        :email_address astu/EQ "oxnard@myhome.com")
-       :email_address "oxnard@my_new_home.com")
-      (ident/update-email-addresses
-       (astu/filter
-        :email_type astu/EQ "work"
-        :email_address astu/EQ "oxnard@mybusiness.com")
-       :email_address "oxnard@my_old_business.com"
-       (ident/adds
-        {:email_type "work" :email_address "oxnard1@mybusiness.com"}))
-      (ident/update-phones
-       (astu/filter
-        :number_type astu/EQ "work"
-        :number_value astu/EQ "000 000 0000")
-       :number_value "991 991 9991"
-       (ident/adds
-        {:number_type "work fax" :number_value "111 111-1111"}
-        {:number_type "pager" :number_value "222 222-222"}))
-          (ident/update-phones
-           (ident/adds {:number_type "home" :number_value "333 333-3333"}))))
+(defn term-gen
+  [coll]
+  (map #(ast/term nil %) coll))
 
-;(p _t0)
+(defn account-block
+  [accblock]
+  (ast/block
+   nil
+   (apply (partial ast/define-locals nil) (:args accblock))
+   (ast/define-locals nil :x :i)
+   (ast/for-in-expression
+    nil
+    (ast/term nil :i)
+    (ast/term nil :aclist)
+    (ast/set-statement
+     nil
+     (ast/term nil :x)
+     (ast/xofy-expression
+      nil
+      (apply (partial ast/record-definition nil)
+             (map #(ast/key-value nil (ast/key-term %) (ast/term nil %)) (:args accblock)))
+      (ast/term nil :i)))
+    (ast/set-statement
+     nil
+     (ast/eol-cmd nil :results nil)
+     (ast/term nil :x)))))
 
-(println (clasew.outlook/script _t0))
+
+(defn- refactor-fetch
+  "Look for filters to convert to handlers"
+  [block]
+  (let [x (map #(get % 2) block)
+        y (if (not-empty x) (conj x (mesgu/noop-filter)) (list (mesgu/noop-filter)))]
+  (apply (partial ast/block nil) y)))
+
+(defn build-fetch
+  [block]
+  (let [[filter-coll imap] (mesgu/mcat block)
+        filter-block (refactor-fetch filter-coll)]
+  (ast/block
+   nil
+   (mesgu/account_list :outlook)
+   filter-block
+   (ast/tell nil :outlook
+             (ast/define-locals nil :aclist :results)
+             (ast/set-statement nil (ast/term nil :results) ast/empty-list)
+             (ast/set-statement
+              nil
+              (ast/term nil :aclist)
+              (ast/routine-call
+               nil
+               (ast/term nil :account_list)
+               (ast/list-of nil (term-gen (:outlook mesgu/acc-list)))
+               (ast/term nil (or (:filters imap) :noop_filter ))))
+             (account-block block)
+
+             (ast/return nil :results)))))
+
+
+;(clojure.walk/prewalk-demo (mesg/accounts ))
+;(p (mesg/accounts  (mesg/messages (astu/filter :a astu/EQ :b)(mesg/mailboxes) )))
+
+;;;;; TODO --- Dynamic Filter call for account_list
+#_(p (mesg/run-script! (genas/ast-consume
+          (build-fetch
+           (mesg/accounts (astu/filter :name astu/EQ "Planview") )))))
+
+#_(println (genas/ast-consume
+          (build-fetch
+           (mesg/accounts (astu/filter :name astu/EQ "Planview") )
+           ;(mesg/messages (astu/filter :name astu/EQ "Planview"))
+           )))
+
 

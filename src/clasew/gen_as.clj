@@ -159,20 +159,34 @@
   (let   [body (apply str (map ast-consume (:expressions expression)))]
   (str "tell application " (:target expression) "\n" body "end tell\n")))
 
+(defn script-handler
+  [{:keys [script-name auto-run expressions]}]
+  (str "script " (name script-name) "\n"
+       (apply str (map ast-consume expressions))
+       "end script\n"
+       (if auto-run (str "tell " (name script-name) " to run\n") "")))
+
+(defn property-handler
+  [{:keys [kv]}]
+  (str "property " (ast-consume kv) "\n" ))
+
+(defn property-term-handler
+  [{:keys [key-term]}]
+  (str (*lookup-fn* key-term) " : "))
+
 (defn routine-handler
   [{:keys [routine-name parameters expressions]}]
   (let [body (apply str (map ast-consume expressions))]
-  (str "on " (name routine-name) "(" (name parameters)")\n"
+  (str "on " (name routine-name)
+       "(" (apply str (interpose "," (map name parameters))) ")\n"
        body
-       "end "(name routine-name)"\n")))
+       "end "(name routine-name)"\n\n")))
 
 (defn routine-callhandler
   [{:keys [routine-name routine-arguments]}]
   (str "my "
        (ast-consume routine-name)
-       "("
-       (ast-consume routine-arguments)
-       ")"))
+       "(" (map-and-interpose "," routine-arguments) ")"))
 
 (defn elseif-handler
   [{:keys [ifexp]}]
@@ -187,7 +201,9 @@
 
 (defn return-handler
   [{:keys [return-val]}]
-  (str "return " (name return-val)"\n"))
+  (str "return "
+       (if (map? return-val) (ast-consume return-val) (name return-val))
+       "\n"))
 
 (defn xofy-handler
   [{:keys [x-expression y-expression]}]
@@ -216,13 +232,17 @@
 
 (defn if-handler
   [{:keys [predicate expressions]}]
-  (str "if (" (filter-reduce predicate) ") then\n"
+  (str "if (" (ast-consume predicate) ") then\n"
        (apply str (map ast-consume expressions))))
 
 (defn where-filter-handler
   "Emits expressions whose (filter-expression)"
   [{:keys [target predicate]}]
   (str (ast-consume target) " whose (" (filter-reduce predicate) ")"))
+
+(defn predicate-handler
+  [{:keys [pred]}]
+  (str (filter-reduce pred)))
 
 (defn make-new-handler
   "Emits 'make new expressions'"
@@ -253,8 +273,10 @@
    :define-locals    local-handler
 
    :make-new         make-new-handler
+   :predicate        predicate-handler
    :where-filter     where-filter-handler
 
+   :if-statement     ifs-handler
    :if-expression      if-handler
    :else-if-expression elseif-handler
    :for-in-expression for-in-handler
@@ -262,11 +284,13 @@
    :tell             tell-handler
    :block            block-handler
    :return           return-handler
+   :script           script-handler
+   :property         property-handler
+   :property-term    property-term-handler
    :routine          routine-handler
    :routine-call     routine-callhandler
 
    :set-statement    set-statement-handler
-   :if-statement     ifs-handler
 
    :li-cmd           list-items-cmd-handler
    :list-of          list-of-handler

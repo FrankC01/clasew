@@ -4,10 +4,16 @@
   clasew.messages
   (:require   [clasew.core :as as]
               [clasew.utility :as util]
+              [clasew.ast-utils :as astu]
               [clojure.java.io :as io]))
 
 (defonce ^:private local-eng as/new-eng)   ; Use engine for this namespace
 (def ^:private scrpteval (io/resource "clasew-messages.applescript"))
+
+(def ^:private account-attrs
+  #{:acct_name,:acct_emails,:acct_user_name,:acct_user_fullname})
+
+(def account-standard account-attrs)
 
 (def ^:private message-attrs
   #{:msg_subject, :msg_sender, :msg_text, :msg_recipient, :msg_date_recieved,
@@ -22,7 +28,7 @@
 (def mailbox-standard mailbox-attrs)
 
 ;;
-;;  Script runner for indentities
+;;  Script runner for messages
 ;;
 
 (defn run-script!
@@ -42,24 +48,27 @@
 ;; High level DSL functions ---------------------------------------------------
 ;;
 
-(def message (reduce #(assoc %1 %2 nil) {} message-standard))
-
-(def mailbox (reduce #(assoc %1 %2 nil) {} mailbox-standard))
+(defn- make-fetch
+  [kw standard attrs]
+  (let [ia (filter keyword? attrs)]
+    {:action :get-messages
+     :fetch-type kw
+     :args (if (empty? ia) (seq standard) ia)
+     :filters (first (rest (astu/filter-forv :filter attrs)))
+     :subsets (astu/filter-form attrs)}))
 
 (defn mailboxes
-  [filt & attrs]
-  )
+  [& attrs]
+  (make-fetch :mailboxes mailbox-standard attrs))
+
+(defn accounts
+  [& attrs]
+  (make-fetch :accounts account-standard attrs))
 
 (defn messages
   "Fetch messages from application"
-  [filt & attrs]
-  (if (empty? attrs)
-    (println "No attributes, defaulting to " message-standard)
-    (println "Will fetch attributes " attrs))
-  (if (nil? filt)
-    (println "Should specify filter")
-    (println "Filter supplied " filt))
-  )
+  [& attrs]
+  (make-fetch :messages message-standard attrs))
 
 
 (defn send-message

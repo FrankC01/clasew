@@ -18,6 +18,7 @@
 (def ^:private applications
   {:outlook "\"Microsoft Outlook\""
    :contacts "\"Contacts\""
+   :mail     "\"Mail\""
    })
 
 (defn- get-application
@@ -39,6 +40,12 @@
 (defn key-term
   [key-value]
   {:type :key-term
+   :token-fn nil
+   :key-term key-value})
+
+(defn property-term
+  [key-value]
+  {:type :property-term
    :token-fn nil
    :key-term key-value})
 
@@ -149,6 +156,12 @@
    :x-expression x
    :y-expression y})
 
+(defn predicate
+  [token-fn userfilt]
+  {:type :predicate
+   :token-fn token-fn
+   :pred userfilt})
+
 (defn where-filter
   [token-fn target userfilt]
   {:type :where-filter
@@ -249,21 +262,36 @@
 ;; Routines (handlers, subroutines, etc.)
 ;;
 
+
 (defn routine
   "Setup the routine (in AS this is a handler)"
-  [token-fn rname parameters & expressions]
+  [token-fn rname parmcoll & expressions]
   {:type :routine
    :token-fn token-fn
    :routine-name rname
-   :parameters parameters
+   :parameters parmcoll
    :expressions expressions})
 
 (defn routine-call
-  [token-fn routine-expression arg-expression]
+  [token-fn routine-expression & arg-expressions]
   {:type :routine-call
    :token-fn token-fn
    :routine-name routine-expression
-   :routine-arguments arg-expression})
+   :routine-arguments arg-expressions})
+
+(defn script
+  [token-fn scriptkw autorun & expressions]
+  {:type :script
+   :token-fn token-fn
+   :script-name scriptkw
+   :auto-run autorun
+   :expressions expressions})
+
+(defn property
+  [token-fn key-value-statement]
+  {:type :property
+   :token-fn token-fn
+   :kv key-value-statement})
 
 (defn return
   [token-fn retval]
@@ -297,6 +325,21 @@
 ;;
 ;; Ease of use forms
 ;;
+
+(defn kv-template
+  "Creates a key-value AST of the form:
+  'termkw: (get targkw of sourcekw)' applying
+  the tokenfn to targkw"
+  [target-token-fn termkw targkw sourcekw]
+  (key-value
+   nil
+   (key-term termkw)
+   (get-statement
+    nil
+    (xofy-expression
+     nil
+     (term target-token-fn targkw) (term nil sourcekw)))))
+
 
 (defn set-result-msg-with-count
   "Creates a result s including a count of ct and

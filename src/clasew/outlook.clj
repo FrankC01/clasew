@@ -497,10 +497,17 @@
   [pm]
   (flatten (seq (reduce phone-reduce {} pm))))
 
+(defn convert-address
+  "Lookup address type and conjoin with value"
+  [am]
+  (flatten (seq (reduce address-reduce {} am))))
+
 (def resolve-add "Send record to get refitted for targets specific to outlook"
   (r/map #(if (= (first %) :phones)
             (convert-phone (second %))
-            (second %))))
+            (if (= (first %) :addresses)
+              (convert-address (second %))
+              (throw (Exception. (str (first %) " not known")))))))
 
 (def pipe-emails "Pipe to retrieve email update directives only"
   (comp mscnd eflt))

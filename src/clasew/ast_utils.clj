@@ -25,6 +25,10 @@
   [args]
   (cfilter #(vector? %) args))
 
+(defn filter-form
+  [args]
+  (cfilter map? args))
+
 (defn-  filter-for-vkw
   "Filter for vector with first position keyword match"
   [kw args]
@@ -91,14 +95,14 @@
 (def cleanval "Takes an argument and test for 'missing value'.
   Returns value or null"
   (ast/routine
-   nil :cleanval :val
+   nil :cleanval [:val]
    (ast/define-locals nil :oval)
    (ast/set-statement nil (ast/term nil :oval) ast/null)
    (ast/if-statement
     nil
     (ast/if-expression
      nil
-     (second (filter :val !EQ :missing))
+     (ast/predicate nil (second (filter :val !EQ :missing)))
      (ast/set-statement nil (ast/term nil :oval)
                                   (ast/term nil :val))) nil)
    (ast/return nil :oval)))
