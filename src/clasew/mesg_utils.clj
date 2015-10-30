@@ -16,11 +16,12 @@
    :mail #{"iCloud accounts", "pop accounts", "imap accounts"}})
 
 (def ^:private lookups
-  {:name      "name"
-   :user-name "user name"
-   :full-name "full name"
-   :email-names "email addresses"
-   :email-name "email address"})
+  {:acct_name    "name"
+   :name         "name"
+   :user-name    "user name"
+   :full-name    "full name"
+   :email-names  "email addresses"
+   :email-name   "email address"})
 
 (defn message-lookup
   [termkw]
@@ -142,9 +143,8 @@
     (clojure.walk/prewalk #(do
                              ; Capture the context of the feed
                              (if (and (vector? %) (= (first %) :fetch-type))
-                               (do
-                                 (swap! a assoc 1 (second %))
-                                 %) %)
+                               (do (swap! a assoc 1 (second %))%)
+                               %)
                              ; Swizzle the designations
                              (if (and (vector? %) (= (first %) :filters))
                               (pfunc1 fa @a) %))
@@ -166,3 +166,44 @@
   (let [x (atom [])]
     (mapcat #(mapcat-fn x %) (list iblock))
     [@x (pfunc @x iblock)]))
+
+;;
+;; Fetch meta data
+;;
+
+(def depth-patterns
+  {[0] true
+   [1 0] true
+   [1 1 0] true
+   [2 0 0] true})
+
+;; Need pattern match for exception handling
+
+(defn- pattern-mcat-fn
+  "Takes a map (m) and builds topological nesting level information"
+  [{:keys [fetch-type subsets]}]
+  (let [tdata (vector fetch-type (count subsets))]
+    (if (not-empty subsets)
+      (conj tdata (mapcat pattern-mcat-fn subsets))
+      tdata)))
+
+(defn- extract-pattern
+  "Extracts the intermediate pattern form from the
+  'fetch' message input map"
+  [m]
+  (mapcat pattern-mcat-fn (list m)))
+
+
+(defn- pattern-reduce
+  "Divies up the count pattern from the type pattern
+  recursive on inner collections"
+  [acc c]
+  (reduce #(cond
+            (keyword? %2) (update-in %1 [1] conj %2)
+            (number? %2) (update-in %1 [0] conj %2)
+            (coll? %2) (pattern-reduce %1 %2)
+            ) acc c))
+
+(defn meta-pattern
+  [imap]
+  (pattern-reduce [[][]] (extract-pattern imap)))
