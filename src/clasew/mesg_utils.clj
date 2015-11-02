@@ -4,7 +4,7 @@
   clasew.mesg-utils
   (:require   [clasew.ast-emit :as ast]
               [clasew.ast-utils :as astu]
-              ))
+              [clasew.messages :as mesg]))
 
 
 (def ^:private boxes
@@ -159,51 +159,39 @@
     (if (not-empty (:subsets m))
       (mapcat #(mapcat-fn c %) (:subsets m)))))
 
+(defn- nest-block
+  [ablck iblck]
+  (assoc ablck :subsets (list iblck)))
+
+(defn- dropargs
+  [imap]
+  (assoc imap :args '()))
+
+(defn- setblock
+  [block]
+  (if (= (:fetch-type block) :accounts)
+    block
+    (if (= (:fetch-type block) :mailboxes)
+      (nest-block (dropargs (mesg/accounts)) block)
+      (nest-block (dropargs (mesg/accounts))
+                  (nest-block (dropargs (mesg/mailboxes)) block)))))
+
 (defn mcat
   "Traverse input block to substitute inline filters
   with handler call"
   [iblock]
   (let [x (atom [])]
     (mapcat #(mapcat-fn x %) (list iblock))
-    [@x (pfunc @x iblock)]))
+    [@x (setblock (pfunc @x iblock))]))
 
 ;;
 ;; Fetch meta data
 ;;
 
-(def depth-patterns
-  {[0] true
-   [1 0] true
-   [1 1 0] true
-   [2 0 0] true})
-
-;; Need pattern match for exception handling
-
-(defn- pattern-mcat-fn
-  "Takes a map (m) and builds topological nesting level information"
-  [{:keys [fetch-type subsets]}]
-  (let [tdata (vector fetch-type (count subsets))]
-    (if (not-empty subsets)
-      (conj tdata (mapcat pattern-mcat-fn subsets))
-      tdata)))
-
-(defn- extract-pattern
-  "Extracts the intermediate pattern form from the
-  'fetch' message input map"
-  [m]
-  (mapcat pattern-mcat-fn (list m)))
-
-
-(defn- pattern-reduce
-  "Divies up the count pattern from the type pattern
-  recursive on inner collections"
-  [acc c]
-  (reduce #(cond
-            (keyword? %2) (update-in %1 [1] conj %2)
-            (number? %2) (update-in %1 [0] conj %2)
-            (coll? %2) (pattern-reduce %1 %2)
-            ) acc c))
-
 (defn meta-pattern
-  [imap]
-  (pattern-reduce [[][]] (extract-pattern imap)))
+  [indirs block]
+  (partial ((:fetch-type block) indirs) (assoc block :subsets nil)
+   (if (not-empty (:subsets block))
+     (map #(meta-pattern indirs %) (:subsets block))
+     '())))
+

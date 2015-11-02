@@ -17,6 +17,7 @@
 
 (def ^:private message-attrs
   #{:msg_subject, :msg_sender, :msg_text, :msg_recipient, :msg_date_recieved,
+    :msg_read? :msg_meeting?
     :msg_date_sent, :msg_replied?})
 
 (def message-standard message-attrs)
