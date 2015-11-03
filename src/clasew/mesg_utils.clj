@@ -15,26 +15,14 @@
   {:outlook #{"exchange accounts", "pop accounts", "imap accounts", "ldap accounts"}
    :mail #{"iCloud accounts", "pop accounts", "imap accounts"}})
 
-(def ^:private lookups
-  {:acct_name    "name"
-   :name         "name"
-   :user-name    "user name"
-   :full-name    "full name"
-   :email-names  "email addresses"
-   :email-name   "email address"})
-
-(defn message-lookup
-  [termkw]
-  (get lookups termkw (name termkw)))
-
 (defn email_list
-  [appkw fromkw]
+  [appkw fromkw token-fn]
   (if (= appkw :mail)
     (ast/xofy-expression
      nil
      (ast/expression
       nil
-      ast/getin (ast/term message-lookup :email-names))
+      ast/getin (ast/term token-fn :acct_emails))
      (ast/term nil fromkw))
     (ast/list-of
      nil
@@ -42,7 +30,7 @@
              nil
              (ast/xofy-expression
               nil
-              (ast/term message-lookup :email-name)
+              (ast/term token-fn :acct_emails)
               (ast/term nil fromkw)))))))
 
 (defn- imbue-filter-args
@@ -53,11 +41,11 @@
 
 (defn build-filter-routine
   "Generates a filter routine/handler"
-  [fname argkw usrfilt]
+  [fname argkw usrfilt token-fn]
   (ast/routine
    nil
    fname [argkw]
-   (ast/return message-lookup
+   (ast/return token-fn
                (ast/precedence
                 nil
                 (ast/predicate nil
@@ -82,7 +70,7 @@
 
 
 (defn account_list
-  [appkw]
+  [appkw token-fn]
   (ast/block
    nil
    (match-block)
@@ -113,16 +101,16 @@
             nil
 
             ; get account name and folder type properties
-            (ast/kv-template message-lookup :acct_name :name :acc1)
-            (ast/kv-template message-lookup :acct_user_name :user-name :acc1)
-            (ast/kv-template message-lookup :acct_user_fullname :full-name :acc1)
-            (ast/kv-template nil :acct_mailboxes (appkw boxes) :acc1)
+            (ast/kv-template token-fn :acct_name :acc1)
+            (ast/kv-template token-fn :acct_user_name :acc1)
+            (ast/kv-template token-fn :acct_user_fullname :acc1)
+            (ast/kv-template token-fn :acct_mailboxes :acc1)
 
             ; account emails
             (ast/key-value
              nil
              (ast/key-term :acct_emails)
-             (ast/expression nil (email_list appkw :acc1)))))) nil))))
+             (ast/expression nil (email_list appkw :acc1 token-fn)))))) nil))))
       (ast/return nil :alist))))
 
 ;; Support functions
@@ -152,36 +140,36 @@
 
 (defn- mapcat-fn
   "Mapcat function to collect filter statements"
-  [c m]
+  [c m token-fn]
   (let [x (keyword (str (gensym) "_filter"))]
     (if (:filters m)
-      (swap! c conj [(:fetch-type m) x (build-filter-routine x :x (:filters m))]))
+      (swap! c conj [(:fetch-type m) x (build-filter-routine x :x (:filters m) token-fn)]))
     (if (not-empty (:subsets m))
-      (mapcat #(mapcat-fn c %) (:subsets m)))))
+      (mapcat #(mapcat-fn c % token-fn) (:subsets m)))))
 
 (defn- nest-block
   [ablck iblck]
   (assoc ablck :subsets (list iblck)))
 
 (defn- dropargs
-  [imap]
-  (assoc imap :args '()))
+  [imap args]
+  (assoc imap :args args))
 
 (defn- setblock
   [block]
   (if (= (:fetch-type block) :accounts)
     block
     (if (= (:fetch-type block) :mailboxes)
-      (nest-block (dropargs (mesg/accounts)) block)
-      (nest-block (dropargs (mesg/accounts))
-                  (nest-block (dropargs (mesg/mailboxes)) block)))))
+      (nest-block (dropargs (mesg/accounts) '(:acct_name)) block)
+      (nest-block (dropargs (mesg/accounts) '(:acct_name))
+                  (nest-block (dropargs (mesg/mailboxes) '(:mb_name)) block)))))
 
 (defn mcat
   "Traverse input block to substitute inline filters
   with handler call"
-  [iblock]
+  [iblock token-fn]
   (let [x (atom [])]
-    (mapcat #(mapcat-fn x %) (list iblock))
+    (mapcat #(mapcat-fn x % token-fn) (list iblock))
     [@x (setblock (pfunc @x iblock))]))
 
 ;;

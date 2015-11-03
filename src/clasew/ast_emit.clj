@@ -330,7 +330,7 @@
   "Creates a key-value AST of the form:
   'termkw: (get targkw of sourcekw)' applying
   the tokenfn to targkw"
-  [target-token-fn termkw targkw sourcekw]
+  [target-token-fn termkw sourcekw]
   (key-value
    nil
    (key-term termkw)
@@ -338,7 +338,7 @@
     nil
     (xofy-expression
      nil
-     (term target-token-fn targkw) (term nil sourcekw)))))
+     (term target-token-fn termkw) (term nil sourcekw)))))
 
 
 (defn set-result-msg-with-count
@@ -385,7 +385,7 @@
 
 (defn set-extend-record
   "Similar to clojure assoc call, set-extend-record emits:
-  set x to x & y where x is record and y is {key:data}"
+  set targ to targ & {skey:sval}"
   [targ skey sval]
   (set-statement
    nil
@@ -397,4 +397,20 @@
      nil
      (key-value nil (key-term skey) (term nil sval))))))
 
+(defn record-fetch
+  "Builds inline record population/setters"
+  [rhstoken args accum source]
+  (if (empty? args)
+    (block nil)
+    (set-statement
+     nil
+     (term nil accum)
+     (xofy-expression
+      nil
+      (apply (partial record-definition nil)
+             (map #(key-value
+                    nil
+                    (key-term %)
+                    (term rhstoken %)) args))
+      (term nil source)))))
 

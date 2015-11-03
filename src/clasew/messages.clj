@@ -16,15 +16,14 @@
 (def account-standard account-attrs)
 
 (def ^:private message-attrs
-  #{:msg_subject, :msg_sender, :msg_text, :msg_recipient, :msg_date_recieved,
-    :msg_read? :msg_meeting?
-    :msg_date_sent, :msg_replied?})
+  #{:msg_subject, :msg_sender, :msg_text, :msg_recipients, :msg_date_recieved,
+    :msg_read :msg_meeting
+    :msg_date_sent, :msg_replied})
 
 (def message-standard message-attrs)
 
 (def ^:private mailbox-attrs
-  #{:mb_name, :mb_message_count, :mb_unread_message_count, :mb_owner,
-    :mb_account_name})
+  #{:mb_name, :mb_message_count, :mb_unread_message_count})
 
 (def mailbox-standard mailbox-attrs)
 
