@@ -112,6 +112,10 @@
   [{:keys [svalue]}]
   (symbol svalue))
 
+(defn numeric-literal-handler
+  [{:keys [nvalue]}]
+  (symbol (str nvalue)))
+
 (defn end-of-list-cmd-handler
   [{:keys [target-list list-owner]}]
   (str "end of "(*lookup-fn* target-list)
@@ -256,6 +260,29 @@
   [{:keys [expressions] }]
   (str "{" (map-and-interpose "," expressions ) "}"))
 
+(defn predicate-statement-handler
+  [{:keys [expressions]}]
+  (let [x (apply str (map ast-consume expressions))]
+    (str "(" x ")")))
+
+(defn predicate-expression-handler
+  [{:keys [conditions]}]
+  (str "(" (map-and-interpose " and " conditions) ")"))
+
+(defn predicate-and-handler
+  [{:keys [expressions]}]
+  (str " and " (apply str (map ast-consume expressions))))
+
+(defn predicate-condition-handler
+  [{:keys [lhs-expression operator rhs-expression]}]
+  (str (apply str (ast-consume lhs-expression)
+       (ast-consume operator))
+       (ast-consume rhs-expression)))
+
+(defn predicate-operator-handler
+  [{:keys [term]}]
+  (str " " (get filterp term) " "))
+
 
 (def ast-jump "Jump Table for AST Expression"
   {
@@ -265,6 +292,7 @@
    :key-term-nl      key-term-nl-handler
    :string-literal   string-literal-handler
    :symbol-literal   symbol-literal-handler
+   :numeric-literal  numeric-literal-handler
 
    :expression       expression-handler
    :xofy-expression  xofy-handler
@@ -273,7 +301,14 @@
    :define-locals    local-handler
 
    :make-new         make-new-handler
-   :predicate        predicate-handler
+   :predicate        predicate-handler       ; deprecate
+
+   :predicate-statement  predicate-statement-handler
+   :predicate-expressions predicate-expression-handler
+   :and-predicate         predicate-and-handler
+   :predicate-condition   predicate-condition-handler
+   :predicate-operator    predicate-operator-handler
+
    :where-filter     where-filter-handler
 
    :if-statement     ifs-handler

@@ -70,7 +70,6 @@
   [& attrs]
   (make-fetch :messages message-standard attrs))
 
-
 (defn send-message
   [msg recipient  & recipients]
   (if (empty? (conj recipients recipient))
@@ -78,3 +77,4 @@
   (if (nil? msg)
     (println "No message error"))
   )
+

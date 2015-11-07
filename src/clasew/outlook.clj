@@ -7,7 +7,8 @@
             [clasew.ast-utils :as astu]
             [clojure.core.reducers :as r]
             [clasew.identities :as ident]
-            [clasew.ident-utils :as utils]))
+            [clasew.ident-utils :as utils]
+            [clasew.outlook-m :as outm]))
 
 
 (def ^:private phone-set
@@ -788,6 +789,7 @@
     :delete-individual   (delete-contact directives)
     :add-individuals     (add-contacts directives)
     :update-individual   (update-contacts (refactor-update  directives))
+    :get-messages        (outm/get-messages directives)
     (str "Don't know how to complete " action)))
 
 
