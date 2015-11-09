@@ -15,7 +15,6 @@
   []
   [*application* *token-terms*])
 
-
 (def ^:private boxes
   {:outlook "mail folders"
    :mail "mailboxes"})
@@ -70,16 +69,23 @@
    (match-block)
   (ast/routine
    nil :account_list [:aclist :pat]
-   (ast/define-locals nil :alist :acc :acc1)
+   (ast/define-locals nil :alist :acc :acc1 :acct_type)
    (ast/tell
     nil *application*
     (ast/set-statement nil (ast/term nil :alist) ast/empty-list)
     (ast/for-in-expression
      nil
      (ast/term nil :acc) (ast/term nil :aclist)
+     (ast/set-statement
+      nil
+      (ast/term nil :acct_type)
+      (ast/xofy-expression
+       nil
+       ast/first-of
+       (ast/term nil :acc)))
      (ast/for-in-expression
       nil
-      (ast/term nil :acc1) (ast/term nil :acc)
+      (ast/term nil :acc1) (ast/xofy-expression nil ast/second-of (ast/term nil :acc))
       (ast/if-statement
        nil
        (ast/if-expression
@@ -95,6 +101,7 @@
             nil
 
             ; get account name and folder type properties
+            (ast/key-value nil (ast/key-term :acct_type) (ast/term nil :acct_type))
             (ast/kv-template *token-terms* :acct_name :acc1)
             (ast/kv-template *token-terms* :acct_user_name :acc1)
             (ast/kv-template *token-terms* :acct_user_fullname :acc1)
@@ -307,21 +314,17 @@
 ; Functions to support traverse and extract
 ; filters to replace with handler calls
 
-(defn- refactor-fetch
+(defn- inject-handlers
   "Look for filters to convert to handlers"
   [block]
-  (let [x (map #(get % 2) block)
-        y (if (not-empty x)
-            (conj x (noop-filter)
+  (apply (partial ast/block nil)
+         (flatten
+           (conj
+            (map #(get % 2) block)
+            (list (noop-filter)
+                  (generic-cleaner :cleanval)
                   (generic-cleaner :datecleaner)
-                  (generic-cleaner :emailcleaner)
-                  (generic-cleaner :cleanval))
-            (list (generic-cleaner :cleanval)
-                  (noop-filter)
-                  (generic-cleaner :datecleaner)
-                  (generic-cleaner :emailcleaner)))]
-  (apply (partial ast/block nil) y)))
-
+                  (generic-cleaner :emailcleaner))))))
 
 (defn- pfunc1
   "Gets appropriate filter and substitues the keyword to the handler
@@ -399,17 +402,13 @@
     (apply (partial ast/block nil) (for [x coll] (x args)))
     (ast/block nil)))
 
-(defn- contains-type?
-  [kw args]
-  (some? (some #(= % kw ) args)))
-
 ;;
 ;; Specific handlers
 ;;
 
-(defn- generic-date-handler
-  "Generic special handler"
-  [targ dtype dtypekey src]
+(defn- generic-special-fetch
+  "Creates specialized fetch for sender and date/time message types"
+  [dtype targ src clnkw]
   (ast/set-statement
    nil
    (ast/term nil targ)
@@ -420,131 +419,89 @@
      (ast/key-value
       nil
       (ast/key-term dtype)
-      (call-clean :datecleaner dtype src))))))
+      (call-clean clnkw dtype src))))))
 
-(defn- generic-email-handler
-  "Generic email handler"
-  [targ dtype dtypekey src]
-  (ast/set-statement
-   nil
-   (ast/term nil targ)
-   (ast/eor-cmd
-    nil targ nil
-    (ast/record-definition
-     nil
-     (ast/key-value
-      nil
-      (ast/key-term dtype)
-      (call-clean :emailcleaner dtype src))))))
-
-(def ^:private mail-restrictions #(and
-            (not= % :msg_meeting)
-            (not= % :msg_sender)
-            (not= % :msg_recipients)
-            (not= % :msg_date_sent)
-            (not= % :msg_date_recieved)))
-
-(def ^:private outlook-restrictions #(and
-            (not= % :msg_sender)
-            (not= % :msg_recipients)
-            (not= % :msg_date_sent)
-            (not= % :msg_date_recieved)))
-
-(defn- strip-msg-args
-  [args]
-  (filter
-   (condp = *application*
-     :mail mail-restrictions
-     :outlook outlook-restrictions) args))
-
-(defn- date-handler
-  "Builds extract statement specific to date properties"
-  [tf dtype targ src]
-  (if tf
-    (generic-date-handler targ dtype :dstring src)
-    (ast/block nil)))
-
-(defn- sender-handler
-  "Builds extract statement specific to sender email address"
-  [tf dtype targ src]
-  (if tf
-    (generic-email-handler targ dtype :address src)
-    (ast/block nil)))
-
-(defn- recipient-handler
+(defn- recipient-special-fetch
   "Builds loop construct to pull each message recipient email
   address"
-  [tf dtype targ src]
-  (if tf
-    (ast/block
+  [dtype targ src]
+  (ast/block
+   nil
+   (ast/define-locals :reclist :recrec :recloop)
+   (ast/set-statement nil (ast/term nil :reclist) ast/empty-list)
+   (ast/for-in-expression
+    nil
+    (ast/term nil :recloop)
+    (ast/xofy-expression
+     *token-terms*
+     (ast/term nil dtype) (ast/term nil src))
+    (ast/set-statement
      nil
-     (ast/define-locals :reclist :recrec :recloop)
-     (ast/set-statement nil (ast/term nil :reclist) ast/empty-list)
-     (ast/for-in-expression
+     (ast/eol-cmd nil :reclist nil)
+     (ast/record-definition
       nil
-      (ast/term nil :recloop)
-      (ast/xofy-expression
-       *token-terms*
-       (ast/term nil dtype) (ast/term nil src))
-      (ast/set-statement
+      (ast/key-value
        nil
-       (ast/eol-cmd nil :reclist nil)
-       (ast/record-definition
-        nil
-        (ast/key-value
-         nil
-         (ast/key-term :recipient_email)
-         (if (= *application* :outlook)
-           (ast/xofy-expression
-            nil
-            (ast/term nil :address)
-            (ast/get-xofy *token-terms* :acct_emails :recloop))
-           (ast/get-xofy *token-terms* :address :recloop))))))
-     (ast/set-extend-record targ dtype :reclist))
-    (ast/block nil)))
+       (ast/key-term :recipient_email)
+       (if (= *application* :outlook)
+         (ast/xofy-expression
+          nil
+          (ast/term nil :address)
+          (ast/get-xofy *token-terms* :acct_emails :recloop))
+         (ast/get-xofy *token-terms* :address :recloop))))))
+   (ast/set-extend-record targ dtype :reclist)))
 
 ;;
 ;; Builders
 ;;
 
+(def ^:private special-types
+  #{:msg_sender :msg_recipients :msg_date_sent :msg_date_recieved})
+
+(def ^:private special-type-args
+  {:msg_sender          #(generic-special-fetch % :msgrec :msgloop :emailcleaner)
+   :msg_recipients      #(recipient-special-fetch % :msgrec :msgloop)
+   :msg_date_sent       #(generic-special-fetch % :msgrec :msgloop :datecleaner)
+   :msg_date_recieved   #(generic-special-fetch % :msgrec :msgloop :datecleaner)})
+
+(defn- build-specials-fetch
+  "Calls the special fetch builders for special types
+  uses 'mapv' to avoid lazy sequence issues and dynamic bindings"
+  [args]
+  (apply (partial ast/block nil)
+         (into [] (mapv #((% special-type-args) %)
+               (filter (into #{} args) special-types)))))
+
 (defn- build-messages
   "Builds message fetch control"
   [{:keys [args filters]} cntrl {:keys [source accum property]}]
-  (let [has-recp (contains-type? :msg_recipients args)
-        has-send (contains-type? :msg_sender args)
-        has-drec (contains-type? :msg_date_recieved args)
-        has-dsen (contains-type? :msg_date_sent args)
-        clean-args (strip-msg-args args)]
-    (ast/block
+  (ast/block
+   nil
+   (ast/define-locals nil :msgloop :msgrec :msglist)
+   (ast/set-statement nil (ast/term nil :msglist) ast/empty-list)
+   (ast/for-in-expression
+    nil
+    (ast/term nil :msgloop)
+    (ast/get-xofy nil property source)
+    (ast/if-statement
      nil
-     (ast/define-locals nil :msgloop :msgrec :msglist)
-     (ast/set-statement nil (ast/term nil :msglist) ast/empty-list)
-     (ast/for-in-expression
+     (ast/if-expression
       nil
-      (ast/term nil :msgloop)
-      (ast/get-xofy nil property source)
-      (ast/if-statement
+      (ast/routine-call
        nil
-       (ast/if-expression
-        nil
-        (ast/routine-call
-         nil
-         (ast/term nil :match)
-         (ast/term nil (or filters :noop_filter ))
-         (ast/term nil :msgloop))
-        (ast/record-fetch *token-terms* clean-args :msgrec :msgloop)
-        ; Sender special handler
-        (sender-handler has-send :msg_sender :msgrec :msgloop)
-        ; Recipient special handler
-        (recipient-handler has-recp :msg_recipients :msgrec :msgloop)
-        ; Date special handler
-        (date-handler has-dsen :msg_date_sent :msgrec :msgloop)
-        (date-handler has-drec :msg_date_recieved :msgrec :msgloop)
-        (ast/set-statement
-         nil
-         (ast/eol-cmd nil :msglist nil)
-         (ast/term nil :msgrec))) nil))
-     (ast/set-extend-record accum :mb_messages :msglist))))
+       (ast/term nil :match)
+       (ast/term nil (or filters :noop_filter ))
+       (ast/term nil :msgloop))
+      (ast/record-fetch *token-terms*
+                        (remove special-types args) :msgrec :msgloop)
+
+      (build-specials-fetch args)
+
+      (ast/set-statement
+       nil
+       (ast/eol-cmd nil :msglist nil)
+       (ast/term nil :msgrec))) nil))
+   (ast/set-extend-record accum :mb_messages :msglist)))
 
 (defn- build-mailboxes
   "Builds mailbox  fetch control"
@@ -605,7 +562,10 @@
 
 (defn- term-gen
   [coll]
-  (map #(ast/term nil %) coll))
+  (map #(ast/list-of
+         nil
+         [(ast/string-literal (first (clojure.string/split % #" ")))
+          (ast/term nil %)]) coll))
 
 (defn- build-account
   "Called when account information is requested. May contain
@@ -639,14 +599,14 @@
   [block]
   ; First build filter structures and metapattern information
   ; mcat converts the input into handler collection and new block format
-  ; refactor-fetch creates the handler body references
+  ; inject-handlers creates the handler body references
   ; meta-pattern determines depth constraints and subset order
   (let [[filter-coll imap] (mcat block)]  ; Extract filters, reset block
     ; Setup the script header and handler routines
      (ast/block
       nil
       (account_list)
-      (refactor-fetch filter-coll)   ; handler list to filter-block
+      (inject-handlers filter-coll)   ; handler list to filter-block
       (ast/tell nil *application*
                 (ast/define-locals nil :results)
                 ((meta-pattern builder-lookup imap) {:source :aclist

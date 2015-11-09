@@ -134,7 +134,8 @@
 (def   its              (term nil " it's "))
 (def   lparen           (term nil "("))
 (def   rparen           (term nil ")"))
-
+(def   first-of         (term nil "first item"))
+(def   second-of        (term nil "second item"))
 
 (defn get-statement
   [token-fn expressions]
@@ -485,9 +486,9 @@
      (xofy-expression
       nil
       (apply (partial record-definition nil)
-             (map #(key-value
+             (into [] (map #(key-value
                     nil
                     (key-term %)
-                    (term rhstoken %)) args))
+                    (term rhstoken %)) args)))
       (term nil source)))))
 
