@@ -10,15 +10,6 @@
 
 (def ^:dynamic *application* nil)
 (def ^:dynamic *token-terms* nil)
-(def ^:private fetch-frame
-  {:script []
-   :filter []
-   :routine []
-   :body []})
-
-(defn clasew-bindings
-  []
-  [*application* *token-terms*])
 
 (def ^:private boxes
   {:outlook "mail folders"
@@ -65,7 +56,7 @@
      nil
      (ast/routine-call nil (ast/term nil :f)(ast/term nil :aa))))))
 
-(defn- z_frame-match-script
+(defn- frame-match-script
   [fmap]
   (update-in fmap [:script] conj (match-block)))
 
@@ -120,9 +111,10 @@
              (ast/expression nil (email_list :acc1)))))) nil))))
       (ast/return nil :alist)))
 
-(defn- z_frame-account-routine
+(defn- frame-account-routine
   [fmap]
   (update-in fmap [:routine] conj (account_list)))
+
 
 (defn- date-cleaner-return
   "Provides the return clause for a non missing date value condition"
@@ -172,11 +164,10 @@
       :datecleaner  (date-cleaner-return)
       (ast/return nil (ast/term nil :x))))))
 
-(defn- z_frame-cleaner-filters
+(defn- frame-cleaner-filters
   [fmap]
   (reduce #(update-in %1 [:filter] conj (generic-cleaner %2))
           fmap [:emailcleaner :datecleaner :cleanval]))
-
 
 (defn- call-clean
   "Calls a cleaner (fnkw) and makes getxofy as argument"
@@ -186,11 +177,7 @@
    (ast/term nil fnkw)
    (ast/get-xofy *token-terms* term source)))
 
-
-
 (declare predicate-cond)
-
-; TODO - Outlook version
 
 (defn recipient-count-pos-mail
   "Constructs a 'whose' clause for mail recipients list filtering"
@@ -284,9 +271,10 @@
        nil
        (indirectors lhskw ownerkw)
        (ast/predicate-operator op)
-       (if (string? rhsval)
-         (ast/string-literal rhsval)
-         (ast/term nil rhsval))))))
+       (cond
+        (string? rhsval) (ast/string-literal rhsval)
+        (number? rhsval) (ast/numeric-literal rhsval)
+        :else (ast/term nil rhsval))))))
 
 (defn predicate-args
   "Generates predicate expressions that include predicate conditions"
@@ -320,7 +308,7 @@
     nil *application*
     (ast/return *token-terms* (predicate-builder argkw usrfilt)))))
 
-(defn- z_frame-build-filter
+(defn- frame-build-filter
   [fmap usrfilt]
   (let [fname (str (gensym) "_filter")]
     [(update-in fmap [:filter] conj (build-filter-routine fname :x usrfilt))
@@ -328,7 +316,7 @@
 
 ; Noop filter always returns true
 
-(defn- z_frame-noop-filter
+(defn- frame-noop-filter
   [fmap]
   (update-in fmap [:filter] conj
              (ast/routine nil :noop_filter [:x] (ast/return nil :true))))
@@ -395,17 +383,11 @@
    :msg_date_sent       #(generic-special-fetch % :msgrec :msgloop :datecleaner)
    :msg_date_recieved   #(generic-special-fetch % :msgrec :msgloop :datecleaner)})
 
-(defn- z_frame-filter
+(defn- frame-filter
   [fmap {:keys [fetch-type filters] :as block}]
   (if filters
-    (z_frame-build-filter fmap filters)
+    (frame-build-filter fmap filters)
     [fmap :noop_filter]))
-
-(defn- z-fetch-reducer
-  [acc targ]
-  (if (not-empty (second targ))
-    (conj acc (second targ))
-    acc))
 
 
 (defn- build-specials-fetch
@@ -416,11 +398,11 @@
          (into [] (mapv #((% special-type-args) %)
                (filter (into #{} args) special-types)))))
 
-(declare z_frame-next-block)
+(declare frame-next-block)
 
-(defn- z_frame-build-messages
+(defn- frame-build-messages
   [fmap {:keys [args filters] :as block}]
-  (let [[zmap mfilt]     (z_frame-filter fmap block)]
+  (let [[zmap mfilt] (frame-filter fmap block)]
     (update-in
      zmap
      [:routine] conj
@@ -453,21 +435,124 @@
        (ast/set-extend-record :accum :mb_messages :msglist)
        (ast/return nil :accum))))))
 
+(defn- if-then-else-nil-builder
+  "Ease of use function to setup if statement with filtered validation
+  and the AST if true:
+  filt - The filter keyword identifier to call
+  obj  - The object to call filter with
+  pass-block - The pass filter AST"
+  [filt obj pass-block]
+  (ast/if-statement
+   nil
+   (ast/if-expression
+    nil
+    (ast/routine-call
+     nil
+     (ast/term nil filt)
+     (ast/term nil obj))
+    pass-block)
+    nil))
 
-(defn- z_frame-build-mailboxes
-  [fmap {:keys [args] :as block}]
-  (let [[zmap mfilt] (z_frame-filter fmap block)
-        [zfmap callblk] (z_frame-next-block zmap block {:source :mbloop :accum :mrec})
-        ]
+(defn- if-pass-block
+  "Ease of use function to setup a pass block common to usage
+  set-to   - The target of a set statement
+  args     - arguments to fetch
+  objkw    - the source object to fetch from
+  callback - callback AST defined elsewhere"
+  [set-to args accum objkw callback]
+  (ast/block
+   nil
+   (ast/set-statement
+    nil
+    (ast/term nil set-to)
+    (apply (partial ast/record-definition nil)
+           (mapv #(ast/kv-template *token-terms* % objkw) args)))
+   (ast/set-statement
+    nil (ast/eol-cmd nil accum nil) callback)))
+
+(defn- reuse-callback-diff-arg
+  "Low level update of an argument to a routine call so as to
+  reuse the construct without creating duplicate handlers
+  mmap - the base ast for the routine call
+  posi - the argument of the call position to update
+  targkw - the target keyword to be updated
+  valu - the value to set the targkw to in the map"
+  [mmap posi targkw valu]
+  (if (= (:type mmap) :term)
+    mmap
     (update-in
-     zfmap
+     (update-in mmap [:routine-arguments] #(into [] %))
+     [:routine-arguments] #(update-in % [posi] assoc targkw valu))))
+
+(defn- frame-flatten-mailboxes
+  "Flatten mailbox return. Include if filter passes then process messages
+  if any to do or recurses on self to dig deeper"
+  [fmap {:keys [args filters] :as block}]
+  (let [[zmap mfilt] (frame-filter fmap block)
+        [zfmap1 callblk1] (frame-next-block zmap block {:source :par :accum :mrec})
+        callblk2 (reuse-callback-diff-arg callblk1 1 :to-value :indx)]
+  (update-in
+   zfmap1
+   [:routine] conj
+   (ast/routine
+    nil :flatten_mailboxes [:accum :par]
+    (ast/tell
+     nil *application*
+     (ast/define-locals nil :mrec :indx)
+     ; Check inbound parent for match
+     (if-then-else-nil-builder
+      mfilt :par (if-pass-block :mrec args :accum :par callblk1))
+    (ast/for-in-expression
+     nil
+     (ast/term nil :indx)
+     (ast/get-xofy *token-terms* :acct_mailboxes :par)
+     (ast/if-statement
+      nil
+      (ast/if-expression
+       nil
+       (ast/predicate-condition
+        nil
+        (ast/get-xofy *token-terms* :acct_mailboxes :indx)
+        (ast/predicate-operator astu/!EQ)
+        (ast/symbol-literal "missing value"))
+       (ast/block nil (ast/routine-call
+        nil
+        (ast/term nil :flatten_mailboxes)
+        (ast/term nil :accum) (ast/term nil :indx)) ast/new-line))
+      (ast/else-if-expression
+       nil
+       (if-then-else-nil-builder
+        mfilt :indx (if-pass-block :mrec args :accum :indx callblk2)))))
+     (ast/return nil :accum))))))
+
+(defn- frame-hierarchical-mailboxes
+  [fmap block]
+  fmap)
+
+(defn- frame-process-mailboxes
+  [fmap {:keys [fetch-type] :as block} parm1 parm2]
+  [(if (= fetch-type :mailboxes)
+     (frame-flatten-mailboxes fmap block)
+     (frame-hierarchical-mailboxes fmap block))
+   (ast/routine-call
+    nil
+    (ast/term nil (if (= fetch-type :mailboxes) :flatten_mailboxes :hierarchy_mailboxes))
+    (ast/term nil parm1)
+    (ast/term nil parm2))])
+
+(defn- frame-build-mailboxes
+  [fmap {:keys [args] :as block}]
+  (let [[fzap callmb] (frame-process-mailboxes fmap block :inlist :mbloop)]
+    (update-in
+     fzap
      [:routine] conj
      (ast/routine
       nil :fetch_mailboxes [:accum :rsrc]
       (ast/tell
        nil *application*
-       (ast/define-locals nil :mbloop :mrec :mlist)
+       (ast/define-locals nil :mbloop :mrec :mlist :inlist)
        (ast/set-statement nil (ast/term nil :mlist) ast/empty-list)
+       (ast/set-statement nil (ast/term nil :inlist) ast/empty-list)
        (ast/for-in-expression
         nil
         (ast/term nil :mbloop)
@@ -477,35 +562,22 @@
           nil
           (ast/term nil :acct_mailboxes)
           (ast/term nil :rsrc)))
-        (ast/if-statement
-         nil
-         (ast/if-expression
-          nil
-          (ast/routine-call
-           nil
-           (ast/term nil :match)
-           (ast/term nil mfilt)
-           (ast/term nil :mbloop))
-          (ast/record-fetch *token-terms* args :mrec :mbloop)
-          (ast/set-statement
-           nil
-           (ast/eol-cmd nil :mlist nil)
-           callblk)) nil))
-       (ast/set-extend-record :accum :acct_mailboxes :mlist)
+        callmb)
+       (ast/set-extend-record :accum :acct_mailboxes :inlist)
        (ast/return nil :accum))))))
 
-(def ^:private z_frame-jumps
-  {:mailboxes [:fetch_mailboxes z_frame-build-mailboxes]
-   :messages  [:fetch_messages z_frame-build-messages]})
+(def ^:private frame-jumps
+  {:mailboxes [:fetch_mailboxes frame-build-mailboxes]
+   :messages  [:fetch_messages frame-build-messages]})
 
-(defn- z_frame-next-block
+(defn- frame-next-block
   "Returns either a null block (no subsets) or the
   calling routine block procurred as part of deeper
   processing"
   [fmap {:keys [subsets] :as block} {:keys [accum source]}]
   (let [frs (first subsets)]
     (if frs
-      (let [[routinekw f] ((:fetch-type frs) z_frame-jumps)
+      (let [[routinekw f] ((:fetch-type frs) frame-jumps)
             zmap (f fmap frs)]
       [zmap (ast/routine-call
              nil
@@ -514,13 +586,13 @@
              (ast/term nil source))])
       [fmap (ast/term nil accum)])))
 
-(defn- z_account-block
+(defn- account-block
   "Builds the account block for setting up and fetching
   account values"
   [fmap {:keys [args] :as block} {:keys [source accum] :as props}]
-  (let [[zfmap callblk] (z_frame-next-block fmap block (assoc props
-                                                         :source :indx
-                                                         :property :acct_mailboxes))]
+  (let [[zfmap callblk] (frame-next-block fmap block (assoc props
+                                                       :source :indx
+                                                       :property :acct_mailboxes))]
     [zfmap
      (ast/block
       nil
@@ -543,10 +615,10 @@
          [(ast/string-literal (first (clojure.string/split % #" ")))
           (ast/term nil %)]) coll))
 
-(defn- z_frame-account-fetch
+(defn- frame-account-fetch
   [fmap block {:keys [source accum] :as args}]
-  (let [[zmap mfilt] (z_frame-filter fmap block)
-        [smap code] (z_account-block zmap block args)]
+  (let [[zmap mfilt] (frame-filter fmap block)
+        [smap code] (account-block zmap block args)]
   (update-in
    smap
    [:routine] conj
@@ -566,7 +638,7 @@
    code)))))
 
 
-(defn- z_frame-body
+(defn- frame-body
   [fmap]
   (update-in
    fmap
@@ -580,19 +652,24 @@
       nil
       (ast/term nil :fetch_accounts))))))
 
+(defn- fetch-reducer
+  [acc targ]
+  (if (not-empty (second targ)) (conj acc (second targ)) acc))
+
 (defn- message-fetch-builder
   [block]
-  (let [fmap (z_frame-body
-              (z_frame-account-fetch
-               (z_frame-account-routine
-                 (z_frame-match-script
-                  (z_frame-cleaner-filters
-                   (z_frame-noop-filter fetch-frame))))
+  (let [fmap (frame-body
+              (frame-account-fetch
+               (frame-account-routine
+                (frame-match-script
+                 (frame-cleaner-filters
+                  (frame-noop-filter {:script []
+                                      :filter []
+                                      :routine []
+                                      :body []}))))
                block  {:source :aclist :accum :arec}))]
-    ;(clojure.pprint/pprint fmap)
     (apply (partial ast/block nil)
-           (flatten (reduce z-fetch-reducer [] fmap))))
-  )
+           (flatten (reduce fetch-reducer [] fmap)))))
 
 (defn fetch-messages
   "Main entry point binds target specific information

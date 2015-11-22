@@ -194,12 +194,12 @@
 
 (defn elseif-handler
   [{:keys [ifexp]}]
-  (str "else " (ast-consume ifexp)))
+  (str "else\n" (ast-consume ifexp)))
 
 (defn ifs-handler
   [{:keys [i-expression e-expressions]}]
   (str (ast-consume i-expression)
-       (apply str (map ast-consume e-expressions))
+       (apply str (map ast-consume (if (map? e-expressions) (list e-expressions) e-expressions)))
        "end if\n")
   )
 

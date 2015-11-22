@@ -28,6 +28,29 @@
 ;; Sample 1
 ;; Fetch account information
 
+#_(println (mail/script (mesg/accounts
+                       (astu/filter :acct_name astu/EQ "Google")
+                       (mesg/mailboxes
+                        (astu/filter :mb_name astu/EQ "INBOX"
+                                     :mb_unread_message_count astu/GT 0)
+                        (mesg/messages :msg_subject)
+                        ))))
+
+#_(p (run-sample :mail (mesg/accounts
+                       (astu/filter :acct_name astu/EQ "Google")
+                       (mesg/mailboxes
+                        (astu/filter :mb_name astu/EQ "INBOX"
+                                     :mb_unread_message_count astu/GT 0)
+                        (mesg/messages :msg_subject)
+                        ))))
+
+#_(p (run-sample :outlook (mesg/accounts
+                       (astu/filter :acct_name astu/EQ "Axiom1inc")
+                       (mesg/mailboxes
+                        (astu/filter :mb_name astu/EQ "Inbox"
+                                     :mb_unread_message_count astu/GT 0)
+                        (mesg/messages :msg_subject)
+                        ))))
 
 (def s-fetch-accounts (mesg/accounts))
 
@@ -123,10 +146,9 @@
            (mesg/accounts
             (astu/filter :acct_name astu/EQ "Axiom1inc")
             (mesg/mailboxes
-             (astu/filter :mb_name astu/EQ "Deleted Items")
+             (astu/filter :mb_name astu/EQ "Inbox")
              (mesg/messages
-              (astu/filter :msg_sender astu/EQ "frank.castellucci@axiom1inc.com"
-                           (astu/and :msg_recipients astu/CT "gmail.com"))
+              (astu/filter :msg_sender astu/CT "shaun")
                             :msg_subject
                             :msg_read
                             :msg_sender
