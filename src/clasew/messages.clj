@@ -46,7 +46,7 @@
 
 
 ;;
-;; High level DSL functions ---------------------------------------------------
+;; High level DSL functions - Fetch ------------------------------------------------
 ;;
 
 (defn- make-fetch
@@ -71,11 +71,25 @@
   [& attrs]
   (make-fetch :messages message-standard attrs))
 
+;;
+;; High level DSL functions - Send ------------------------------------------------
+;;
+
+;; Message template
+
+(def send-message-template
+  {:msg-from nil
+   :msg-recipients []
+   :msg-subject nil
+   :msg-bodytype nil
+   :msg-body nil})
+
+
 (defn send-message
-  [msg recipient  & recipients]
-  (if (empty? (conj recipients recipient))
-    (println "No recipients error"))
-  (if (nil? msg)
-    (println "No message error"))
-  )
+  [msg & msgs]
+  (if (empty? (conj msgs msg))
+    (println "No messages error")
+    {:action :send-message
+     :filters nil
+     :mesages (conj msgs msg)}))
 

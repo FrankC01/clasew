@@ -2,7 +2,8 @@
   ^{:author "Frank V. Castellucci"
     :doc "Clojure AppleScriptEngine Wrapper - common message DSL utilities"}
   clasew.mesg-utils
-  (:require   [clasew.ast-emit :as ast]
+  (:require   [clasew.utility :as util]
+              [clasew.ast-emit :as ast]
               [clasew.ast-utils :as astu]
               [clasew.messages :as mesg]))
 
@@ -525,20 +526,36 @@
         mfilt :indx (if-pass-block :mrec args :accum :indx callblk2)))))
      (ast/return nil :accum))))))
 
+;on tree_mailboxes(accum, par)
+;	tell application "Mail"
+;		local mbloop, mrec
+;		set mrec to {mb_message_count:(get count of messages of par), mb_unread_message_count:(get unread count of par), mb_name:(get name of par)}
+;		repeat with mbloop in (get mailboxes of par)
+;			set mrec to mrec & {mb_child:my tree_mailboxes(accum, mbloop)}
+;		end repeat
+;		set end of accum to mrec
+;	end tell
+;end tree_mailboxes
+
 (defn- frame-hierarchical-mailboxes
   [fmap block]
   fmap)
 
+(defn- refactor-mailbox-filter
+  [filters]
+  [false filters])
+
 (defn- frame-process-mailboxes
-  [fmap {:keys [fetch-type] :as block} parm1 parm2]
-  [(if (= fetch-type :mailboxes)
+  [fmap {:keys [fetch-type filters] :as block} parm1 parm2]
+  (let [[cf? nfilter] (refactor-mailbox-filter filters)]
+  [(if (and (= fetch-type :mailboxes) (not cf?))
      (frame-flatten-mailboxes fmap block)
      (frame-hierarchical-mailboxes fmap block))
    (ast/routine-call
     nil
     (ast/term nil (if (= fetch-type :mailboxes) :flatten_mailboxes :hierarchy_mailboxes))
     (ast/term nil parm1)
-    (ast/term nil parm2))])
+    (ast/term nil parm2))]))
 
 (defn- frame-build-mailboxes
   [fmap {:keys [args] :as block}]
@@ -619,23 +636,23 @@
   [fmap block {:keys [source accum] :as args}]
   (let [[zmap mfilt] (frame-filter fmap block)
         [smap code] (account-block zmap block args)]
-  (update-in
-   smap
-   [:routine] conj
-   (ast/routine
-    nil :fetch_accounts []
-  (ast/tell nil *application*
-   (ast/define-locals nil source accum :alist)
-   (ast/set-statement nil (ast/term nil :alist) ast/empty-list)
-   (ast/set-statement
-    nil
-    (ast/term nil source)
-    (ast/routine-call
-     nil
-     (ast/term nil :account_list)
-     (ast/list-of nil (term-gen (*application* acc-list)))
-     (ast/term nil mfilt)))
-   code)))))
+    (update-in
+     smap
+     [:routine] conj
+     (ast/routine
+      nil :fetch_accounts []
+      (ast/tell nil *application*
+                (ast/define-locals nil source accum :alist)
+                (ast/set-statement nil (ast/term nil :alist) ast/empty-list)
+                (ast/set-statement
+                 nil
+                 (ast/term nil source)
+                 (ast/routine-call
+                  nil
+                  (ast/term nil :account_list)
+                  (ast/list-of nil (term-gen (*application* acc-list)))
+                  (ast/term nil mfilt)))
+                code)))))
 
 
 (defn- frame-body
@@ -656,6 +673,13 @@
   [acc targ]
   (if (not-empty (second targ)) (conj acc (second targ)) acc))
 
+(defn- fill-block-gaps
+  [{:keys [fetch-type] :as block}]
+  (condp = fetch-type
+    :accounts block
+    :mailboxes (mesg/accounts block)
+    :messages  (mesg/accounts (mesg/mailboxes block))))
+
 (defn- message-fetch-builder
   [block]
   (let [fmap (frame-body
@@ -667,7 +691,7 @@
                                       :filter []
                                       :routine []
                                       :body []}))))
-               block  {:source :aclist :accum :arec}))]
+               (fill-block-gaps block)  {:source :aclist :accum :arec}))]
     (apply (partial ast/block nil)
            (flatten (reduce fetch-reducer [] fmap)))))
 
@@ -678,3 +702,11 @@
   (with-bindings {#'*application* appbiding
                   #'*token-terms* token-binding}
     (message-fetch-builder block)))
+
+(defn send-message
+  "Main entry point for sending messages"
+  [appbinding token-binding block]
+  (with-bindings {#'*application* appbinding
+                  #'*token-terms* token-binding}
+    (ast/block nil)
+    ))

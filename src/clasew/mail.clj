@@ -32,6 +32,9 @@
   (get mail-messages termkw (name termkw)))
 
 (defn script
-  [block]
+  [{:keys [action] :as directives}]
   (genas/ast-consume
-   (mesgu/fetch-messages :mail mail-mapcore-messages block)))
+   (condp = action
+     :get-messages (mesgu/fetch-messages :mail mail-mapcore-messages directives)
+     :send-message (mesgu/send-message :mail mail-mapcore-messages directives)
+     (str "Don't know how to complete " action))))

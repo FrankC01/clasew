@@ -790,6 +790,7 @@
     :add-individuals     (add-contacts directives)
     :update-individual   (update-contacts (refactor-update  directives))
     :get-messages        (outm/get-messages directives)
+    :send-message        (outm/send-message directives)
     (str "Don't know how to complete " action)))
 
 

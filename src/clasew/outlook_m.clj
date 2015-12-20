@@ -36,3 +36,8 @@
   [block]
   (genas/ast-consume
    (mesgu/fetch-messages :outlook outlook-mapcore-messages block)))
+
+(defn send-message
+  [block]
+  (genas/ast-consume
+   (mesgu/send-message :outlook outlook-mapcore-messages block)))
