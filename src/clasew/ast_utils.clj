@@ -109,7 +109,7 @@
 
 (defn quit
   "Script to quit an application
-  appkw - keyword (:outlook or :contacts) identies the application
+  appkw - keyword (:outlook, :mail or :contacts) identies the application
   to shut down"
   [appkw]
   (genas/ast-consume
