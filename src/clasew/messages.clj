@@ -50,26 +50,31 @@
 ;;
 
 (defn- make-fetch
-  [kw standard attrs]
-  (let [ia (filter keyword? attrs)]
+  [kw standard args]
+  (let [ia (filter keyword? args)]
     {:action :get-messages
      :fetch-type kw
      :args (if (empty? ia) (seq standard) ia)
-     :filters (first (rest (astu/filter-forv :filter attrs)))
-     :subsets (astu/filter-form attrs)}))
+     :filters (first (rest (astu/filter-forv :filter args)))
+     :subsets (astu/filter-form args)}))
 
 (defn mailboxes
-  [& attrs]
-  (make-fetch :mailboxes mailbox-standard attrs))
+  "Prepares the script for retrieving attributes of mailboxes from the message source
+  application along with any additional sub-attributes. Also supports mailbox filtering."
+  [& args]
+  (make-fetch :mailboxes mailbox-standard args))
 
 (defn accounts
-  [& attrs]
-  (make-fetch :accounts account-standard attrs))
+  "Prepares the script for retrieving attributes of accounts from the message source
+  application along with any additional sub-attributes. Also supports account filtering."
+  [& args]
+  (make-fetch :accounts account-standard args))
 
 (defn messages
-  "Fetch messages from application"
-  [& attrs]
-  (make-fetch :messages message-standard attrs))
+  "Prepares the script for retrieving attributes of messages from the message source
+  application. Also supports message filtering."
+  [& args]
+  (make-fetch :messages message-standard args))
 
 ;;
 ;; High level DSL functions - Send ------------------------------------------------

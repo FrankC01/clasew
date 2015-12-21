@@ -140,7 +140,7 @@
 ;;;; Sample 9
 ;; Filtered message fetch. A complex filter to narrow a specific
 ;; account (see Sample 6) with specific mailbox (see Sample 7) and
-;; a filter on partial sender information to substitute valid names.
+;; a filter on partial sender information.
 
 (def s-fetch-filtered-message
   (mesg/accounts
