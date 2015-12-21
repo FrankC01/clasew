@@ -59,7 +59,7 @@ The following table identifies additional restrictions on using filters on vario
 
 ####Message Data Model
 
-<img style="float: " src="clasew-msgdatamodel.png" alt="clasew message data model" title="clasew Message Data Model" height="200" width="300"/>
+<img style="float: " src="clasew-msgdatamodel.png" alt="clasew message data model" title="clasew Message Data Model" height="400" width="300"/>
 
 #####clasew.messages/accounts
 This form is used as ***input*** to the respective `clasew.APPLICATION/script` functions invoked for the target application to fetch all or partial information for accounts.
