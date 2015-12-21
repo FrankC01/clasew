@@ -57,12 +57,16 @@ The following table identifies additional restrictions on using filters on vario
 <tr><td>All</td><td>`clasew..messages/messages`</td><td>filter-expressions can only apply to message properties and not accounts or mailboxes</td></tr>
 </table>
 
-####Message Data Model
+####Fetching Message Data
 
-<img style="float: " src="clasew-msgdatamodel.png" alt="clasew message data model" title="clasew Message Data Model" height="400" width="300"/>
+The following data model is an abstraction of how `clasew.messages` views the world. Note the topological relationships as these are adhered to in the `clasew.messages` DSL.
+
+#####Data Model
+
+<img style="float: " src="clasew-msgdatamodel.png" alt="clasew message data model" title="clasew Message Data Model" height="400" width="200"/>
 
 #####clasew.messages/accounts
-This form is used as ***input*** to the respective `clasew.APPLICATION/script` functions invoked for the target application to fetch all or partial information for accounts.
+This form may be used as ***input*** to the `clasew.APPLICATION/script` function, invoked for the target application, to fetch all, partial and/or filtered information for accounts.
 ```clojure
 (defn accounts
   "Prepares the script for retrieving attributes of accounts from the message source
@@ -178,7 +182,87 @@ Here is a REPL ready examples. **Note that the output from the following are not
      :filters {:joins (), :args ((:msg_sender :contains "irs.gov"))},
      :subsets ()})})}
 ```
+#####clasew.messages/mailboxes
+This form may be used as ***input*** to the `clasew.APPLICATION/script` function, invoked for the target application, to fetch all, partial and/or filtered information for account mailboxes.
+```clojure
+(defn mailboxes
+  "Prepares the script for retrieving attributes of mailboxes from the message source
+  application along with any additional sub-attributes. Also supports mailbox filtering."
+  [& args]
+  (...)
+```
+The following is a breakdown of the arguments and variations
+<table>
+<tr><th>Argument</th><th>Description</th></tr>
+<tr><td>keywords</td><td>(optional) Keywords identifying attributes of the account you want to return with the results. If omitted, attributes returned are defined by `clasew.messages/mailbox-standard`.</tr>
+<tr><td>map</td><td>(optional) Map produced from `clasew.messages/messages`</td></tr>
+<tr><td>filters</td><td>(optional) Contains filter designation to limit scope of accounts whose information is being fetched. See Filtering description and limitations above.</td></tr>
+</table>
 
+Here is a REPL ready examples. **Note that the output from the following are not runnable scripts but purely for demonstrating form results**:
+```clojure
+(ns clasew.sandbox
+  (:require [clasew.messages :as mesg]
+            [clasew.ast-utils :as astu]
+            [clojure.pprint :refer :all])
+  )
+
+;;; Setup for the example
+
+(def p pprint)
+
+;;; Demonstrate most basic call
+
+(mesg/mailboxes)
+
+;;; Internally, clasew prepends accounts if missing. So the above is
+;;; equivalent to
+
+(mesg/accounts (mesg/mailboxes))
+
+;;;
+;;; Variants
+
+; All mailboxes and their respective messages
+; This could get big
+
+(mesg/mailboxes (mesg/messages))
+
+; Limit output to getting only name and unread count of mailbox
+
+(mesg/mailboxes :mb_name :mb_unread_message_count)
+
+; Filtering on inbox with unread messages!
+; Mailbox names are application and case sensitive
+
+(p (mesg/accounts
+    (mesg/mailboxes
+     (astu/filter :mb_name astu/EQ "Inbox"
+     (mesg/messages
+      (astu/filter :msg_read astu/EQ false)
+      :msg_subject
+      :msg_sender
+      :msg_recipients
+      :msg_date_sent))))
+```
+
+#####clasew.messages/messages
+This form may be used as ***input*** to the `clasew.APPLICATION/script` function, invoked for the target application, to fetch all, partial and/or filtered information for account mailbox messages.
+```clojure
+(defn messages
+  "Prepares the script for retrieving attributes of messages from the message source
+  application along with any additional sub-attributes. Also supports message filtering."
+  [& args]
+  (...)
+```
+The following is a breakdown of the arguments and variations
+<table>
+<tr><th>Argument</th><th>Description</th></tr>
+<tr><td>keywords</td><td>(optional) Keywords identifying attributes of the account you want to return with the results. If omitted, attributes returned are defined by `clasew.messages/message-standard`.</tr>
+<tr><td>filters</td><td>(optional) Contains filter designation to limit scope of accounts whose information is being fetched. See Filtering description and limitations above.</td></tr>
+</table>
+
+*For additional examples see the [Example 9](../dev/src/clasew/examples9.clj) source*
 
 #####clasew.APPLICATION/script
 (where Application is either the clasew.mail or clasew.outlook name spaces
