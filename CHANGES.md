@@ -2,6 +2,24 @@
 
 clasew: A Clojure AppleScriptEngine Wrapper
 
+## 0.3.0
+This release includes a medium impact breaking change to clasew:
+1. Filters have been moved to a utility namespace to share between
+clasew.individuals and clasew.messages (NEW).
+
+### Enhancements
+This release includes for ***Microsoft Outlook*** and ***Apple Mail***
+applications email capabilities.
+
++ New Functions
+<table>
+<tr><th>Function</th><th>Description</th></tr>
+<tr><td>accounts</td><td>Fetch accounts. Filters supported.</td></tr>
+<tr><td>mailboxes</td><td>Fetch mailboxes of accounts. Filters supported.</td></tr>
+<tr><td>messages</td><td>Fetch messages of mailboxes of accounts. Filters supported.</td></tr>
+<tr><td>send-message</td><td>Send email. Minor filter support.</td></tr>
+</table>
+
 ## 0.2.1
 This release includes a minor breaking change to clasew:
 1. Filters have been enhanced to support more complex expressions in this release and requie use of the ```clasew.identities/filter``` function instead of just a map.

@@ -7,7 +7,7 @@ A Clojure AppleScriptEngine Wrapper
 clasew provide an idiomatic clojure wrapper for Java ScriptManager, specifically AppleScriptManager,  and scriptable application DSLs for common usage.
 
 
-##Architecture 0.2.1
+##Architecture 0.3.0
 As per the Intent, the clasew architecture is very straight forward.
 
 <img style="float: " src="doc/clasew-arch.png" alt="clasew architecture" title="clasew architecture" height="400" width="600"/>
@@ -25,7 +25,9 @@ Consists of clasew.*appname* namespaces where ***appname*** is collection of idi
 3. [Generic spreadsheet DSL](doc/clasew-spreads.md)
 4. [Numbers DSL](doc/clasew-numbers.md)
 5. [Excel DSL](doc/clasew-excel.md)
-6. [Identities DSL](doc/clasew-identities.md)
+6. [Filter DSL](doc/clasew-ast-utils.md) - Used by identities and messages
+7. [Identities DSL](doc/clasew-identities.md)
+8. [Messages DSL](doc/clasew-messages.md)
 
 ##Examples
 
@@ -39,13 +41,14 @@ All files located [here](dev/src/clasew)
 6. [Quarterly Sales Contrived Snippet](dev/src/clasew/quarters.clj) - Demonstrates a more realistic use for Excel and/or Numbers
 7. [Example 7](dev/src/clasew/examples7.clj) - Demonstrates clasew-identities and clasew-outlook DSL
 8. [Example 8](dev/src/clasew/examples8.clj) - Demonstrates clasew-identities and clasew-contacts DSL
+9. [Example 9](dev/src/clasew/examples9.clj) - Demonstrates clasew-messages for both MS Outlook and Apple Mail
 
 My dev environment:
 
 * Clojure 1.6
-* Yosemite 10.10.4
-* Oracle Java 1.8.0_31
-* Lighttable 0.72
+* El Capitan 10.11.12
+* Oracle Java 1.8.0_66
+* Lighttable 0.80
 
 ##License
 
