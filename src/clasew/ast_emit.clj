@@ -136,6 +136,8 @@
 (def   rparen           (term nil ")"))
 (def   first-of         (term nil "first item"))
 (def   second-of        (term nil "second item"))
+(def   at               (term nil " at "))
+(def   as_send          (term nil "send "))
 
 (defn get-statement
   [token-fn expressions]
@@ -404,6 +406,18 @@
 ;; Ease of use forms
 ;;
 
+(defn set-result-msg-with-count
+  "Creates a result s including a count of ct and
+  placed in rt"
+  [s rt ct]
+  (set-statement
+   nil
+   (eol-cmd nil rt nil)
+   (string-builder
+    nil
+    (string-literal s)
+    (count-expression nil (term nil ct)))))
+
 (defn kv-template
   "Creates a key-value AST of the form:
   'termkw: (get targkw of sourcekw)' applying
@@ -418,18 +432,37 @@
      nil
      (term target-token-fn termkw) (term nil sourcekw)))))
 
-
-(defn set-result-msg-with-count
-  "Creates a result s including a count of ct and
-  placed in rt"
-  [s rt ct]
-  (set-statement
-   nil
-   (eol-cmd nil rt nil)
-   (string-builder
+(defn kv-template-t
+  "Creates a key-value AST of the form:
+  'termkw: (get targkw of sourcekw)' applying
+  the tokenfn to targkw of key-value"
+  [target-token-fn termkw sourcekw]
+  (key-value
+   target-token-fn
+   (key-term termkw)
+   (get-statement
     nil
-    (string-literal s)
-    (count-expression nil (term nil ct)))))
+    (xofy-expression
+     nil
+     (term-nl termkw) (term nil sourcekw)))))
+
+(defn- kv-template2
+  [[termkw ofvalue]]
+  (key-value
+   nil
+   (key-term termkw)
+   (condp #(%1 %2) ofvalue
+     nil?    null
+     string? (string-literal ofvalue)
+     vector? (list-of
+              nil
+              (map #(string-literal %) ofvalue)))))
+
+(defn setrecord-frommap
+  "Generates a AS record from a clojure map"
+  [fmap]
+  (apply (partial record-definition nil)
+         (map #(kv-template2 %) fmap)))
 
 (defn set-empty-record
   "Creates a record with keys whose values are null"
@@ -461,6 +494,7 @@
                (term nil sourcemap)))))
           [] mapvars))
 
+
 (defn set-extend-record
   "Similar to clojure assoc call, set-extend-record emits:
   set targ to targ & {skey:sval}"
@@ -476,7 +510,8 @@
      (key-value nil (key-term skey) (term nil sval))))))
 
 (defn record-fetch
-  "Builds inline record population/setters"
+  "Builds inline record population/setters and sets
+  token lookup on source attribute"
   [rhstoken args accum source]
   (if (empty? args)
     (block nil)

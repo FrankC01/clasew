@@ -163,5 +163,21 @@
 
 ; *********** Send Messages Examples ****************
 
-(mail/script (mesg/send-message {} {} {}))
+#_(println (mail/script (mesg/send-message
+                       {:msg_sender (astu/filter :acct_name astu/EQ "ACCOUNT NAME HERE")
+                        ;:msg_sender "ACCOUNT OWNER EMAIL NAME"
+                        :msg_recipients ["RECIPIENT1@SOMEWHERE.COM"
+                                         "RECIPIENT1@SOMEWHERE.COM"]
+                        :msg_text "This is the test"
+                        :msg_subject "Hey, look at this"})))
+
+#_(println (outlook/script (mesg/send-message
+                       {;:msg_sender (astu/filter :acct_name astu/EQ "ACCOUNT NAME HERE")
+                        :msg_sender "frank.castellucci@axiom1inc.com"
+                        :msg_recipients ["RECIPIENT1@SOMEWHERE.COM"
+                                         "RECIPIENT1@SOMEWHERE.COM"]
+                        :msg_text "This is the test"
+                        :msg_subject "Hey, look at this"})))
+
+
 

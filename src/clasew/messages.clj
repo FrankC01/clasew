@@ -82,19 +82,17 @@
 
 ;; Message template
 
-(def send-message-template
-  {:msg-from nil
-   :msg-recipients []
-   :msg-subject nil
-   :msg-bodytype nil
-   :msg-body nil})
+;(def send-message-template
+;  {:msg_sender     nil ; email string or account filter to get email address
+;   :msg_recipients []  ; currently support To: - A vector of email addresses
+;   :msg_subject    nil ; String
+;   :msg_text       nil ; String
+;   })
 
 
 (defn send-message
-  [msg & msgs]
-  (if (empty? (conj msgs msg))
-    (println "No messages error")
-    {:action :send-message
-     :filters nil
-     :mesages (conj msgs msg)}))
+  [msg]
+  {:action :send-message
+   :filters nil
+   :message msg})
 

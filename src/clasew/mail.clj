@@ -7,7 +7,8 @@
 
 (def mail-messages
   {
-   :dstring                 "date string"
+   :dstring                 "date string",
+   :out_message_mb          "outgoing message",
    :acct_name               "name",
    :acct_emails             "email addresses",
    :acct_user_name          "user name",

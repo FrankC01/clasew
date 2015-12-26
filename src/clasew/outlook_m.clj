@@ -9,6 +9,8 @@
 (def outlook-messages
   {
    :dstring                 "date string"
+   :out_message_mb          "outgoing message",
+   :to_recipient            "to recipient"
    :acct_name               "name",
    :acct_emails             "email address",
    :acct_user_name          "user name",
@@ -19,7 +21,7 @@
    :mb_unread_message_count "unread count"
    :msg_subject             "subject"
    :msg_sender              "sender"
-   :msg_text                "plain text content"
+   :msg_text                "content";"plain text content"
    :msg_recipients          "recipients"
    :msg_date_recieved       "time received"
    :msg_date_sent           "time sent"
