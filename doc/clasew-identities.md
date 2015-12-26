@@ -190,7 +190,7 @@ This form is used as ***input*** to the respective ```clasew.APPLICATION/script`
 The following is a breakdown of the arguments and variations
 <table>
 <tr><th>Argument</th><th>Description</th></tr>
-<tr><td>filter</td><td>(required) Contains filter designation to limit individuals being deleted. See ```identities/filter``` description and limitations above.</td></tr>
+<tr><td>filter</td><td>(required) Contains filter designation to limit individuals being deleted.</td></tr>
 </table>
 
 

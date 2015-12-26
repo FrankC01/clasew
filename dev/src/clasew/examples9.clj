@@ -163,21 +163,56 @@
 
 ; *********** Send Messages Examples ****************
 
-#_(println (mail/script (mesg/send-message
-                       {:msg_sender (astu/filter :acct_name astu/EQ "ACCOUNT NAME HERE")
-                        ;:msg_sender "ACCOUNT OWNER EMAIL NAME"
-                        :msg_recipients ["RECIPIENT1@SOMEWHERE.COM"
-                                         "RECIPIENT1@SOMEWHERE.COM"]
-                        :msg_text "This is the test"
-                        :msg_subject "Hey, look at this"})))
+;;;; Sample 10
+;; Send an email message and let the called application
+;; use the default email account to determine who the 'sender' is
+;; Substitute recipients with valid data
 
-#_(println (outlook/script (mesg/send-message
-                       {;:msg_sender (astu/filter :acct_name astu/EQ "ACCOUNT NAME HERE")
-                        :msg_sender "frank.castellucci@axiom1inc.com"
-                        :msg_recipients ["RECIPIENT1@SOMEWHERE.COM"
-                                         "RECIPIENT1@SOMEWHERE.COM"]
-                        :msg_text "This is the test"
-                        :msg_subject "Hey, look at this"})))
+(def s-send-message-default-sender
+  (mesg/send-message
+   {:msg_recipients ["RECIPIENT1@SOMEWHERE.COM"
+                     "RECIPIENT1@SOMEWHERE.COM"]
+    :msg_text "This is the test"
+    :msg_subject "Hey, look at this"}))
 
+;; Uncomment either run command
+
+;(p (run-sample :mail s-send-message-default-sender))
+;(p (run-sample :outlook s-send-message-default-sender))
+
+;;;; Sample 11
+;; Send an email message using an account filter
+;; to resolve 'sender' email account
+;; Substitute sender and recipients with valid data
+
+(def s-send-message-from-filtered-account
+  (mesg/send-message
+   {:msg_sender (astu/filter :acct_name astu/EQ "ACCOUNT NAME HERE")
+    :msg_recipients ["RECIPIENT1@SOMEWHERE.COM"
+                     "RECIPIENT1@SOMEWHERE.COM"]
+    :msg_text "This is the test"
+    :msg_subject "Hey, look at this"}))
+
+;; Uncomment either run command
+
+;(p (run-sample :mail s-send-message-from-filtered-account))
+;(p (run-sample :outlook s-send-message-from-filtered-account))
+
+;;;; Sample 12
+;; Send an email message using an explicit sender
+;; Substitute sender and recipients with valid data
+
+(def s-send-message-from-explicit-sender
+  (mesg/send-message
+   {:msg_sender "SENDER@SOMEWHERE.COM"
+    :msg_recipients ["RECIPIENT1@SOMEWHERE.COM"
+                     "RECIPIENT1@SOMEWHERE.COM"]
+    :msg_text "This is the test"
+    :msg_subject "Hey, look at this"}))
+
+;; Uncomment either run command
+
+;(p (run-sample :mail s-send-message-from-explicit-sender))
+;(p (run-sample :outlook s-send-message-from-explicit-sender))
 
 

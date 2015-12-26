@@ -25,7 +25,7 @@ Consists of clasew.*appname* namespaces where ***appname*** is collection of idi
 3. [Generic spreadsheet DSL](doc/clasew-spreads.md)
 4. [Numbers DSL](doc/clasew-numbers.md)
 5. [Excel DSL](doc/clasew-excel.md)
-6. [Filter DSL](doc/clasew-filter.md) - Used by identities and messages
+6. [Filter DSL](doc/clasew-ast-utils.md) - Used by identities and messages
 7. [Identities DSL](doc/clasew-identities.md)
 8. [Messages DSL](doc/clasew-messages.md)
 

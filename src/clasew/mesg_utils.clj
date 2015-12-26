@@ -116,7 +116,8 @@
        (ast/term nil :acc)))
      (ast/for-in-expression
       nil
-      (ast/term nil :acc1) (ast/xofy-expression nil ast/second-of (ast/term nil :acc))
+      (ast/term nil :acc1) (ast/xofy-expression
+                            nil ast/second-of (ast/term nil :acc))
       (ast/if-statement
        nil
        (ast/if-expression
@@ -509,7 +510,8 @@
   if any to do or recurses on self to dig deeper"
   [fmap {:keys [args filters] :as block}]
   (let [[zmap mfilt] (frame-filter fmap block)
-        [zfmap1 callblk1] (frame-next-block zmap block {:source :par :accum :mrec})
+        [zfmap1 callblk1] (frame-next-block
+                           zmap block {:source :par :accum :mrec})
         callblk2 (reuse-callback-diff-arg callblk1 1 :to-value :indx)]
   (update-in
    zfmap1
@@ -563,7 +565,9 @@
      (frame-hierarchical-mailboxes fmap block))
    (ast/routine-call
     nil
-    (ast/term nil (if (= fetch-type :mailboxes) :flatten_mailboxes :hierarchy_mailboxes))
+    (ast/term nil (if (= fetch-type :mailboxes)
+                    :flatten_mailboxes
+                    :hierarchy_mailboxes))
     (ast/term nil parm1)
     (ast/term nil parm2))]))
 
@@ -618,9 +622,10 @@
   "Builds the account block for setting up and fetching
   account values"
   [fmap {:keys [args] :as block} {:keys [source accum] :as props}]
-  (let [[smap code] (frame-next-block fmap block (assoc props
-                                                       :source :indx
-                                                       :property :acct_mailboxes))]
+  (let [[smap code] (frame-next-block
+                     fmap block (assoc props
+                                  :source :indx
+                                  :property :acct_mailboxes))]
     [smap
      (ast/block
       nil
@@ -740,30 +745,9 @@
 ;;; End fetch Content
 
 ;;; Send content
-; Notes
-; if no account filter, applications use defaults
-; Repeat loop for 'to recipients'
-
-
-;on o_mail()
-;	tell application "Microsoft Outlook"
-;		-- set w to make new outgoing message with properties {account:(item 1 of pop accounts), subject:"test", content:"this is a test"}
-;		set w to make new outgoing message with properties {subject:"test", content:"this is a test"}
-;		make new to recipient at w with properties {email address:{address:"frankiecast@gmail.com"}}
-;		send w
-	;end tell
-;end o_mail
-
-;on a_mail()
-;	tell application "Mail"
-;		-- set w to make new outgoing message with properties {sender:"fv.castellucci@gmail.com", subject:"test", content:"this is a test"}
-;		set w to make new outgoing message with properties {subject:"test", content:"this is a test"}
-;		make new to recipient at w with properties {address:"frankiecast@gmail.com"}
-;		send w
-	;end tell
-;end a_mail
 
 (defn- make-recipients-address
+  "Generate the email address property for recipients"
   [srckw]
   (ast/record-definition
    nil
@@ -774,6 +758,8 @@
 
 (defn- make-to-address
   [srckw]
+  "Generates recipieint structure given
+  application."
   (condp = *application*
     :mail (make-recipients-address srckw)
     :outlook (ast/record-definition
@@ -784,6 +770,8 @@
                (make-recipients-address srckw)))))
 
 (defn- make-recipients
+  "Generates the repeat loop for setting the recipient
+  emails on the outbound message"
   [imsgkw listkw omsgkw]
   (ast/for-in-expression
    nil
@@ -805,6 +793,8 @@
    ))
 
 (defn- make-message
+  "Generates the 'make new outgoing message...'
+  script for a valid filtered account result"
   [targkw imsgkw acclistkw]
   (ast/block
    nil
@@ -836,6 +826,8 @@
       (ast/kv-template-t *token-terms* :msg_text imsgkw))))))
 
 (defn- make-message-default
+  "Generates teh 'make new outgoing message...'
+  script for default account assignment"
   [targkw imsgkw]
   (ast/set-statement
    nil
@@ -870,9 +862,9 @@
     falseform)))
 
 (defn- send-account-fetch
-  "Builds the 'send_account' handler to be called by
+  "Builds the 'send_message' handler to be called by
   the body entry point"
-  [fmap {:keys [message] :as block}]
+  [fmap {:keys [message filters] :as block}]
   (let [[zmap mfilt] (frame-filter fmap block)]
     (update-in
      zmap
@@ -880,23 +872,28 @@
      (ast/routine
       nil :send_message []
       (ast/tell nil *application*
+                ; Setup the locals
                 (ast/define-locals nil :alist :imsg :omsg)
                 (ast/set-statement
                  nil
                  (ast/term nil :imsg)
                  (ast/setrecord-frommap (:message block)))
-                (ast/set-statement
-                 nil
-                 (ast/term nil :alist)
-                 (ast/routine-call
-                  nil
-                  (ast/term nil :account_list)
-                  (ast/list-of nil (term-gen (*application* acc-list)))
-                  (ast/term nil mfilt)))
-                (if-count-then-else
-                 :alist
-                 (make-message-default :omsg :imsg)
-                 (make-message :omsg :imsg :alist))
+                (if filters
+                  (ast/block
+                   nil
+                   (ast/set-statement
+                    nil
+                    (ast/term nil :alist)
+                    (ast/routine-call
+                     nil
+                     (ast/term nil :account_list)
+                     (ast/list-of nil (term-gen (*application* acc-list)))
+                     (ast/term nil mfilt)))
+                   (if-count-then-else
+                    :alist
+                    (make-message-default :omsg :imsg)
+                    (make-message :omsg :imsg :alist)))
+                  (make-message-default :omsg :imsg))
                 (make-recipients :imsg :msg_recipients :omsg)
                 (ast/expression
                  nil
@@ -905,7 +902,7 @@
                 )))))
 
 (defn- send-body
-  "Builds the main 'tell' application body"
+  "Builds the main 'tell' application body entry point"
   [fmap]
   (update-in
    fmap
@@ -920,14 +917,23 @@
       (ast/term nil :send_message))))))
 
 (defn- send-msg-subs
-  "Re-arrange for filtering accounts"
-  [{{:keys [msg_sender] :as msg} :message :as block}]
+  "Validate and re-arrange for filtering accounts"
+  [{{:keys [msg_sender msg_recipients
+            msg_subject msg_text] :or {msg_sender nil} :as msg} :message :as block}]
+  {:pre [(and (not (nil? msg_subject))
+              (not-empty msg_subject)
+              (not (nil? msg_text))
+              (not-empty msg_text)
+              (not (nil? msg_recipients))
+              (not-empty msg_recipients))]}
   (assoc block
     :message (assoc msg :msg_sender nil)
-    :filters (second
-              (if (string? msg_sender)
-                (astu/filter :acct_emails astu/EQ msg_sender)
-                msg_sender))))
+    :filters (cond
+               (nil? msg_sender)    nil
+               (empty? msg_sender)  nil
+               (string? msg_sender) (second (astu/filter :acct_emails astu/EQ msg_sender))
+               (vector? msg_sender) (second msg_sender)
+               :else (assert false (str "Unable to resolve " msg_sender)))))
 
 (defn- message-send-builder
   [block]

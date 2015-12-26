@@ -91,6 +91,8 @@
 
 
 (defn send-message
+  "Prepares the script for sending email messages. Filters are supported
+  on the :msg_sender attribute only."
   [msg]
   {:action :send-message
    :filters nil

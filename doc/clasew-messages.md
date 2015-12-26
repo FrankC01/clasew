@@ -44,7 +44,7 @@ The following table identifies where filters may be provided to modify a functio
 <tr><td>clasew.messages/accounts</td><td>na</td><td>Y</td></tr>
 <tr><td>clasew.messages/mailboxes</td><td>na</td><td>Y</td></tr>
 <tr><td>clasew.messages/messages</td><td>na</td><td>Y</td></tr>
-<tr><td>clasew.messages/send-message</td><td>na</td><td>N</td></tr>
+<tr><td>clasew.messages/send-message</td><td>na</td><td>Y (subset)</td></tr>
 </table>
 
 #####Filter applied function restrictions
@@ -55,6 +55,7 @@ The following table identifies additional restrictions on using filters on vario
 <tr><td>All</td><td>`clasew.identities/accounts`</td><td>filter-expressions can only apply to account properties and not mailboxes or messages</td></tr>
 <tr><td>All</td><td>`clasew.messages/mailboxes`</td><td>filter-expressions can only apply to mailbox properties and not accounts or messages</td></tr>
 <tr><td>All</td><td>`clasew..messages/messages`</td><td>filter-expressions can only apply to message properties and not accounts or mailboxes</td></tr>
+<tr><td>All</td><td>`clasew..messages/send-message`</td><td>filter-expressions can only apply to input `:msg_sender` attribute and must use the account properties only</td></tr>
 </table>
 
 ####Fetching Message Data
@@ -262,6 +263,32 @@ The following is a breakdown of the arguments and variations
 <tr><td>filters</td><td>(optional) Contains filter designation to limit scope of accounts whose information is being fetched. See Filtering description and limitations above.</td></tr>
 </table>
 
+#####clasew.messages/send-message
+This form may be used as input to the `clasew.APPLICATION/script` function, invoked for the target application, to send email messages.
+
+```clojure
+
+;(def send-message-template
+;  {:msg_sender     nil ; nil,email string or account filter to get email address
+;   :msg_recipients []  ; currently support To: - A vector of email addresses
+;   :msg_subject    nil ; String
+;   :msg_text       nil ; String
+;   })
+
+(defn send-message
+  "Prepares the script for sending email messages. Filters are supported
+  on the :msg_sender attribute only. If :msg_sender is nil the default
+  account (as defined by target application) will be used"
+  [msg]
+  (...)
+```
+The following is a breakdown of the arguments and variations
+<table>
+<tr><th>Argument</th><th>Description</th></tr>
+<tr><td>msg</td><td>(map required) Refer to the send-message-template for attributes.</tr>
+</table>
+
+
 *For additional examples see the [Example 9](../dev/src/clasew/examples9.clj) source*
 
 #####clasew.APPLICATION/script
@@ -269,28 +296,21 @@ The following is a breakdown of the arguments and variations
 
 
 ```clojure
-
 ;;; Produce script output ready for input into clasew.messages/run-script!
-
-(p (clasew.outlook/script
-    (mesg/accounts)))
-
-(p (clasew.mail/script
-    (mesg/accounts)))
-
-;;; Take the output from the script generation and run it
-
-(p (mesg/run-script!
-    (clasew.outlook/script
-      (mesg/accounts))))
-
-;;; Take the output from the script generation and run it, then quit application
 
 (p (mesg/run-script!
     (clasew.outlook/script
      (mesg/accounts))
     (astu/quit :outlook)))
 
+(mesg/run-script!
+  (clasew.mail/script
+    (mesg/send-message
+     {:msg_sender "SENDER@SOMEWHERE.COM"
+      :msg_recipients ["RECIPIENT1@SOMEWHERE.COM"
+                     "RECIPIENT1@SOMEWHERE.COM"]
+      :msg_text "This is the test"
+      :msg_subject "Hey, look at this"})))
 
 ```
 
