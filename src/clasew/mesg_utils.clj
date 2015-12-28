@@ -677,7 +677,7 @@
       (ast/return nil :alist))]))
 
 (defn- term-gen
-  "Term generator"
+  "Term generator for creating the input to the account locator routine"
   [coll]
   (map #(ast/list-of
          nil
@@ -696,8 +696,11 @@
      (ast/routine
       nil :fetch_accounts []
       (tell-app
+       ; Setup the locals
        (ast/define-locals nil :aclist :arec :alist)
        (ast/set-statement nil (ast/term nil :alist) ast/empty-list)
+
+       ; Get the account list (filtered or not)
        (ast/set-statement
         nil
         (ast/term nil :aclist)
@@ -706,6 +709,8 @@
          (ast/term nil :account_list)
          (ast/list-of nil (term-gen (*application* acc-list)))
          (ast/term nil mfilt)))
+
+       ; Hook to mailboxes and messsages
        code)))))
 
 
@@ -863,6 +868,25 @@
     nil
     falseform)))
 
+(defn- filtered-account-fetch
+  [settargkw routinekw filters myfilt]
+  (if filters
+    (ast/block
+     nil
+     (ast/set-statement
+      nil
+      (ast/term nil settargkw)
+      (ast/routine-call
+       nil
+       (ast/term nil routinekw)
+       (ast/list-of nil (term-gen (*application* acc-list)))
+       (ast/term nil myfilt)))
+     (if-count-then-else
+      :alist
+      (make-message-default :omsg :imsg)
+      (make-message :omsg :imsg :alist)))
+    (make-message-default :omsg :imsg)))
+
 (defn- send-account-fetch
   "Builds the 'send_message' handler to be called by
   the body entry point"
@@ -876,27 +900,21 @@
       (tell-app
        ; Setup the locals
        (ast/define-locals nil :alist :imsg :omsg)
+
+       ; Create the message record
        (ast/set-statement
         nil
         (ast/term nil :imsg)
         (ast/setrecord-frommap (:message block)))
-       (if filters
-         (ast/block
-          nil
-          (ast/set-statement
-           nil
-           (ast/term nil :alist)
-           (ast/routine-call
-            nil
-            (ast/term nil :account_list)
-            (ast/list-of nil (term-gen (*application* acc-list)))
-            (ast/term nil mfilt)))
-          (if-count-then-else
-           :alist
-           (make-message-default :omsg :imsg)
-           (make-message :omsg :imsg :alist)))
-         (make-message-default :omsg :imsg))
+
+       ; Check body type - filtered or not
+       ; Create initial message creation
+       (filtered-account-fetch :alist :account_list filters mfilt)
+
+       ; Populate recipients
        (make-recipients :imsg :msg_recipients :omsg)
+
+       ; Send the email
        (ast/expression
         nil
         ast/as_send (ast/term nil :omsg) ast/new-line))))))
@@ -914,22 +932,21 @@
               (not-empty msg_recipients))]}
   (assoc block
     :message (dissoc msg :msg_sender)
-    :filters (cond
-               (nil? msg_sender)    nil
-               (empty? msg_sender)  nil
-               (string? msg_sender) (second (astu/filter :acct_emails astu/EQ msg_sender))
-               (vector? msg_sender) (second msg_sender)
-               :else (assert false (str "Unable to resolve " msg_sender)))))
+    :filters (condp #(%1 %2) msg_sender
+               nil?     nil
+               empty?   nil
+               string?  (second (astu/filter :acct_emails astu/EQ msg_sender))
+               vector?  (second msg_sender)
+               (assert false (str "Unable to resolve " msg_sender)))))
 
 (defn- message-send-builder
   "Construct the AST for sending messages"
-  [block]
-  (let [nblk (send-msg-subs block)]
+  [{:keys [filters] :as block}]
   (flatten-stack
    (routines
-    (conj (if (:filters nblk) [match-script account-list] [])
-          (partial send-account-fetch nblk)
-          (partial script-body :send_message))))))
+    (conj (if filters [match-script account-list] [])
+          (partial send-account-fetch block)
+          (partial script-body :send_message)))))
 
 (defn send-message
   "Main entry point for sending messages"
@@ -937,6 +954,6 @@
   (with-bindings {#'*application* appbinding
                   #'*token-terms* token-binding
                   #'*build-for* :send}
-    (message-send-builder block)))
+    (message-send-builder (send-msg-subs block))))
 
 ;;; End send content
