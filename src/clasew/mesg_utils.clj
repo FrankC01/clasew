@@ -21,6 +21,138 @@
   {:outlook #{"exchange accounts", "pop accounts", "imap accounts", "ldap accounts"}
    :mail #{"iCloud accounts", "pop accounts", "imap accounts"}})
 
+;;
+;; General purpose functions
+;;
+
+(defn- tell-app
+  [& expressions]
+  (apply ast/tell nil *application* expressions))
+
+(defn- set-emptylist
+  [varkw]
+  (ast/set-statement nil (ast/term nil varkw) ast/empty-list))
+
+(defn- set-local-and-emptylist
+  [varkw]
+  (ast/block
+   nil
+   (ast/define-locals nil varkw)
+   (set-emptylist varkw)))
+
+(defn- builder-reducer
+  "Used to reduce all the callers into accumulator"
+  [acc targ]
+  (if (not-empty (second targ)) (conj acc (second targ)) acc))
+
+(defn- flatten-stack
+  "Flattens resulting stack for generation"
+  [fmap]
+  (apply (partial ast/block nil)
+         (flatten (reduce builder-reducer [] fmap))))
+
+(def ^:private routine-frame {:script [] :filter [] :routine [] :body []})
+
+(defn- routines
+  "Builds routine stack"
+  [coll]
+  (reduce #(%2 %1) routine-frame coll))
+
+;;
+;; General purpose routine generators
+;;
+
+(defn- script-body
+  "Build the main 'tell' routine for the script whose
+  only job is to call the starting handler"
+  [handlerkw fmap]
+  (update-in
+   fmap
+   [:body] conj
+   (tell-app
+    (ast/return
+     nil
+     (ast/routine-call
+      nil
+      (ast/term nil handlerkw))))))
+
+(defn- match-script
+  "Generates the script caller typically for filters
+  e.g. if (my match(arg1,arg2))"
+  [fmap]
+  (update-in
+   fmap [:script] conj
+   (ast/routine
+    nil :match [:pat :aa]
+    (ast/script
+     nil :o true
+     (ast/property
+      nil
+      (ast/key-value nil (ast/property-term :f)(ast/term nil :pat)))
+     (ast/return
+      nil
+      (ast/routine-call nil (ast/term nil :f)(ast/term nil :aa)))))))
+
+(defn- date-cleaner-return
+  "Provides the return clause for a non missing date value condition"
+  []
+  (ast/return
+   nil
+   (ast/xofy-expression
+    nil
+    (ast/term *token-terms* :dstring)
+    (ast/term nil :x))))
+
+(defn- email-cleaner-return
+  "Provides the return clause for a non missing email address value condition"
+  []
+  (if (= *application* :outlook)
+    (ast/return
+     nil
+     (ast/xofy-expression
+      nil
+      (ast/term nil :address)
+      (ast/term nil :x)))
+    (ast/return
+     nil
+     (ast/term nil :x))))
+
+(defn- generic-cleaner
+  [namekw]
+  (ast/routine
+   nil namekw [:x]
+   (tell-app
+    (ast/if-only
+      (ast/predicate-condition
+       nil
+       (ast/term nil :x)
+       (ast/predicate-operator astu/EQ)
+       (ast/symbol-literal "missing value"))
+      (ast/return
+       nil
+       (ast/string-literal "")))
+    (condp = namekw
+      :emailcleaner (email-cleaner-return)
+      :datecleaner  (date-cleaner-return)
+      (ast/return nil (ast/term nil :x))))))
+
+(defn- include-cleaners
+  "Builds cleaner handlers"
+  [vcleans fmap]
+  (reduce #(update-in %1 [:filter] conj (generic-cleaner %2)) fmap vcleans))
+
+; Noop filter always returns true
+
+(defn- noop-filter
+  [fmap]
+  (update-in fmap [:filter] conj
+             (ast/routine nil :noop_filter [:x] (ast/return nil :true))))
+
+
+;;
+;; Fetch handlers
+;;
+
 (defn- email_list
   [fromkw]
   (if (= *application* :mail)
@@ -38,29 +170,6 @@
               nil
               (ast/term *token-terms* :acct_emails)
               (ast/term nil fromkw)))))))
-
-;;
-;; General purpose handler definitions
-;;
-
-(defn- match-block
-  "Generates the script caller typically for filters
-  e.g. if (my match(arg1,arg2))"
-  []
-  (ast/routine
-   nil :match [:pat :aa]
-   (ast/script
-    nil :o true
-    (ast/property
-     nil
-     (ast/key-value nil (ast/property-term :f)(ast/term nil :pat)))
-    (ast/return
-     nil
-     (ast/routine-call nil (ast/term nil :f)(ast/term nil :aa))))))
-
-(defn- frame-match-script
-  [fmap]
-  (update-in fmap [:script] conj (match-block)))
 
 (defn- fetch-account-set
   "Sets the results of account filter for fetching"
@@ -94,16 +203,16 @@
             nil ast/first-of (ast/get-xofy *token-terms* :acct_emails src))
      :outlook (ast/term nil src))))
 
-(defn- account_list
+(defn- account-list
   "Generates the account collection routine that returns
   a valid list of accounts"
-  []
+  [fmap]
+  (update-in fmap [:routine] conj
   (ast/routine
    nil :account_list [:aclist :pat]
-   (ast/define-locals nil :alist :acc :acc1 :acct_type)
-   (ast/tell
-    nil *application*
-    (ast/set-statement nil (ast/term nil :alist) ast/empty-list)
+   (ast/define-locals nil :acc :acc1 :acct_type)
+   (tell-app
+    (set-local-and-emptylist :alist)
     (ast/for-in-expression
      nil
      (ast/term nil :acc) (ast/term nil :aclist)
@@ -118,76 +227,15 @@
       nil
       (ast/term nil :acc1) (ast/xofy-expression
                             nil ast/second-of (ast/term nil :acc))
-      (ast/if-statement
-       nil
-       (ast/if-expression
-        nil
+       (ast/if-only
         (ast/routine-call
          nil
          (ast/term nil :match)
          (ast/term nil :pat) (ast/term nil :acc1))
         (condp = *build-for*
           :fetch (fetch-account-set :alist :acc1 :acct_type)
-          :send (send-account-set :alist :acc1)))
-       nil))))
-   (ast/return nil :alist)))
-
-(defn- frame-account-routine
-  [fmap]
-  (update-in fmap [:routine] conj (account_list)))
-
-(defn- date-cleaner-return
-  "Provides the return clause for a non missing date value condition"
-  []
-  (ast/return
-   nil
-   (ast/xofy-expression
-    nil
-    (ast/term *token-terms* :dstring)
-    (ast/term nil :x))))
-
-(defn- email-cleaner-return
-  "Provides the return clause for a non missing email address value condition"
-  []
-  (if (= *application* :outlook)
-    (ast/return
-     nil
-     (ast/xofy-expression
-      nil
-      (ast/term nil :address)
-      (ast/term nil :x)))
-    (ast/return
-     nil
-     (ast/term nil :x))))
-
-(defn- generic-cleaner
-  [namekw]
-  (ast/routine
-   nil namekw [:x]
-   (ast/tell
-    nil *application*
-    (ast/if-statement
-     nil
-     (ast/if-expression
-      nil
-      (ast/predicate-condition
-       nil
-       (ast/term nil :x)
-       (ast/predicate-operator astu/EQ)
-       (ast/symbol-literal "missing value"))
-      (ast/return
-       nil
-       (ast/string-literal "")))
-     nil)
-    (condp = namekw
-      :emailcleaner (email-cleaner-return)
-      :datecleaner  (date-cleaner-return)
-      (ast/return nil (ast/term nil :x))))))
-
-(defn- frame-cleaner-filters
-  [fmap]
-  (reduce #(update-in %1 [:filter] conj (generic-cleaner %2))
-          fmap [:emailcleaner :datecleaner :cleanval]))
+          :send (send-account-set :alist :acc1))))))
+   (ast/return nil :alist))))
 
 (defn- call-clean
   "Calls a cleaner (fnkw) and makes getxofy as argument"
@@ -196,6 +244,8 @@
    nil
    (ast/term nil fnkw)
    (ast/get-xofy *token-terms* term source)))
+
+;;; Fetch Content
 
 (declare predicate-cond)
 
@@ -324,8 +374,7 @@
   (ast/routine
    nil
    fname [argkw]
-   (ast/tell
-    nil *application*
+   (tell-app
     (ast/return *token-terms* (predicate-builder argkw usrfilt)))))
 
 (defn- frame-build-filter
@@ -333,13 +382,6 @@
   (let [fname (str (gensym) "_filter")]
     [(update-in fmap [:filter] conj (build-filter-routine fname :x usrfilt))
      fname]))
-
-; Noop filter always returns true
-
-(defn- frame-noop-filter
-  [fmap]
-  (update-in fmap [:filter] conj
-             (ast/routine nil :noop_filter [:x] (ast/return nil :true))))
 
 ;;
 ;; Specific handlers
@@ -366,8 +408,8 @@
   [dtype targ src]
   (ast/block
    nil
-   (ast/define-locals :reclist :recrec :recloop)
-   (ast/set-statement nil (ast/term nil :reclist) ast/empty-list)
+   (ast/define-locals nil :recloop)
+   (set-local-and-emptylist :reclist)
    (ast/for-in-expression
     nil
     (ast/term nil :recloop)
@@ -429,30 +471,26 @@
      [:routine] conj
      (ast/routine
       nil :fetch_messages [:accum :rsrc]
-      (ast/tell
-       nil *application*
-       (ast/define-locals nil :msgloop :msgrec :msglist)
-       (ast/set-statement nil (ast/term nil :msglist) ast/empty-list)
+      (tell-app
+       (ast/define-locals nil :msgloop :msgrec)
+       (set-local-and-emptylist :msglist)
        (ast/for-in-expression
         nil
         (ast/term nil :msgloop)
         (ast/get-xofy nil :messages :rsrc)
-        (ast/if-statement
-         nil
-         (ast/if-expression
+        (ast/if-only
+         (ast/routine-call
           nil
-          (ast/routine-call
-           nil
-           (ast/term nil :match)
-           (ast/term nil mfilt)
-           (ast/term nil :msgloop))
-          (ast/record-fetch *token-terms*
-                            (remove special-types args) :msgrec :msgloop)
-          (build-specials-fetch args)
-          (ast/set-statement
-           nil
-           (ast/eol-cmd nil :msglist nil)
-           (ast/term nil :msgrec))) nil))
+          (ast/term nil :match)
+          (ast/term nil mfilt)
+          (ast/term nil :msgloop))
+         (ast/record-fetch *token-terms*
+                           (remove special-types args) :msgrec :msgloop)
+         (build-specials-fetch args)
+         (ast/set-statement
+          nil
+          (ast/eol-cmd nil :msglist nil)
+          (ast/term nil :msgrec))))
        (ast/set-extend-record :accum :mb_messages :msglist)
        (ast/return nil :accum))))))
 
@@ -463,16 +501,12 @@
   obj  - The object to call filter with
   pass-block - The pass filter AST"
   [filt obj pass-block]
-  (ast/if-statement
-   nil
-   (ast/if-expression
-    nil
+  (ast/if-only
     (ast/routine-call
      nil
      (ast/term nil filt)
      (ast/term nil obj))
-    pass-block)
-    nil))
+    pass-block))
 
 (defn- if-pass-block
   "Ease of use function to setup a pass block common to usage
@@ -518,8 +552,7 @@
    [:routine] conj
    (ast/routine
     nil :flatten_mailboxes [:accum :par]
-    (ast/tell
-     nil *application*
+    (tell-app
      (ast/define-locals nil :mrec :indx)
      ; Check inbound parent for match
      (if-then-else-nil-builder
@@ -580,11 +613,10 @@
      [:routine] conj
      (ast/routine
       nil :fetch_mailboxes [:accum :rsrc]
-      (ast/tell
-       nil *application*
-       (ast/define-locals nil :mbloop :mrec :mlist :inlist)
-       (ast/set-statement nil (ast/term nil :mlist) ast/empty-list)
-       (ast/set-statement nil (ast/term nil :inlist) ast/empty-list)
+      (tell-app
+       (ast/define-locals nil :mbloop :mrec)
+       (set-local-and-emptylist :mlist)
+       (set-local-and-emptylist :inlist)
        (ast/for-in-expression
         nil
         (ast/term nil :mbloop)
@@ -642,7 +674,7 @@
       (ast/return nil :alist))]))
 
 (defn- term-gen
-  "Term generator"
+  "Term generator for creating the input to the account locator routine"
   [coll]
   (map #(ast/list-of
          nil
@@ -652,43 +684,48 @@
 (defn- frame-account-fetch
   "Builds the 'fetch_account' handler to be called by
   the frame_body entry point"
-  [fmap block {:keys [source accum] :as args}]
+  [block fmap]
   (let [[zmap mfilt] (frame-filter fmap block)
-        [smap code] (account-block zmap block args)]
+        [smap code] (account-block zmap block {:source :aclist :accum :arec})]
     (update-in
      smap
      [:routine] conj
      (ast/routine
       nil :fetch_accounts []
-      (ast/tell nil *application*
-                (ast/define-locals nil source accum :alist)
-                (ast/set-statement nil (ast/term nil :alist) ast/empty-list)
-                (ast/set-statement
-                 nil
-                 (ast/term nil source)
-                 (ast/routine-call
-                  nil
-                  (ast/term nil :account_list)
-                  (ast/list-of nil (term-gen (*application* acc-list)))
-                  (ast/term nil mfilt)))
-                code)))))
+      (tell-app
+       ; Setup the locals
+       (ast/define-locals nil :aclist :arec)
+       (set-local-and-emptylist :alist)
+       ; Get the account list (filtered or not)
+       (ast/set-statement
+        nil
+        (ast/term nil :aclist)
+        (ast/routine-call
+         nil
+         (ast/term nil :account_list)
+         (ast/list-of nil (term-gen (*application* acc-list)))
+         (ast/term nil mfilt)))
+
+       ; Hook to mailboxes and messsages
+       code)))))
 
 
-(defn- frame-body
-  "Build the main 'tell' routine for the script whose
-  only job is to call the fetch_account handler"
-  [fmap]
-  (update-in
-   fmap
-   [:body] conj
-   (ast/tell
-    nil
-    *application*
-    (ast/return
-     nil
-     (ast/routine-call
-      nil
-      (ast/term nil :fetch_accounts))))))
+(def ^:private routines-fetch [noop-filter
+                               (partial include-cleaners
+                                        [:emailcleaner :datecleaner :cleanval])
+                               match-script
+                               account-list])
+
+(defn- message-fetch-builder
+  "Take the original request and convert to handlers and
+  callers to retrieve content"
+  [block]
+  (flatten-stack
+    (routines
+     (conj routines-fetch
+           (partial frame-account-fetch block)
+           (partial script-body :fetch_accounts)))
+    ))
 
 (defn- fill-block-gaps
   "Takes a request and, if needed, prepends account and mailbox
@@ -699,40 +736,6 @@
     :mailboxes (mesg/accounts block)
     :messages  (mesg/accounts (mesg/mailboxes block))))
 
-(defn- builder-reducer
-  "Used to reduce all the callers into accumulator"
-  [acc targ]
-  (if (not-empty (second targ)) (conj acc (second targ)) acc))
-
-(defn- handler-stack-builder
-  "Builds the basic stack of handlers"
-  []
-  (frame-account-routine
-   (frame-match-script
-    (frame-cleaner-filters
-     (frame-noop-filter
-      {:script []
-       :filter []
-       :routine []
-       :body []})))))
-
-(defn- flatten-stack
-  [fmap]
-  (apply (partial ast/block nil)
-         (flatten (reduce builder-reducer [] fmap))))
-
-(defn- message-fetch-builder
-  "Take the original request and convert to handlers and
-  callers to retrieve content"
-  [block]
-  (flatten-stack
-   (frame-body
-    (frame-account-fetch
-     (handler-stack-builder)
-     (fill-block-gaps block)  {:source :aclist :accum :arec}))))
-
-;;; Fetch Content
-
 (defn fetch-messages
   "Main entry point binds target specific information
   then builds fetch routines"
@@ -740,7 +743,7 @@
   (with-bindings {#'*application* appbiding
                   #'*token-terms* token-binding
                   #'*build-for* :fetch}
-    (message-fetch-builder block)))
+    (message-fetch-builder (fill-block-gaps block))))
 
 ;;; End fetch Content
 
@@ -861,60 +864,58 @@
     nil
     falseform)))
 
+(defn- filtered-account-fetch
+  [routinekw filters myfilt]
+  (if filters
+    (ast/block
+     nil
+     (ast/define-locals nil :alist)
+     (ast/set-statement
+      nil
+      (ast/term nil :alist)
+      (ast/routine-call
+       nil
+       (ast/term nil routinekw)
+       (ast/list-of nil (term-gen (*application* acc-list)))
+       (ast/term nil myfilt)))
+     (if-count-then-else
+      :alist
+      (make-message-default :omsg :imsg)
+      (make-message :omsg :imsg :alist)))
+    (make-message-default :omsg :imsg)))
+
 (defn- send-account-fetch
   "Builds the 'send_message' handler to be called by
   the body entry point"
-  [fmap {:keys [message filters] :as block}]
+  [{:keys [message filters] :as block} fmap]
   (let [[zmap mfilt] (frame-filter fmap block)]
     (update-in
      zmap
      [:routine] conj
      (ast/routine
       nil :send_message []
-      (ast/tell nil *application*
-                ; Setup the locals
-                (ast/define-locals nil :alist :imsg :omsg)
-                (ast/set-statement
-                 nil
-                 (ast/term nil :imsg)
-                 (ast/setrecord-frommap (:message block)))
-                (if filters
-                  (ast/block
-                   nil
-                   (ast/set-statement
-                    nil
-                    (ast/term nil :alist)
-                    (ast/routine-call
-                     nil
-                     (ast/term nil :account_list)
-                     (ast/list-of nil (term-gen (*application* acc-list)))
-                     (ast/term nil mfilt)))
-                   (if-count-then-else
-                    :alist
-                    (make-message-default :omsg :imsg)
-                    (make-message :omsg :imsg :alist)))
-                  (make-message-default :omsg :imsg))
-                (make-recipients :imsg :msg_recipients :omsg)
-                (ast/expression
-                 nil
-                 ast/as_send (ast/term nil :omsg) ast/new-line)
-                ;code
-                )))))
+      (tell-app
+       ; Setup the locals
+       (ast/define-locals nil :imsg :omsg)
 
-(defn- send-body
-  "Builds the main 'tell' application body entry point"
-  [fmap]
-  (update-in
-   fmap
-   [:body] conj
-   (ast/tell
-    nil
-    *application*
-    (ast/return
-     nil
-     (ast/routine-call
-      nil
-      (ast/term nil :send_message))))))
+       ; Create the message record
+       (ast/set-statement
+        nil
+        (ast/term nil :imsg)
+        (ast/setrecord-frommap (:message block)))
+
+       ; Check body type - filtered or not
+       ; Create initial message creation
+       (filtered-account-fetch :account_list filters mfilt)
+
+       ; Populate recipients
+       (make-recipients :imsg :msg_recipients :omsg)
+
+       ; Send the email
+       (ast/expression
+        nil
+        ast/as_send (ast/term nil :omsg) ast/new-line))))))
+
 
 (defn- send-msg-subs
   "Validate and re-arrange for filtering accounts"
@@ -927,20 +928,22 @@
               (not (nil? msg_recipients))
               (not-empty msg_recipients))]}
   (assoc block
-    :message (assoc msg :msg_sender nil)
-    :filters (cond
-               (nil? msg_sender)    nil
-               (empty? msg_sender)  nil
-               (string? msg_sender) (second (astu/filter :acct_emails astu/EQ msg_sender))
-               (vector? msg_sender) (second msg_sender)
-               :else (assert false (str "Unable to resolve " msg_sender)))))
+    :message (dissoc msg :msg_sender)
+    :filters (condp #(%1 %2) msg_sender
+               nil?     nil
+               empty?   nil
+               string?  (second (astu/filter :acct_emails astu/EQ msg_sender))
+               vector?  (second msg_sender)
+               (assert false (str "Unable to resolve " msg_sender)))))
 
 (defn- message-send-builder
-  [block]
+  "Construct the AST for sending messages"
+  [{:keys [filters] :as block}]
   (flatten-stack
-   (send-body
-     (send-account-fetch
-      (handler-stack-builder) (send-msg-subs block)))))
+   (routines
+    (conj (if filters [match-script account-list] [])
+          (partial send-account-fetch block)
+          (partial script-body :send_message)))))
 
 (defn send-message
   "Main entry point for sending messages"
@@ -948,6 +951,6 @@
   (with-bindings {#'*application* appbinding
                   #'*token-terms* token-binding
                   #'*build-for* :send}
-    (message-send-builder block)))
+    (message-send-builder (send-msg-subs block))))
 
 ;;; End send content

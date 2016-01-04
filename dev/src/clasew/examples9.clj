@@ -215,4 +215,18 @@
 ;(p (run-sample :mail s-send-message-from-explicit-sender))
 ;(p (run-sample :outlook s-send-message-from-explicit-sender))
 
+#_(println (mail/script(mesg/send-message
+   {:msg_recipients ["RECIPIENT1@SOMEWHERE.COM"
+                     "RECIPIENT1@SOMEWHERE.COM"]
+    :msg_text "This is the test"
+    :msg_subject "Hey, look at this"})))
 
+#_(println (mail/script(mesg/send-message
+   {:msg_sender "SENDER@SOMEWHERE.COM"
+    :msg_recipients ["RECIPIENT1@SOMEWHERE.COM"
+                     "RECIPIENT1@SOMEWHERE.COM"]
+    :msg_text "This is the test"
+    :msg_subject "Hey, look at this"})))
+
+;(println (mail/script (mesg/messages)))
+;(println (mail/script (mesg/accounts (mesg/mailboxes (mesg/messages)))))

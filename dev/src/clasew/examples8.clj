@@ -3,6 +3,7 @@
       :doc "Apple Contacts Examples"}
   clasew.examples8
   (:require [clojure.pprint :refer :all]
+            [clasew.ast-utils :as astu]
             [clasew.contacts :as contacts]
             [clasew.identities :as ident])
   )
@@ -51,14 +52,14 @@
 #_(p (ident/run-script!
     (contacts/script
      (ident/add-individuals oxnard sally))
-    (ident/quit :contacts)))
+    (astu/quit :contacts)))
 
 ;; Fetch ALL individuals from contacts people
 
 #_(p (ident/run-script!
     (contacts/script
      (ident/individuals (ident/addresses)))
-    (ident/quit :contacts)))
+    (astu/quit :contacts)))
 
 ;; Fetch all individuals and email addresses where
 ;; individual's first name contains "Oxnard"
@@ -67,9 +68,9 @@
 #_(p (ident/run-script!
     (contacts/script
      (ident/individuals
-      (astu/filter :first_name ident/CT "Oxnard")
+      (astu/filter :first_name astu/CT "Oxnard")
       (ident/email-addresses)))
-    (ident/quit :contacts)))
+    (astu/quit :contacts)))
 
 ;; Fetch all individuals and phone numbers where
 ;; individual's first name contains "Sally"
@@ -78,9 +79,9 @@
 #_(p (ident/run-script!
     (contacts/script
      (ident/individuals
-      (astu/filter :first_name ident/EQ "Sally")
+      (astu/filter :first_name astu/EQ "Sally")
       (ident/phones)))
-    (ident/quit :contacts)))
+    (astu/quit :contacts)))
 
 ;; Fetch all individuals (full name only) their streeet address,
 ;; phones and emails where individuals first name contains Oxnard
@@ -92,8 +93,8 @@
                           (ident/addresses)
                           (ident/email-addresses)
                           (ident/phones)
-                          (astu/filter :first_name ident/CT "Oxnard")))
-      (ident/quit :contacts)))
+                          (astu/filter :first_name astu/CT "Oxnard")))
+      (astu/quit :contacts)))
 
 ;; Fetch all individuals their email addresses,street addresses and
 ;; phone numbers. This is equivalent to call (individuals-all...) as
@@ -105,11 +106,11 @@
       (ident/addresses)
       (ident/email-addresses)
       (ident/phones)))
-    (ident/quit :contacts)))
+    (astu/quit :contacts)))
 
 #_(p (ident/run-script!
     (contacts/script (ident/individuals-all))
-    (ident/quit :contacts)))
+    (astu/quit :contacts)))
 
 ;; Updates with filters
 
@@ -117,43 +118,43 @@
     (contacts/script
      (ident/update-individual
       (astu/filter
-       :first_name ident/EQ "Oxnard"
-       :last_name ident/EQ "Gimbel")
+       :first_name astu/EQ "Oxnard"
+       :last_name astu/EQ "Gimbel")
       :first_name "Oxnardio"
       (ident/update-addresses
        (astu/filter
-        :address_type ident/EQ  "work"
-        :city_name ident/EQ "West Somewhere")
+        :address_type astu/EQ  "work"
+        :city_name astu/EQ "West Somewhere")
        :city_name "West Palm Beach")
       (ident/update-addresses
        (astu/filter
-        :address_type ident/EQ  "home"
-        :city_name ident/EQ "New York")
+        :address_type astu/EQ  "home"
+        :city_name astu/EQ "New York")
        :city_name "NJ")
       (ident/update-email-addresses
        (astu/filter
-        :email_type ident/EQ "home"
-        :email_address ident/EQ "oxnard@myhome.com")
+        :email_type astu/EQ "home"
+        :email_address astu/EQ "oxnard@myhome.com")
        :email_address "oxnard@my_new_home.com")
       (ident/update-email-addresses
        (astu/filter
         :email_type ident/EQ "work"
-        :email_address ident/EQ "oxnard@mybusiness.com")
+        :email_address astu/EQ "oxnard@mybusiness.com")
        :email_address "oxnard@my_old_business.com"
        (ident/adds
         {:email_type "work" :email_address "oxnard1@mybusiness.com"}))
       (ident/update-phones
        (astu/filter
-        :number_type ident/EQ "work"
-        :number_value ident/EQ "000 000 0000")
+        :number_type astu/EQ "work"
+        :number_value astu/EQ "000 000 0000")
        :number_value "991 991 9991")))
     (contacts/script
      (ident/individuals
-      (astu/filter :first_name ident/CT "Oxnard")
+      (astu/filter :first_name astu/CT "Oxnard")
       (ident/email-addresses)
       (ident/phones)
       (ident/addresses)))
-    (ident/quit :contacts)))
+    (astu/quit :contacts)))
 
 
 ;;
@@ -161,9 +162,9 @@
 ;;
 
 (def filter-sample (astu/filter
-            :first_name ident/CT "Oxnard"
-            (ident/or :first_name ident/EQ "Sally"
-                      :last_name ident/EQ "Abercrombe")))
+            :first_name astu/CT "Oxnard"
+            (astu/or :first_name astu/EQ "Sally"
+                      :last_name astu/EQ "Abercrombe")))
 
 ;; Fetch individuals based on complex filter
 
@@ -178,5 +179,3 @@
       (contacts/script
        (ident/delete-individual filter-sample))
       (ident/quit :contacts)))
-
-
