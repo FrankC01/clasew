@@ -29,6 +29,17 @@
   [& expressions]
   (apply ast/tell nil *application* expressions))
 
+(defn- set-emptylist
+  [varkw]
+  (ast/set-statement nil (ast/term nil varkw) ast/empty-list))
+
+(defn- set-local-and-emptylist
+  [varkw]
+  (ast/block
+   nil
+   (ast/define-locals nil varkw)
+   (set-emptylist varkw)))
+
 (defn- builder-reducer
   "Used to reduce all the callers into accumulator"
   [acc targ]
@@ -46,6 +57,7 @@
   "Builds routine stack"
   [coll]
   (reduce #(%2 %1) routine-frame coll))
+
 ;;
 ;; General purpose routine generators
 ;;
@@ -110,10 +122,7 @@
   (ast/routine
    nil namekw [:x]
    (tell-app
-    (ast/if-statement
-     nil
-     (ast/if-expression
-      nil
+    (ast/if-only
       (ast/predicate-condition
        nil
        (ast/term nil :x)
@@ -122,7 +131,6 @@
       (ast/return
        nil
        (ast/string-literal "")))
-     nil)
     (condp = namekw
       :emailcleaner (email-cleaner-return)
       :datecleaner  (date-cleaner-return)
@@ -202,9 +210,9 @@
   (update-in fmap [:routine] conj
   (ast/routine
    nil :account_list [:aclist :pat]
-   (ast/define-locals nil :alist :acc :acc1 :acct_type)
+   (ast/define-locals nil :acc :acc1 :acct_type)
    (tell-app
-    (ast/set-statement nil (ast/term nil :alist) ast/empty-list)
+    (set-local-and-emptylist :alist)
     (ast/for-in-expression
      nil
      (ast/term nil :acc) (ast/term nil :aclist)
@@ -219,18 +227,14 @@
       nil
       (ast/term nil :acc1) (ast/xofy-expression
                             nil ast/second-of (ast/term nil :acc))
-      (ast/if-statement
-       nil
-       (ast/if-expression
-        nil
+       (ast/if-only
         (ast/routine-call
          nil
          (ast/term nil :match)
          (ast/term nil :pat) (ast/term nil :acc1))
         (condp = *build-for*
           :fetch (fetch-account-set :alist :acc1 :acct_type)
-          :send (send-account-set :alist :acc1)))
-       nil))))
+          :send (send-account-set :alist :acc1))))))
    (ast/return nil :alist))))
 
 (defn- call-clean
@@ -404,8 +408,8 @@
   [dtype targ src]
   (ast/block
    nil
-   (ast/define-locals nil :reclist :recloop)
-   (ast/set-statement nil (ast/term nil :reclist) ast/empty-list)
+   (ast/define-locals nil :recloop)
+   (set-local-and-emptylist :reclist)
    (ast/for-in-expression
     nil
     (ast/term nil :recloop)
@@ -468,28 +472,25 @@
      (ast/routine
       nil :fetch_messages [:accum :rsrc]
       (tell-app
-       (ast/define-locals nil :msgloop :msgrec :msglist)
-       (ast/set-statement nil (ast/term nil :msglist) ast/empty-list)
+       (ast/define-locals nil :msgloop :msgrec)
+       (set-local-and-emptylist :msglist)
        (ast/for-in-expression
         nil
         (ast/term nil :msgloop)
         (ast/get-xofy nil :messages :rsrc)
-        (ast/if-statement
-         nil
-         (ast/if-expression
+        (ast/if-only
+         (ast/routine-call
           nil
-          (ast/routine-call
-           nil
-           (ast/term nil :match)
-           (ast/term nil mfilt)
-           (ast/term nil :msgloop))
-          (ast/record-fetch *token-terms*
-                            (remove special-types args) :msgrec :msgloop)
-          (build-specials-fetch args)
-          (ast/set-statement
-           nil
-           (ast/eol-cmd nil :msglist nil)
-           (ast/term nil :msgrec))) nil))
+          (ast/term nil :match)
+          (ast/term nil mfilt)
+          (ast/term nil :msgloop))
+         (ast/record-fetch *token-terms*
+                           (remove special-types args) :msgrec :msgloop)
+         (build-specials-fetch args)
+         (ast/set-statement
+          nil
+          (ast/eol-cmd nil :msglist nil)
+          (ast/term nil :msgrec))))
        (ast/set-extend-record :accum :mb_messages :msglist)
        (ast/return nil :accum))))))
 
@@ -500,16 +501,12 @@
   obj  - The object to call filter with
   pass-block - The pass filter AST"
   [filt obj pass-block]
-  (ast/if-statement
-   nil
-   (ast/if-expression
-    nil
+  (ast/if-only
     (ast/routine-call
      nil
      (ast/term nil filt)
      (ast/term nil obj))
-    pass-block)
-    nil))
+    pass-block))
 
 (defn- if-pass-block
   "Ease of use function to setup a pass block common to usage
@@ -617,9 +614,9 @@
      (ast/routine
       nil :fetch_mailboxes [:accum :rsrc]
       (tell-app
-       (ast/define-locals nil :mbloop :mrec :mlist :inlist)
-       (ast/set-statement nil (ast/term nil :mlist) ast/empty-list)
-       (ast/set-statement nil (ast/term nil :inlist) ast/empty-list)
+       (ast/define-locals nil :mbloop :mrec)
+       (set-local-and-emptylist :mlist)
+       (set-local-and-emptylist :inlist)
        (ast/for-in-expression
         nil
         (ast/term nil :mbloop)
@@ -697,9 +694,8 @@
       nil :fetch_accounts []
       (tell-app
        ; Setup the locals
-       (ast/define-locals nil :aclist :arec :alist)
-       (ast/set-statement nil (ast/term nil :alist) ast/empty-list)
-
+       (ast/define-locals nil :aclist :arec)
+       (set-local-and-emptylist :alist)
        ; Get the account list (filtered or not)
        (ast/set-statement
         nil
@@ -869,13 +865,14 @@
     falseform)))
 
 (defn- filtered-account-fetch
-  [settargkw routinekw filters myfilt]
+  [routinekw filters myfilt]
   (if filters
     (ast/block
      nil
+     (ast/define-locals nil :alist)
      (ast/set-statement
       nil
-      (ast/term nil settargkw)
+      (ast/term nil :alist)
       (ast/routine-call
        nil
        (ast/term nil routinekw)
@@ -899,7 +896,7 @@
       nil :send_message []
       (tell-app
        ; Setup the locals
-       (ast/define-locals nil :alist :imsg :omsg)
+       (ast/define-locals nil :imsg :omsg)
 
        ; Create the message record
        (ast/set-statement
@@ -909,7 +906,7 @@
 
        ; Check body type - filtered or not
        ; Create initial message creation
-       (filtered-account-fetch :alist :account_list filters mfilt)
+       (filtered-account-fetch :account_list filters mfilt)
 
        ; Populate recipients
        (make-recipients :imsg :msg_recipients :omsg)

@@ -406,6 +406,13 @@
 ;; Ease of use forms
 ;;
 
+(defn if-only
+  [& expressions]
+  (if-statement
+   nil
+   (apply (partial if-expression nil) expressions)
+   nil))
+
 (defn set-result-msg-with-count
   "Creates a result s including a count of ct and
   placed in rt"

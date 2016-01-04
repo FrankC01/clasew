@@ -4,6 +4,7 @@
   clasew.contacts
   (:require [clasew.gen-as :as genas]
             [clasew.ast-emit :as ast]
+            [clasew.ast-utils :as astu]
             [clasew.identities :as ident]
             [clasew.ident-utils :as utils]))
 
@@ -167,7 +168,7 @@
   "Fetch individuals from Contacts"
   [{:keys [individuals filters emails addresses phones]}]
   (genas/ast-consume
-   (builder (partial ast/block nil) ident/cleanval
+   (builder (partial ast/block nil) astu/cleanval
             (build-people
              individuals CLOOP
              (build-subrecord CLOOP (rest addresses) address-dmap)
