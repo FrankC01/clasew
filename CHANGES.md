@@ -2,6 +2,23 @@
 
 clasew: A Clojure AppleScriptEngine Wrapper
 
+## 0.3.1
+This release includes some refactoring and bug fixes
+
+
+### Enhancements
+NA
+
+### Bug Fixes
+
+<table>
+<tr><th>GitHub issue #</th><th>Description</th></tr>
+<tr><td>07</td><td>Refactor target main body generation</td></tr>
+<tr><td>08</td><td>Refactor stack builder</td></tr>
+<tr><td>09</td><td>Misc. refactor</td></tr>
+<tr><td>10</td><td>Identity example not updated to changes made in 0.3.0</td></tr>
+</table>
+
 ## 0.3.0
 This release includes a medium impact breaking change to clasew:
 1. Filters have been moved to a utility namespace to share between
