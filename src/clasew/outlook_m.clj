@@ -30,7 +30,7 @@
    :msg_replied             "replied to"
    })
 
-(defn- outlook-mapcore-messages
+(defn outlook-mapcore-messages
   [termkw]
   (get outlook-messages termkw (name termkw)))
 
