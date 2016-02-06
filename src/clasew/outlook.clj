@@ -2,7 +2,7 @@
   ^{:author "Frank V. Castellucci"
       :doc "Clojure AppleScriptEngine Wrapper - Microsoft Outlook DSL"}
   clasew.outlook
-  (:require [clasew.gen-as :as genas]
+  (:require [clasew.gen-asmm :as genas]
             [clasew.ast-emit :as ast]
             [clasew.ast-utils :as astu]
             [clojure.core.reducers :as r]
@@ -311,9 +311,10 @@
         (ast/term nil lkw)
         (if (empty? filt)
           (ast/term nil :contacts)
-          (ast/where-filter nil
-                            (ast/term nil :contacts)
-                            filt))
+          (ast/where-filter
+            nil
+            (ast/term nil :contacts)
+            (ast/predicate-from-filter outlook-mapset-core filt)))
         (ast/set-empty-record nil :ident args {:ktfn ast/key-term-nl})
         gets))))
 
@@ -332,23 +333,14 @@
 ;;
 
 (defn- delete-contact
-  [{:keys [filters]}]
+  "Wrapper for clasew.ident-utils/delete-individuals"
+  [block]
   (genas/ast-consume
-   (ast/tell
-    outlook-mapset-core :outlook
-    (ast/define-locals nil :results :dlist :dloop)
-    (ast/set-statement nil (ast/term nil :results) ast/empty-list)
-    (ast/set-statement nil (ast/term nil :dlist)
-                       (ast/where-filter nil
-                                         (ast/term nil :contacts)
-                                         filters))
-    (ast/for-in-expression
-     nil
-     (ast/term nil :dloop) (ast/term nil :dlist)
-     (ast/expression nil ast/delete (ast/term nil :dloop)))
-    (ast/set-result-msg-with-count "Records deleted :" :results :dlist)
-    (ast/save-statement)
-    (ast/return nil :results))))
+    (utils/delete-individuals
+      :outlook
+      :contacts
+      outlook-mapset-core
+      block)))
 
 ;;
 ;; Add functions
@@ -597,7 +589,10 @@
 (defn phifs
   "Generate an if-expression with filter and expressions"
   [filt setast]
-  (ast/if-expression nil filt setast))
+  (ast/if-expression
+    nil
+    (ast/predicate-from-filter outlook-mapset-core filt)
+    setast))
 
 (defn phelifs
   "Generate an else-if-expression with filter and expressions"
@@ -741,7 +736,7 @@
   (let [cb (clean-email-type :sloop block)]
     (conj
      acc
-     (ast/block`
+     (ast/block
       nil
       (if (and (:filters cb) (not-empty (:sets cb)))
         (utils/update-if-filter-block :etmp :sloop :cloop :emails cb nil)
@@ -771,7 +766,10 @@
           nil
           (ast/term nil :cloop)
           (if filters
-            (ast/where-filter nil (ast/term nil :contacts) filters)
+            (ast/where-filter
+              nil
+              (ast/term nil :contacts)
+              (ast/predicate-from-filter outlook-mapset-core filters))
             (ast/term nil :contacts))
           (gen-email-subsets subsets)
           (gen-ifs :cloop ifsets)

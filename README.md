@@ -4,10 +4,9 @@ A Clojure AppleScriptEngine Wrapper
 
 ##Intent
 
-clasew provide an idiomatic clojure wrapper for Java ScriptManager, specifically AppleScriptManager,  and scriptable application DSLs for common usage.
+clasew provide an idiomatic Clojure wrapper for Java's ScriptManager, specifically AppleScriptManager, and scriptable application DSLs for common usage.
 
-
-##Architecture 0.3.1
+##Architecture 0.3.2
 As per the Intent, the clasew architecture is very straight forward.
 
 <img style="float: " src="doc/clasew-arch.png" alt="clasew architecture" title="clasew architecture" height="400" width="600"/>
@@ -39,16 +38,15 @@ All files located [here](dev/src/clasew)
 4. [Example 4](dev/src/clasew/examples4.clj) - Demonstrates clasew-spreads and clasew-excel DSL
 5. [Example 5](dev/src/clasew/examples5.clj) - Demonstrates clasew-spreads and clasew-numbers DSL
 6. [Quarterly Sales Contrived Snippet](dev/src/clasew/quarters.clj) - Demonstrates a more realistic use for Excel and/or Numbers
-7. [Example 7](dev/src/clasew/examples7.clj) - Demonstrates clasew-identities and clasew-outlook DSL
-8. [Example 8](dev/src/clasew/examples8.clj) - Demonstrates clasew-identities and clasew-contacts DSL
+7. [Example 7](dev/src/clasew/examples7.clj) - Demonstrates clasew-identities for both MS Outlook and Apple Contacts
 9. [Example 9](dev/src/clasew/examples9.clj) - Demonstrates clasew-messages for both MS Outlook and Apple Mail
 
 My dev environment:
 
 * Clojure 1.6
-* El Capitan 10.11.12
-* Oracle Java 1.8.0_66
-* Lighttable 0.80
+* El Capitan 10.11.13
+* Oracle Java 1.8.0_71
+* Lighttable 0.8.1
 
 ##License
 

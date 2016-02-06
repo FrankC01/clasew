@@ -2,7 +2,7 @@
   ^{:author "Frank V. Castellucci"
       :doc "Clojure AppleScriptEngine Wrapper - Apple Contacts DSL"}
   clasew.contacts
-  (:require [clasew.gen-as :as genas]
+  (:require [clasew.gen-asmm :as genas]
             [clasew.ast-emit :as ast]
             [clasew.ast-utils :as astu]
             [clasew.identities :as ident]
@@ -159,7 +159,7 @@
         (ast/term nil :people)
         (ast/where-filter nil
                           (ast/term nil :people)
-                          filt))
+                          (ast/predicate-from-filter contacts-mapset-core filt)))
       (ast/set-empty-record nil :ident args {:ktfn ast/key-term-nl})
       gets))))
 
@@ -180,24 +180,14 @@
 ;;
 
 (defn- delete-people
-  "Delete individuals with filters"
-  [{:keys [filters]}]
+  "Wrapper for clasew.ident-utils/delete-individuals"
+  [block]
   (genas/ast-consume
-   (ast/tell
-    contacts-mapset-core CONTACTS
-    (ast/define-locals nil RESULTS :dlist :dloop)
-    (ast/set-statement nil (ast/term nil RESULTS) ast/empty-list)
-    (ast/set-statement nil (ast/term nil :dlist)
-                       (ast/where-filter nil
-                                         (ast/term nil :people)
-                                         filters))
-    (ast/for-in-expression
-     nil
-     (ast/term nil :dloop) (ast/term nil :dlist)
-     (ast/expression nil ast/delete (ast/term nil :dloop)))
-    (ast/set-result-msg-with-count "Records deleted :" RESULTS :dlist)
-    (ast/save-statement)
-    (ast/return nil RESULTS))))
+    (utils/delete-individuals
+      CONTACTS
+      :people
+      contacts-mapset-core
+      block)))
 
 ;;
 ;; Add new people

@@ -2,9 +2,23 @@
 
 clasew: A Clojure AppleScriptEngine Wrapper
 
-## 0.3.1
+## 0.3.2
 This release includes some refactoring and bug fixes
 
+### Enhancements
+NA
+
+### Bug Fixes
+
+<table>
+<tr><th>GitHub issue #</th><th>Description</th></tr>
+<tr><td>11</td><td>Convert experimental emitter to multimethods</td></tr>
+<tr><td>12</td><td>Consolidate and fix samples</td></tr>
+<tr><td>13</td><td>Documentation tweaks</td></tr>
+</table>
+
+## 0.3.1
+This release includes some refactoring and bug fixes
 
 ### Enhancements
 NA

@@ -3,24 +3,48 @@
       :doc "Email Messages Examples (Multi-Application)"}
   clasew.examples9
   (:require [clojure.pprint :refer :all]
-            [clasew.messages :as mesg]
-            [clasew.ast-utils :as astu]
             [clasew.outlook :as outlook]
-            [clasew.mail :as mail]))
+            [clasew.mail :as mail]
+            [clasew.messages :as mesg]
+            [clasew.ast-utils :as astu]))
 
 (def p pprint)
 
-(def mail-apps
+;;
+;; Sample ease of use forms
+;;
+
+(def mesg-apps
   {:mail     #(mail/script %)
    :outlook  #(outlook/script %)})
+
+(def mesg-app-quit
+  {:mail     (astu/quit :mail)
+   :outlook  (astu/quit :outlook)})
+
+(defn- map-requests
+  "Performs substitution or passthrough of script function"
+  [app coll]
+  (map #(condp = %
+          :quit (app mesg-app-quit)
+          ((app mesg-apps) %))
+       coll))
 
 (defn run-sample
   "Calls the target application script generator to create
   script as defined by request and then executes the results:
   app - Defines target app. Can be :mail or :outlook
-  request - result of calling '(mesg/xxxxx)'"
-  [app request]
-  (mesg/run-script! ((app mail-apps) request)))
+  & rqs - script requests (supports substitution)"
+  [app & rqs]
+  (apply mesg/run-script! (map-requests app rqs)))
+
+(defn print-sample
+  "Calls the target application script generator to create
+  script as defined by request and then prints the results:
+  app - Defines target app. Can be :mail or :outlook
+  & rqs - script requests (supports substitution)"
+  [app & rqs]
+  (apply println (map-requests app rqs)))
 
 
 ; *********** Fetch Examples ***********************
@@ -32,8 +56,12 @@
 
 ;; Uncomment either run command
 
+;(print-sample :mail s-fetch-account-info)
+;(print-sample :outlook s-fetch-account-info)
+
 ;(p (run-sample :mail s-fetch-account-info))
 ;(p (run-sample :outlook s-fetch-account-info))
+
 
 ;;;; Sample 2
 ;; Fetch mailbox information for each account
@@ -95,7 +123,7 @@
 
 ;; Uncomment either run command
 
-;(p (run-sample :mail s-fetch-account-and-mailbox-name))
+(p (run-sample :mail s-fetch-account-and-mailbox-name))
 ;(p (run-sample :outlook s-fetch-account-and-mailbox-name))
 
 ; *********** Filter Examples ***********************
@@ -212,21 +240,6 @@
 
 ;; Uncomment either run command
 
-;(p (run-sample :mail s-send-message-from-explicit-sender))
-;(p (run-sample :outlook s-send-message-from-explicit-sender))
+;(p (run-sample :mail s-send-message-from-explicit-sender :quit))
+;(p (run-sample :outlook s-send-message-from-explicit-sender :quit))
 
-#_(println (mail/script(mesg/send-message
-   {:msg_recipients ["RECIPIENT1@SOMEWHERE.COM"
-                     "RECIPIENT1@SOMEWHERE.COM"]
-    :msg_text "This is the test"
-    :msg_subject "Hey, look at this"})))
-
-#_(println (mail/script(mesg/send-message
-   {:msg_sender "SENDER@SOMEWHERE.COM"
-    :msg_recipients ["RECIPIENT1@SOMEWHERE.COM"
-                     "RECIPIENT1@SOMEWHERE.COM"]
-    :msg_text "This is the test"
-    :msg_subject "Hey, look at this"})))
-
-;(println (mail/script (mesg/messages)))
-;(println (mail/script (mesg/accounts (mesg/mailboxes (mesg/messages)))))

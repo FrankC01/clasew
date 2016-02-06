@@ -7,14 +7,6 @@
 ;;;   AST Model - New Version
 ;;;
 
-(defn mapset-none
-  [term-kw]
-  term-kw)
-
-(defn reduce-gen
-  [dmap]
-  (reduce-kv #(assoc %1 %2 (if (= %3 :gen) (keyword (gensym)) %3)) dmap dmap))
-
 (def ^:private applications
   {:outlook "\"Microsoft Outlook\""
    :contacts "\"Contacts\""
@@ -25,96 +17,330 @@
   [akey]
   (get applications akey "Unknown Application"))
 
+;; AST terminal tokens
+
+(def TERM               ::term)
+(def TERM-NL            ::term-nl)
+(def KEY-TERM           ::key-term)
+(def PROPERTY-TERM      ::key-term)
+(def KEY-TERM-NL        ::key-term-NL)
+(def STRING-LITERAL     ::string-literal)
+(def SYMBOL-LITERAL     ::symbol-literal)
+(def NUMERIC-LITERAL    ::numeric-literal)
+
+;; AST terminal constructs
+
 (defn term
   [token-fn to-value]
-  {:type :term
+  {:ast-type TERM
    :token-fn token-fn
    :to-value to-value})
 
 (defn term-nl
   [to-value]
-  {:type :term-nl
+  {:ast-type TERM-NL
    :token-fn nil
    :to-value to-value})
 
 (defn key-term
   [key-value]
-  {:type :key-term
+  {:ast-type KEY-TERM
    :token-fn nil
    :key-term key-value})
 
 (defn property-term
   [key-value]
-  {:type :property-term
+  {:ast-type PROPERTY-TERM
    :token-fn nil
    :key-term key-value})
 
 (defn key-term-nl
   [key-value]
-  {:type :key-term-nl
+  {:ast-type KEY-TERM-NL
    :token-fn nil
    :key-term key-value})
 
 (defn string-literal
   [value]
-  {:type :string-literal
+  {:ast-type STRING-LITERAL
    :token-fn nil
    :svalue value})
 
 (defn symbol-literal
   [value]
-  {:type :symbol-literal
+  {:ast-type SYMBOL-LITERAL
    :token-fn nil
    :svalue value})
 
 (defn numeric-literal
   [value]
-  {:type :numeric-literal
+  {:ast-type NUMERIC-LITERAL
    :token-fn nil
    :nvalue value})
+
+;; AST expression tokens
+
+(def BLOCK              ::block)
+(def EXPRESSION         ::block)
+(def TELL               ::tell)
+(def ROUTINE            ::routine)
+(def ROUTINE-CALL       ::routine-call)
+(def SCRIPT             ::script)
+(def RETURN             ::return)
+
+;; AST expression constructs
+
+(defn block
+  "Primary container of expressions - does not emit"
+  [token-fn & expressions]
+  {:ast-type BLOCK
+   :token-fn token-fn
+   :expressions expressions})
+
+(defn expression
+  [token-fn exp & exps]
+  {:ast-type EXPRESSION
+   :token-fn token-fn
+   :expressions (conj exps exp)})
+
+(defn tell
+  "Sets up the enclosing tell application construct"
+  [token-fn target & expressions]
+  {:ast-type TELL
+   :token-fn token-fn
+   :target (get-application target)
+   :expressions expressions})
+
+(defn routine
+  "Setup the routine (in AS this is a handler)"
+  [token-fn rname parmcoll & expressions]
+  {:ast-type ROUTINE
+   :token-fn token-fn
+   :routine-name rname
+   :parameters parmcoll
+   :expressions expressions})
+
+(defn routine-call
+  [token-fn routine-expression & arg-expressions]
+  {:ast-type ROUTINE-CALL
+   :token-fn token-fn
+   :routine-name routine-expression
+   :routine-arguments arg-expressions})
+
+(defn script
+  [token-fn scriptkw autorun & expressions]
+  {:ast-type SCRIPT
+   :token-fn token-fn
+   :script-name scriptkw
+   :auto-run autorun
+   :expressions expressions})
+
+(defn return
+  [token-fn retval]
+  {:ast-type RETURN
+   :token-fn token-fn
+   :return-val retval})
+
+;; AST predicate tokens
+
+(def PREDICATE-STATEMENT    ::predicate-statement)
+(def PREDICATE-EXPRESSIONS  ::predicate-expressions)
+(def PREDICATE-OPERATOR     ::predicate-operator)
+(def PREDICATE-CONDITION    ::predicate-condition)
+(def PREDICATE-AND          ::predicate-and)
+(def PREDICATE-OR           ::predicate-or)
+(def WHERE-FILTER           ::where-filter)
+
+;; AST predicate constructs
+
+(defn predicate-statement
+  "Predicate statement expression builder"
+  [token-fn & predicate-expressions]
+  {:ast-type PREDICATE-STATEMENT
+   :token-fn token-fn
+   :expressions predicate-expressions})
+
+(defn predicate-expressions
+  "Predicate expression: 1 or more predicate mappings"
+  [token-fn & predicate-conditions]
+  {:ast-type PREDICATE-EXPRESSIONS
+   :token-fn token-fn
+   :conditions predicate-conditions})
+
+(defn predicate-operator
+  "Handles operator conversion"
+  [ptype]
+  {:ast-type PREDICATE-OPERATOR
+   :token-fn nil
+   :term ptype})
+
+(defn predicate-condition
+  [token-fn lhs-expression predicate-op rhs-expression]
+  {:ast-type PREDICATE-CONDITION
+   :token-fn token-fn
+   :lhs-expression lhs-expression
+   :operator predicate-op
+   :rhs-expression rhs-expression})
+
+(defn and-predicate-join
+  "Emits 'and (...)'"
+  [token-fn predicate-expressions]
+  {:ast-type PREDICATE-AND
+   :token-fn token-fn
+   :expressions predicate-expressions})
+
+(defn or-predicate-join
+  "Emits 'or (...)'"
+  [token-fn predicate-expressions]
+  {:ast-type PREDICATE-OR
+   :token-fn token-fn
+   :expressions predicate-expressions})
+
+(defn where-filter
+  [token-fn target userfilt]
+  {:ast-type WHERE-FILTER
+   :token-fn token-fn
+   :target    target
+   :predicate userfilt})
+
+
+
+;; AST data CRUD tokens
+
+(def DEFINE-LOCALS           ::define-locals)
+(def SET-STATEMENT           ::set-statement)
+(def KEY-VALUE               ::key-value)
+(def PROPERTY                ::property)
+(def XOFY-EXPRESSION         ::xofy-expression)
+(def LIST-OF                 ::list-of)
+(def END-OF-LIST             ::eol)
+(def RECORD                  ::record)
+(def END-OF-RECORD           ::eor)
+(def STRING-BUILDER          ::string-builder)
+(def MAKE-NEW-OBJECT         ::make-new-object)
+
+;; AST data CRUD constructs
+
+(defn define-locals
+  "Sets any locals described - emits 'local x,y,z'"
+  [token-fn & terms]
+  {:ast-type DEFINE-LOCALS
+   :token-fn token-fn
+   :local-terms terms})
+
+(defn set-statement
+  [token-fn set-lhs set-rhs]
+  {:ast-type SET-STATEMENT
+   :token-fn token-fn
+   :set-lhs-expression set-lhs
+   :set-rhs-expression set-rhs})
+
+(defn key-value
+  [token-fn key-term-value value-expression]
+  {:ast-type     KEY-VALUE
+   :token-fn token-fn
+   :key-term key-term-value
+   :value-expression value-expression})
+
+(defn property
+  [token-fn key-value-statement]
+  {:ast-type PROPERTY
+   :token-fn token-fn
+   :kv key-value-statement})
+
+(defn xofy-expression
+  [token-fn x y]
+  {:ast-type XOFY-EXPRESSION
+   :token-fn token-fn
+   :x-expression x
+   :y-expression y})
+
+(defn list-of
+  [token-fn coll]
+  {:ast-type LIST-OF
+   :token-fn token-fn
+   :expressions coll})
 
 (defn eol-cmd
   "End of list command"
   [token-fn target-list list-owner]
-  {:type :eol-cmd
+  {:ast-type END-OF-LIST
    :token-fn token-fn
    :target-list target-list
    :list-owner  list-owner})
 
+(defn record-definition
+  [token-fn & key-value-pairs]
+  {:ast-type RECORD
+   :token-fn token-fn
+   :expressions key-value-pairs})
+
 (defn eor-cmd
   "Emit target-rec & {source key source}"
   [token-fn target-rec rec-owner source-expression]
-  {:type :eor-cmd
+  {:ast-type END-OF-RECORD
    :token-fn token-fn
    :target-rec target-rec
    :rec-owner  rec-owner
    :source      source-expression})
 
-(defn list-items-cmd
-  ""
-  [token-fn target-list]
-  {:type :li-cmd
+(defn string-builder
+  [token-fn & expressions]
+  {:ast-type STRING-BUILDER
    :token-fn token-fn
-   :target-owner target-list})
+   :expressions expressions})
 
-(defn expression
-  [token-fn exp & exps]
-  {:type :expression
+(defn make-new
+  [token-fn target-expr & exprs]
+  {:ast-type MAKE-NEW-OBJECT
    :token-fn token-fn
-   :expressions (conj exps exp)})
+   :target-expr target-expr
+   :expressions exprs})
 
-(defn append-object-expression
-  [token-fn value]
-  {:type :append-object
-   :token-fn token-fn
-   :svalue value})
 
-(defn set-statement
-  [token-fn set-lhs set-rhs]
-  {:type :set-statement
+
+;; AST conditional tokens
+
+(def IF-STATEMENT          ::if-statement)
+(def IF-EXPRESSION         ::if-expression)
+(def ELSE-IF-EXPRESSION    ::else-if-expression)
+
+;; AST conditional constructs
+
+(defn if-statement
+  [token-fn ifexpression elseexpressions]
+  {:ast-type        IF-STATEMENT
+   :token-fn    token-fn
+   :i-expression  ifexpression
+   :e-expressions elseexpressions})
+
+(defn if-expression
+  [token-fn pred-filter & expressions]
+  {:ast-type        IF-EXPRESSION
+   :token-fn    token-fn
+   :predicate   pred-filter
+   :expressions expressions})
+
+(defn else-if-expression
+  [token-fn if-expression]
+  {:ast-type ELSE-IF-EXPRESSION
    :token-fn token-fn
-   :set-lhs-expression set-lhs
-   :set-rhs-expression set-rhs})
+   :ifexp if-expression
+   })
+
+;; AST iteration tokens
+
+(def FOR-EXPRESSION        ::for-expression)
+
+;; AST iteration constructs
+
+(defn for-in-expression
+  [token-fn control-expression in-expression & expressions]
+  {:ast-type FOR-EXPRESSION
+   :token-fn token-fn
+   :control control-expression
+   :in      in-expression
+   :expressions expressions})
 
 ; Quick terms
 
@@ -128,6 +354,7 @@
 (def   as-list          (term nil " as list "))
 (def   noop             (term nil ""))
 (def   conjoin          (term nil " & "))
+(def   count-of         (term nil "count of "))
 (def   getin            (term nil "get "))
 (def   whose            (term nil " whose "))
 (def   where            (term nil " where "))
@@ -138,6 +365,24 @@
 (def   second-of        (term nil "second item"))
 (def   at               (term nil " at "))
 (def   as_send          (term nil "send "))
+(def   as_save          (term nil "save"))
+
+; Quick expressions
+
+(defn count-expression
+  [token-fn of-expression]
+  (expression
+    token-fn
+    count-of
+    of-expression))
+
+(defn append-object-expression
+  [token-fn with-expression]
+  (expression
+    token-fn
+    (if (map? with-expression)
+      with-expression
+      (term nil with-expression))))
 
 (defn get-statement
   [token-fn expressions]
@@ -156,99 +401,12 @@
    expressions
    rparen))
 
-; Quick expressions
-
-(defn count-expression
-  [token-fn of-expression]
-  (expression token-fn (term nil "count of ") of-expression))
-
-(defn xofy-expression
-  [token-fn x y]
-  {:type :xofy-expression
-   :token-fn token-fn
-   :x-expression x
-   :y-expression y})
-
 ;;
-;; Filter/predicate support
+;; Ease of use forms
 ;;
-
-(defn predicate-operator
-  "Handles operator conversion"
-  [ptype]
-  {:type :predicate-operator
-   :token-fn nil
-   :term ptype})
-
-(defn predicate-condition
-  [token-fn lhs-expression predicate-op rhs-expression]
-  {:type :predicate-condition
-   :token-fn token-fn
-   :lhs-expression lhs-expression
-   :operator predicate-op
-   :rhs-expression rhs-expression})
-
-(defn predicate
-  "Used for legacy filtering"
-  [token-fn userfilt]
-  {:type :predicate
-   :token-fn token-fn
-   :pred userfilt})
-
-(defn predicate-statement
-  "Predicate statement expression builder"
-  [token-fn & predicate-expressions]
-  {:type :predicate-statement
-   :token-fn token-fn
-   :expressions predicate-expressions})
-
-(defn predicate-expressions
-  "Predicate expression: 1 or more predicate mappings"
-  [token-fn & predicate-conditions]
-  {:type :predicate-expressions
-   :token-fn token-fn
-   :conditions predicate-conditions})
-
-(defn and-predicate-join
-  "Emits 'and (...)'"
-  [token-fn predicate-expressions]
-  {:type :and-predicate
-   :token-fn token-fn
-   :expressions predicate-expressions})
-
-(defn or-predicate-join
-  "Emits 'or (...)'"
-  [token-fn predicate-expressions]
-  {:type :or-predicate
-   :token-fn token-fn
-   :expressions predicate-expressions})
-
-(defn where-filter
-  [token-fn target userfilt]
-  {:type :where-filter
-   :token-fn token-fn
-   :target    target
-   :predicate userfilt})
-
-;;
-;; Misc
-;;
-
-(defn list-of
-  [token-fn coll]
-  {:type :list-of
-   :token-fn token-fn
-   :expressions coll})
-
-(defn make-new
-  [token-fn target-expr & exprs]
-  {:type :make-new
-   :token-fn token-fn
-   :target-expr target-expr
-   :expressions exprs})
-
 
 (defn get-xofy
+  "Explicit get over xofy"
   [token-fn x y]
   (get-statement
    token-fn
@@ -258,153 +416,62 @@
     (if (keyword? y) (term nil y) y))))
 
 
-;;
-;; if/then, else if/then
-;;
-
-(defn if-expression
-  [token-fn pred-filter & expressions]
-  {:type        :if-expression
-   :token-fn    token-fn
-   :predicate   pred-filter
-   :expressions expressions})
-
-(defn else-if-expression
-  [token-fn if-expression]
-  {:type :else-if-expression
-   :token-fn token-fn
-   :ifexp if-expression
-   })
-
-(defn if-statement
-  [token-fn ifexpression elseexpressions]
-  {:type        :if-statement
-   :token-fn    token-fn
-   :i-expression  ifexpression
-   :e-expressions elseexpressions})
-
-;;
-;; Loop construct
-;;
-
-(defn for-in-expression
-  [token-fn control-expression in-expression & expressions]
-  {:type :for-in-expression
-   :token-fn token-fn
-   :control control-expression
-   :in      in-expression
-   :expressions expressions})
-
-;;
-;; Misc expressions
-;;
-
 (defn save-statement
-  ([] (expression
-       nil
-       (term nil :save)
-       new-line))
+  "Generic save AST"
+  ([] (expression nil as_save new-line))
   ([object]
    (expression
     nil
-    (term nil :save)
+    as_save
     (term nil object)
     new-line)))
 
-(defn string-builder
-  [token-fn & expressions]
-  {:type :string-builder
-   :token-fn token-fn
-   :expressions expressions})
+(defn predicate-conditions-from-filter
+  "Generates a predicate condition from
+  a clasew filter map"
+  [[lhs op rhs & [owner]]]
+  (let [nrhs (cond
+               (string? rhs) (string-literal rhs)
+               (number? rhs) (numeric-literal rhs)
+               :else (term nil rhs))
+        nlhs (if (nil? owner)
+               (term nil lhs)
+               (xofy-expression
+                 nil
+                 (term nil lhs)
+                 (term nil owner)))]
+    (predicate-condition
+      nil
+      nlhs
+      (predicate-operator op)
+      nrhs)))
 
-(defn key-value
-  [token-fn key-term-value value-expression]
-  {:type     :key-value
-   :token-fn token-fn
-   :key-term key-term-value
-   :value-expression value-expression})
+(defn predicate-expression-from-filter
+  "Genreates predicate expression(s) from
+  a clasew filter map"
+  [acc {:keys [joins args] :as filtexp}]
+  (let [acc1 (conj acc
+               (apply (partial predicate-expressions nil)
+                      (map predicate-conditions-from-filter args)))]
+    (if (empty? joins)
+      acc1
+      (into acc1
+            (map #(if (= (first %) :and)
+                    (and-predicate-join
+                      nil
+                      (predicate-expression-from-filter
+                        [] (second %)))
+                    (or-predicate-join
+                      nil
+                      (predicate-expression-from-filter
+                        [] (second %))))
+                 joins)))))
 
-(defn record-definition
-  [token-fn & key-value-pairs]
-  {:type :record-definition
-   :token-fn token-fn
-   :expressions key-value-pairs})
-
-(defn tell
-  "Sets up the enclosing tell application construct"
-  [token-fn target & expressions]
-  {:type :tell
-   :token-fn token-fn
-   :target (get-application target)
-   :expressions expressions})
-
-;;
-;; Routines (handlers, subroutines, etc.)
-;;
-
-
-(defn routine
-  "Setup the routine (in AS this is a handler)"
-  [token-fn rname parmcoll & expressions]
-  {:type :routine
-   :token-fn token-fn
-   :routine-name rname
-   :parameters parmcoll
-   :expressions expressions})
-
-(defn routine-call
-  [token-fn routine-expression & arg-expressions]
-  {:type :routine-call
-   :token-fn token-fn
-   :routine-name routine-expression
-   :routine-arguments arg-expressions})
-
-(defn script
-  [token-fn scriptkw autorun & expressions]
-  {:type :script
-   :token-fn token-fn
-   :script-name scriptkw
-   :auto-run autorun
-   :expressions expressions})
-
-(defn property
-  [token-fn key-value-statement]
-  {:type :property
-   :token-fn token-fn
-   :kv key-value-statement})
-
-(defn return
-  [token-fn retval]
-  {:type :return
-   :token-fn token-fn
-   :return-val retval})
-
-(defn block
-  "Primary container of expressions - does not emit"
-  [token-fn & expressions]
-  {:type :block
-   :token-fn token-fn
-   :expressions expressions})
-
-(defn define-locals
-  "Sets any locals described - emits 'local x,y,z'"
-  [token-fn & terms]
-  {:type :define-locals
-   :token-fn token-fn
-   :local-terms terms})
-
-(defn extend-record
-  "Sets a value from another value"
-  [token-fn targetmap keyw value]
-  {:type :extend-record
-   :token-fn token-fn
-   :target-map targetmap
-   :value value
-   :keywrd keyw})
-
-;;
-;; Ease of use forms
-;;
+(defn predicate-from-filter
+  "Generates the predicate construct from a clasew filter map"
+  [token-fn filtexp]
+  (let [exps (predicate-expression-from-filter [] filtexp)]
+    (apply (partial predicate-statement token-fn) exps)))
 
 (defn if-only
   [& expressions]

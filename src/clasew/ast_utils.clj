@@ -4,7 +4,7 @@
   clasew.ast-utils
   (:require   [clasew.core :as as]
               [clasew.utility :as util]
-              [clasew.gen-as :as genas]
+              [clasew.gen-asmm :as genas]
               [clasew.ast-emit :as ast])
 
   (:refer-clojure :rename {filter cfilter
@@ -102,9 +102,16 @@
     nil
     (ast/if-expression
      nil
-     (ast/predicate nil (second (filter :val !EQ :missing)))
-     (ast/set-statement nil (ast/term nil :oval)
-                                  (ast/term nil :val))) nil)
+      (ast/predicate-condition
+        nil
+        (ast/term nil :val)
+        (ast/predicate-operator !EQ)
+        (ast/symbol-literal "missing value"))
+     (ast/set-statement
+       nil
+       (ast/term nil :oval)
+       (ast/term nil :val)))
+     nil)
    (ast/return nil :oval)))
 
 (defn quit

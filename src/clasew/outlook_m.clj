@@ -3,7 +3,8 @@
       :doc "Clojure AppleScriptEngine Wrapper - Outlook messages support"}
   clasew.outlook-m
   (:require [clasew.mesg-utils :as mesgu]
-            [clasew.gen-as :as genas]))
+            ;[clasew.gen-as :as genas]
+            [clasew.gen-asmm :as genas]))
 
 
 (def outlook-messages
@@ -30,7 +31,7 @@
    :msg_replied             "replied to"
    })
 
-(defn- outlook-mapcore-messages
+(defn outlook-mapcore-messages
   [termkw]
   (get outlook-messages termkw (name termkw)))
 

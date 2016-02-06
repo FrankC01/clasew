@@ -1,18 +1,54 @@
 (ns
   ^{:author "Frank V. Castellucci"
-      :doc "Microsoft Office Examples"}
+      :doc "Identities Examples (Multi-Application)"}
   clasew.examples7
   (:require [clojure.pprint :refer :all]
             [clasew.outlook :as outlook]
+            [clasew.contacts :as contacts]
             [clasew.identities :as ident]
             [clasew.ast-utils :as astu]))
 
-;;
-
 (def p pprint)
 
+;;
+;; Sample ease of use forms
+;;
 
+(def ident-apps
+  {:contacts #(contacts/script %)
+   :outlook  #(outlook/script %)})
+
+(def ident-app-quit
+  {:contacts (astu/quit :contacts)
+   :outlook  (astu/quit :outlook)})
+
+(defn- map-requests
+  "Performs substitution or passthrough of script function"
+  [app coll]
+  (map #(condp = %
+          :quit (app ident-app-quit)
+          ((app ident-apps) %))
+       coll))
+
+(defn run-sample
+  "Calls the target application script generator to create
+  script as defined by request and then executes the results:
+  app - Defines target app. Can be :mail or :outlook
+  & rqs - script requests (supports substitution)"
+  [app & rqs]
+  (apply ident/run-script! (map-requests app rqs)))
+
+(defn print-sample
+  "Calls the target application script generator to create
+  script as defined by request and then prints the results:
+  app - Defines target app. Can be :mail or :outlook
+  & rqs - script requests (supports substitution)"
+  [app & rqs]
+  (apply println (map-requests app rqs)))
+
+;;
 ;; Setup a number of fictional contacts for demonstration
+;;
 
 (def oxnard
   {:first_name "Oxnard" :last_name "Gimbel"
@@ -50,143 +86,148 @@
 
 ;; Create new individuals
 
-(p (ident/run-script!
-    (outlook/script
-     (ident/add-individuals oxnard sally))
-    (ident/quit :outlook)))
+;; Uncomment to run
+;(print-sample :contacts (ident/add-individuals oxnard sally))
+;(print-sample :outlook (ident/add-individuals oxnard sally))
+
+;(p (run-sample :contacts (ident/add-individuals oxnard sally)))
+;(p (run-sample :outlook (ident/add-individuals oxnard sally)))
 
 ;;
 ;; Fetch ALL individuals from outlook contacts
 ;;
 
-#_(p (ident/run-script!
-    (outlook/script
-     (ident/individuals))
-    (ident/quit :outlook)))
+;; Uncomment to run
+;(p (run-sample :contacts (ident/individuals)))
+;(p (run-sample :outlook (ident/individuals)))
 
 ;; Fetch all individuals and email addresses where
 ;; individual's first name contains "Oxnard"
 ;; This uses the simple filter option
 
-#_(p (ident/run-script!
-    (outlook/script
-     (ident/individuals
-      (astu/filter :first_name ident/CT "Oxnard")
-      (ident/email-addresses)))
-    (ident/quit :outlook)))
+(def s-get-individuals-with-name-filter
+  (ident/individuals
+    (astu/filter :first_name astu/CT "Oxnard")
+    (ident/email-addresses)))
+
+;; Uncomment to run
+;(p (run-sample :contacts s-get-individuals-with-name-filter))
+;(p (run-sample :outlook s-get-individuals-with-name-filter))
 
 ;; Fetch all individuals and phone numbers where
 ;; individual's first name contains "Sally"
 ;; This uses a simple filter option
 
-#_(p (ident/run-script!
-    (outlook/script
-     (ident/individuals
-      (astu/filter :first_name ident/EQ "Sally")
-      (ident/phones)))
-    (ident/quit :outlook)))
+(def s-get-individuals-and-phones-with-name-filter
+  (ident/individuals
+    (astu/filter :first_name astu/EQ "Sally")
+    (ident/phones)))
+
+;; Uncomment to run
+;(p (run-sample :contacts s-get-individuals-and-phones-with-name-filter))
+;(p (run-sample :outlook s-get-individuals-and-phones-with-name-filter))
 
 ;; Fetch all individuals (full name only) their streeet address,
 ;; phones and emails where individuals first name contains Oxnard
 ;; This uses a simple filter option
 
-#_(p (ident/run-script!
-      (outlook/script
-       (ident/individuals :full_name
+(def s-get-fullname-and-info-with-name-filter
+  (ident/individuals :full_name
                           (ident/addresses)
                           (ident/email-addresses)
                           (ident/phones)
-                          (astu/filter :first_name ident/EQ "Oxnard")))
-      (ident/quit :outlook)))
+                          (astu/filter :first_name astu/EQ "Oxnard")))
+
+;; Uncomment to run
+;(p (run-sample :contacts s-get-fullname-and-info-with-name-filter))
+;(p (run-sample :outlook s-get-fullname-and-info-with-name-filter))
+
 
 ;; Fetch all individuals their email addresses,street addresses and
 ;; phone numbers. This is equivalent to call (individuals-all...) as
 ;; shown below
 
-#_(p (ident/run-script!
-    (outlook/script
-     (ident/individuals
+(def s-get-all-individuals-ala-carte
+  (ident/individuals
       (ident/addresses)
       (ident/email-addresses)
       (ident/phones)))
-    (ident/quit :outlook)))
+
+;; Uncomment to run
+;(p (run-sample :contacts s-get-all-individuals-ala-carte))
+;(p (run-sample :outlook s-get-all-individuals-ala-carte))
 
 ;; Short version to do the same
 
-#_(p (ident/run-script!
-    (outlook/script
-     (ident/individuals-all))
-    (ident/quit :outlook)))
+(def s-get-all-individuals-fixed-price (ident/individuals-all))
+
+;; Uncomment to run
+;(p (run-sample :contacts s-get-all-individuals-fixed-price))
+;(p (run-sample :outlook s-get-all-individuals-fixed-price))
 
 ;; Updates with filters
 
-
-
-#_(p (ident/run-script!
-    (outlook/script
-     (ident/update-individual
+(def s-update-individuals-meeting-criteria
+  (ident/update-individual
       (astu/filter
-       :first_name ident/EQ "Oxnard"
-       :last_name ident/EQ "Gimbel")
+       :first_name astu/EQ "Oxnard"
+       :last_name astu/EQ "Gimbel")
       :first_name "Oxnardio"
       (ident/update-addresses
        (astu/filter
-        :address_type ident/EQ  "work"
-        :city_name ident/EQ "West Somewhere")
+        :address_type astu/EQ  "work"
+        :city_name astu/EQ "West Somewhere")
        :city_name "West Palm Beach")
       (ident/update-addresses
        (astu/filter
-        :address_type ident/EQ  "home"
-        :city_name ident/EQ "New York")
+        :address_type astu/EQ  "home"
+        :city_name astu/EQ "New York")
        :city_name "NJ")
       (ident/update-email-addresses
        (astu/filter
-        :email_type ident/EQ "home"
-        :email_address ident/EQ "oxnard@myhome.com")
+        :email_type astu/EQ "home"
+        :email_address astu/EQ "oxnard@myhome.com")
        :email_address "oxnard@my_new_home.com")
       (ident/update-email-addresses
        (astu/filter
-        :email_type ident/EQ "work"
-        :email_address ident/EQ "oxnard@mybusiness.com")
+        :email_type astu/EQ "work"
+        :email_address astu/EQ "oxnard@mybusiness.com")
        :email_address "oxnard@my_old_business.com"
        (ident/adds
         {:email_type "work" :email_address "oxnard1@mybusiness.com"}))
       (ident/update-phones
        (astu/filter
-        :number_type ident/EQ "work"
-        :number_value ident/EQ "000 000 0000")
+        :number_type astu/EQ "work"
+        :number_value astu/EQ "000 000 0000")
        :number_value "991 991 9991")))
-    (outlook/script
-     (ident/individuals
-      (astu/filter :first_name ident/CT "Oxnard")
-      (ident/email-addresses)
-      (ident/phones)
-      (ident/addresses)))
-    (ident/quit :outlook)))
+
+;; Uncomment to run
+;(p (run-sample :contacts s-update-individuals-meeting-criteria))
+;(p (run-sample :outlook s-update-individuals-meeting-criteria))
 
 ;;
 ;; Construct a complex filter
 ;;
 
-(def filter-sample (astu/filter
-            :first_name ident/CT "Oxnard"
-            :last_name ident/EQ "Gimbel"
-            (ident/or :first_name ident/EQ "Sally"
-                      :last_name ident/EQ "Abercrombe")))
+(def s-reusable-nested-filter
+  (astu/filter
+    :first_name astu/CT "Oxnard"
+    :last_name astu/EQ "Gimbel"
+    (astu/or :first_name astu/EQ "Sally"
+             :last_name astu/EQ "Abercrombe")))
 
 ;; Fetch individuals based on complex filter
 
-#_(p (ident/run-script!
-    (outlook/script
-     (ident/individuals filter-sample))
-    (ident/quit :outlook)))
+;; Uncomment to run
+;(p (run-sample :contacts (ident/individuals s-reusable-nested-filter)))
+;(p (run-sample :outlook (ident/individuals s-reusable-nested-filter)))
 
 ;; Delete individuals based on complex filter
 
-#_(p (ident/run-script!
-      (outlook/script
-       (ident/delete-individual filter-sample))
-      (ident/quit :outlook)))
+;; Uncomment to run
+;(p (run-sample :contacts (ident/delete-individual s-reusable-nested-filter) :quit))
+;(p (run-sample :outlook (ident/delete-individual s-reusable-nested-filter) :quit))
+
 
 
 
