@@ -156,12 +156,12 @@
 (defn- email_list
   [fromkw]
   (if (= *application* :mail)
-    (ast/xofy-expression
-     nil
-     (ast/expression
+    (ast/get-statement
       nil
-      ast/getin (ast/term *token-terms* :acct_emails))
-     (ast/term nil fromkw))
+      (ast/xofy-expression
+        nil
+        (ast/term *token-terms* :acct_emails)
+        (ast/term nil fromkw)))
     (ast/list-of
      nil
       (list (ast/get-statement
@@ -533,7 +533,7 @@
   targkw - the target keyword to be updated
   valu - the value to set the targkw to in the map"
   [mmap posi targkw valu]
-  (if (= (:type mmap) :term)
+  (if (= (:ast-type mmap) ast/TERM)
     mmap
     (update-in
      (update-in mmap [:routine-arguments] #(into [] %))
@@ -546,7 +546,8 @@
   (let [[zmap mfilt] (frame-filter fmap block)
         [zfmap1 callblk1] (frame-next-block
                            zmap block {:source :par :accum :mrec})
-        callblk2 (reuse-callback-diff-arg callblk1 1 :to-value :indx)]
+        callblk2 nil;(reuse-callback-diff-arg callblk1 1 :to-value :indx)
+        ]
   (update-in
    zfmap1
    [:routine] conj
@@ -577,7 +578,7 @@
       (ast/else-if-expression
        nil
        (if-then-else-nil-builder
-        mfilt :indx (if-pass-block :mrec args :accum :indx callblk2)))))
+        mfilt :indx (if-pass-block :mrec args :accum :indx callblk1)))))
      (ast/return nil :accum))))))
 
 (defn- frame-hierarchical-mailboxes
@@ -836,7 +837,7 @@
    nil
    (ast/term nil targkw)
    (ast/make-new
-    nil
+    *token-terms*
     (ast/term *token-terms* :out_message_mb)
     ast/with-properties
     (ast/record-definition

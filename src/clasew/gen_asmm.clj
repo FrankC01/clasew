@@ -13,6 +13,7 @@
 
 (def ^:private COMMA ",")
 (def ^:private AND " and ")
+(def ^:private AGG " & ")
 
 (def ^:private predicate-operators
   {:equal-to "is equal to"
@@ -45,15 +46,15 @@
 
 ;; Multimethod dispatch
 
-(defmulti consume :type)
+(defmulti consume :ast-type)
 
 ;; wrapper for dispatch
 
 (defn consume-it [{:keys [token-fn]:as expression}]
   "Wraps consume to imbue term name resolutions"
   (if token-fn
-    (binding [*lookup-fn* token-fn]
-      (consume expression))
+    (do (binding [*lookup-fn* token-fn]
+      (consume expression)))
     (consume expression)))
 
 ;; consume multimethods
@@ -62,8 +63,8 @@
 ; Default handler - TODO: Hook exception
 
 (defmethod consume :default
-  [{:keys [type]}]
-  (println type " not handled yet"))
+  [{:keys [ast-type] :as ivexp}]
+  (println type " not handled yet " ivexp))
 
 ;;
 ;; Simple Term types
@@ -82,8 +83,8 @@
   (name to-value))
 
 (defmethod consume KEY-TERM-NL
-  [{:keys [to-value]}]
-  (str (name to-value) ":"))
+  [{:keys [key-term]}]
+  (str (name key-term) ":"))
 
 (defmethod consume STRING-LITERAL
   [{:keys [svalue]}]
@@ -95,7 +96,7 @@
 
 (defmethod consume NUMERIC-LITERAL
   [{:keys [nvalue]}]
-  (symbol (name nvalue)))
+  (symbol (str nvalue)))
 
 ;;
 ;; Generic expressions types
@@ -103,23 +104,23 @@
 
 (defmethod consume BLOCK
   [{:keys [expressions]}]
-  (apply str (map consume expressions)))
+  (apply str (map consume-it expressions)))
 
 (defmethod consume TELL
   [{:keys [target expressions]}]
-  (let   [body (apply str (map consume expressions))]
+  (let   [body (apply str (map consume-it expressions))]
   (str "tell application " target "\n" body "end tell\n")))
 
 (defmethod consume SCRIPT
   [{:keys [script-name auto-run expressions]}]
   (str "script " (name script-name) "\n"
-       (apply str (map consume expressions))
+       (apply str (map consume-it expressions))
        "end script\n"
        (if auto-run (str "tell " (name script-name) " to run\n") "")))
 
 (defmethod consume ROUTINE
   [{:keys [routine-name parameters expressions]}]
-  (let [body (apply str (map consume expressions))
+  (let [body (apply str (map consume-it expressions))
         rname (name routine-name)]
     (str "on " rname
          "(" (map-and-interpose COMMA parameters name) ")\n"
@@ -144,7 +145,7 @@
 
 (defmethod consume PREDICATE-STATEMENT
   [{:keys [expressions]}]
-  (let [x (apply str (map consume expressions))]
+  (let [x (apply str (map consume-it expressions))]
     (str "(" x ")")))
 
 (defmethod consume PREDICATE-EXPRESSIONS
@@ -157,9 +158,21 @@
        (consume-it operator))
        (consume-it rhs-expression)))
 
+(defmethod consume PREDICATE-AND
+  [{:keys [expressions]}]
+  (str " and " (apply str (map consume-it expressions))))
+
+(defmethod consume PREDICATE-OR
+  [{:keys [expressions]}]
+  (str " or " (apply str (map consume-it expressions))))
+
 (defmethod consume PREDICATE-OPERATOR
   [{:keys [term]}]
   (str " " (get predicate-operators term) " "))
+
+(defmethod consume WHERE-FILTER
+  [{:keys [target predicate]}]
+  (str (consume-it target) " whose " (consume-it predicate)))
 
 ;;
 ;; Data statement CRUD processing
@@ -206,13 +219,25 @@
        " & "
        (consume-it source)))
 
+(defmethod consume STRING-BUILDER
+  [{:keys [expressions]}]
+  (str (map-and-interpose AGG expressions consume-it)))
+
+(defmethod consume MAKE-NEW-OBJECT
+  [{:keys [target-expr expressions]}]
+  (endline
+    (str "make new "
+       (consume-it target-expr)
+       (apply str (map consume-it expressions)))))
+
+
 ; Conditional processing
 
 (defmethod consume IF-STATEMENT
   [{:keys [i-expression e-expressions]}]
   (endline
     (str (consume-it i-expression)
-         (apply str (map consume
+         (apply str (map consume-it
                          (if (map? e-expressions)
                            (list e-expressions)
                            e-expressions)))
@@ -221,7 +246,7 @@
 (defmethod consume IF-EXPRESSION
   [{:keys [predicate expressions]}]
   (str "if (" (consume-it predicate) ") then\n"
-       (apply str (map consume expressions))))
+       (apply str (map consume-it expressions))))
 
 (defmethod consume ELSE-IF-EXPRESSION
   [{:keys [ifexp]}]
@@ -237,7 +262,7 @@
        " in "
        (consume-it in)
        "\n"
-       (endline (apply str (map consume expressions)))
+       (endline (apply str (map consume-it expressions)))
        "end repeat")))
 
 ;; Entry point

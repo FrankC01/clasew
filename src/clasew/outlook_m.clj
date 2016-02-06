@@ -3,7 +3,8 @@
       :doc "Clojure AppleScriptEngine Wrapper - Outlook messages support"}
   clasew.outlook-m
   (:require [clasew.mesg-utils :as mesgu]
-            [clasew.gen-as :as genas]))
+            ;[clasew.gen-as :as genas]
+            [clasew.gen-asmm :as genas]))
 
 
 (def outlook-messages

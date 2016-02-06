@@ -3,12 +3,15 @@
       :doc "Clojure AppleScriptEngine Wrapper - Apple Mail DSL"}
   clasew.mail
   (:require [clasew.mesg-utils :as mesgu]
-            [clasew.gen-as :as genas]))
+            ;[clasew.gen-as :as genas]
+            [clasew.gen-asmm :as genas]
+            ))
 
 (def mail-messages
   {
    :dstring                 "date string",
    :out_message_mb          "outgoing message",
+   :to_recipient            "to recipient"
    :acct_name               "name",
    :acct_emails             "email addresses",
    :acct_user_name          "user name",
@@ -30,7 +33,10 @@
 
 (defn- mail-mapcore-messages
   [termkw]
-  (get mail-messages termkw (name termkw)))
+  (let [t (get mail-messages termkw (name termkw))]
+    ;(println "termkw in " termkw " t out " t)
+    t)
+  )
 
 (defn script
   [{:keys [action] :as directives}]

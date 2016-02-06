@@ -61,25 +61,27 @@
   "Creates a filtered set and/or adds to the base results"
   [loopkw target subterm {:keys [filters sets adds] :or {adds '()}} subsets]
   (ast/block
-   nil
+    nil
     (ast/for-in-expression
-       nil
-       (ast/term nil loopkw)
-       (if filters
-         (ast/where-filter nil
-                           (if subterm
-                             (ast/xofy-expression
-                              nil
-                              (ast/term nil subterm)
-                              (ast/term nil target))
-                             (ast/term nil target))
-                           filters)
-         (ast/term nil target))
-       (or subsets  ast/noop)
-       (apply (partial ast/block nil) (update-sets loopkw sets)))
-   (if (empty? adds)
-     ast/noop
-     (expand adds (subterm type-instance) subterm target))))
+      nil
+      (ast/term nil loopkw)
+      (if filters
+        (ast/where-filter
+          nil
+          (if subterm
+            (ast/xofy-expression
+              nil
+              (ast/term nil subterm)
+              (ast/term nil target))
+            (ast/term nil target))
+          ;(ast/predicate-from-filter contacts-mapset-core filters)
+          (ast/predicate-from-filter nil filters))
+        (ast/term nil target))
+      (or subsets  ast/noop)
+      (apply (partial ast/block nil) (update-sets loopkw sets)))
+    (if (empty? adds)
+      ast/noop
+      (expand adds (subterm type-instance) subterm target))))
 
 (defn update-if-filter-block
   "Creates a filtered if set and/or adds to the base results"
@@ -98,7 +100,8 @@
     (ast/if-statement
      nil
      (ast/if-expression
-      nil filters
+      nil
+       (ast/predicate-from-filter nil filters)
       (apply (partial ast/block nil) (update-sets loopkw sets))) nil))
    (ast/set-statement
     nil
@@ -118,3 +121,26 @@
             (expand adds (tkey type-instance) tkey :cloop)
             ast/noop))))
 
+;;
+;; HOF Support for deletion. Works with both outlook and contacts
+;;
+
+(defn delete-individuals
+  [appkw objkw lookup-fn {:keys [filters]}]
+  (ast/tell
+    lookup-fn appkw
+    (ast/define-locals nil :results :dlist :dloop)
+    (ast/set-statement nil (ast/term nil :results) ast/empty-list)
+    (ast/set-statement nil (ast/term nil :dlist)
+                       (ast/where-filter
+                         nil
+                         (ast/term nil objkw)
+                         (ast/predicate-from-filter lookup-fn filters)))
+
+    (ast/for-in-expression
+     nil
+     (ast/term nil :dloop) (ast/term nil :dlist)
+     (ast/expression nil ast/delete (ast/term nil :dloop)))
+    (ast/set-result-msg-with-count "Records deleted :" :results :dlist)
+    (ast/save-statement)
+    (ast/return nil :results)))

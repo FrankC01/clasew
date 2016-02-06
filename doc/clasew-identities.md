@@ -33,7 +33,7 @@ This form is the core function that invokes AppleScript to execute one or more s
 ```
 
 ####Filtering
-The filtering functions have been moved to `clasew.ast-utils` and are [documented here](clasew-filters.md).
+The filtering functions have been moved to `clasew.ast-utils` and are [documented here](clasew-ast-utils.md).
 Filtering is supported on the following functions: ```identities/individuals```, ```identities/add-indivudals```, ```identities/delete-individuals``` and ```identities/update-individuals```.
 
 There are some restrictions on using filters at the function usage level as well as the application level (specifically Outlook).

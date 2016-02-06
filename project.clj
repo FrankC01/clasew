@@ -1,4 +1,4 @@
-(defproject clasew "0.3.1"
+(defproject clasew "0.3.2-SNAPSHOT"
   :description "clasew: Clojure AppleScriptEngine Wrapper"
   :url "https://github.com/FrankC01/clasew"
   :license {:name "Eclipse Public License"
